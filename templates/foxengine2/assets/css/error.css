@@ -1,0 +1,273 @@
+@font-face {
+  font-family: "FS Elliot Pro";
+  src: url("../fonts/FSElliotPro.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "FS Elliot Pro";
+  src: url("../fonts/FSElliotPro-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fox Rostov";
+  src: url("../fonts/7389Rostov.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: "FS Elliot Pro", "Segoe UI", Arial, sans-serif;
+  --runtime-error-season: none;
+  --runtime-error-border: rgba(213, 234, 219, .16);
+  --runtime-error-muted: #adbbb2;
+  --runtime-error-accent: #a9d7b7;
+  --runtime-error-panel: rgba(13, 20, 16, .82);
+}
+
+* { box-sizing: border-box; }
+
+body[data-season="spring"] { --runtime-error-season: url("../img/season/spring.png"); }
+body[data-season="summer"] { --runtime-error-season: url("../img/season/summer.png"); }
+body[data-season="autumn"] { --runtime-error-season: url("../img/season/autumn.png"); }
+body[data-season="winter"] { --runtime-error-season: url("../img/season/winter.jpg"); }
+
+body {
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    linear-gradient(135deg, rgba(5, 10, 7, .94), rgba(12, 20, 15, .76)),
+    var(--runtime-error-season) center / cover fixed,
+    #090d0b;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(123, 176, 139, .16), transparent 34rem),
+    linear-gradient(180deg, transparent 55%, rgba(2, 5, 3, .54));
+  pointer-events: none;
+}
+
+.runtime-error-shell {
+  width: min(920px, 100%);
+}
+
+.runtime-error-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(24px, 5vw, 48px);
+  border: 1px solid var(--runtime-error-border);
+  border-radius: 28px;
+  background: var(--runtime-error-panel);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .44), inset 0 1px rgba(255, 255, 255, .04);
+  backdrop-filter: blur(24px) saturate(115%);
+}
+
+.runtime-error-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .045), transparent 35%);
+  pointer-events: none;
+}
+
+.runtime-error-card__header,
+.runtime-error-brand,
+.runtime-error-actions,
+.runtime-error-request {
+  display: flex;
+  align-items: center;
+}
+
+.runtime-error-card__header {
+  position: relative;
+  z-index: 1;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: clamp(36px, 8vw, 76px);
+}
+
+.runtime-error-brand { gap: 12px; }
+.runtime-error-brand > span:last-child { display: grid; gap: 2px; }
+.runtime-error-brand strong { font-size: 1rem; letter-spacing: .02em; }
+.runtime-error-brand small { color: var(--runtime-error-muted); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+
+.runtime-error-brand__logo {
+  display: block;
+  width: 72px;
+  height: 54px;
+  flex: none;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(218, 109, 43, .22));
+}
+
+.runtime-error-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(227, 159, 140, .22);
+  border-radius: 999px;
+  background: rgba(141, 58, 40, .16);
+  color: #f0b5a7;
+  font: 700 .76rem/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: .06em;
+}
+
+.runtime-error-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e78068;
+  box-shadow: 0 0 14px rgba(231, 128, 104, .75);
+}
+
+.runtime-error-code {
+  position: absolute;
+  top: 72px;
+  right: clamp(20px, 5vw, 48px);
+  color: rgba(215, 234, 221, .035);
+  font-size: clamp(7rem, 24vw, 15rem);
+  font-weight: 900;
+  line-height: .8;
+  letter-spacing: -.1em;
+  user-select: none;
+}
+
+.runtime-error-eyebrow {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 12px;
+  color: var(--runtime-error-accent);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+h1 {
+  position: relative;
+  font-family: "Fox Rostov", "FS Elliot Pro", sans-serif;
+  font-weight: 900;
+  z-index: 1;
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(2.15rem, 7vw, 5.5rem);
+  line-height: .98;
+  letter-spacing: -.055em;
+  overflow-wrap: anywhere;
+}
+
+.runtime-error-message {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 24px 0 0;
+  color: var(--runtime-error-muted);
+  font-size: clamp(1rem, 2vw, 1.14rem);
+  line-height: 1.7;
+}
+
+.runtime-error-request {
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  width: fit-content;
+  margin-top: 28px;
+  padding: 10px 14px;
+  border: 1px solid rgba(184, 213, 192, .12);
+  border-radius: 13px;
+  background: rgba(4, 8, 5, .34);
+}
+
+.runtime-error-request span { color: var(--runtime-error-muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+.runtime-error-request code { color: #d8e9dd; font-size: .85rem; }
+
+.runtime-error__details {
+  position: relative;
+  z-index: 1;
+  margin-top: 26px;
+  border: 1px solid rgba(186, 214, 194, .12);
+  border-radius: 16px;
+  background: rgba(3, 7, 4, .3);
+}
+
+.runtime-error__details summary {
+  padding: 16px 18px;
+  color: #d8e6dc;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.runtime-error__details dl { margin: 0; padding: 0 18px 18px; }
+.runtime-error__details dt { margin-top: 16px; color: #dce8df; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+.runtime-error__details dd { margin: 8px 0 0; color: var(--runtime-error-muted); line-height: 1.6; }
+.runtime-error__details code,
+.runtime-error__details pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.runtime-error__details pre { max-height: 40vh; margin: 0; overflow: auto; padding: 16px; border-radius: 12px; background: rgba(1, 4, 2, .72); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.runtime-error-actions {
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.runtime-error-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid rgba(190, 218, 198, .16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .035);
+  color: #e5eee8;
+  font-weight: 750;
+  text-decoration: none;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.runtime-error-button:hover { transform: translateY(-1px); border-color: rgba(190, 218, 198, .32); background: rgba(255, 255, 255, .07); }
+.runtime-error-button--primary { border-color: rgba(139, 196, 156, .28); background: rgba(101, 159, 118, .18); }
+.runtime-error-button:focus-visible { outline: 3px solid rgba(153, 211, 170, .35); outline-offset: 3px; }
+
+.runtime-error-card footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(184, 212, 192, .1);
+  color: rgba(189, 203, 194, .68);
+  font-size: .82rem;
+}
+
+@media (max-width: 620px) {
+  body { padding: 12px; }
+  .runtime-error-card { border-radius: 20px; }
+  .runtime-error-card__header { align-items: flex-start; }
+  .runtime-error-status { flex: 0 0 auto; }
+  .runtime-error-brand small { display: none; }
+  .runtime-error-code { top: 104px; }
+  .runtime-error-actions { display: grid; }
+  .runtime-error-button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}

@@ -1,0 +1,10 @@
+@font-face{font-family:"FS Elliot Pro";src:url("/templates/foxengine2/assets/fonts/FSElliotPro.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"FS Elliot Pro";src:url("/templates/foxengine2/assets/fonts/FSElliotPro-Bold.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"FS Elliot Pro";src:url("/templates/foxengine2/assets/fonts/FSElliotPro-Heavy.ttf") format("truetype");font-style:normal;font-weight:900;font-display:swap}
+@font-face{font-family:"Fox Rostov";src:url("/templates/foxengine2/assets/fonts/7389Rostov.woff2") format("woff2");font-style:normal;font-weight:400 900;font-display:swap}
+@font-face{font-family:"Fox Minecraft";src:url("/templates/foxengine2/assets/fonts/minecraft.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"Fox Minecraft";src:url("/templates/foxengine2/assets/fonts/3_Minecraft-Bold.woff") format("woff");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Font Awesome 6 Pro";src:url("/templates/foxengine2/assets/fonts/fa-solid-900.woff2") format("woff2");font-style:normal;font-weight:900;font-display:block}
+.fa-solid{display:inline-block;font-family:"Font Awesome 6 Pro";font-style:normal;font-weight:900;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.fa-fw{width:1.25em;text-align:center}
+.fa-user::before{content:"\f007"}.fa-circle::before{content:"\f111"}.fa-pen-to-square::before{content:"\f044"}.fa-user-plus::before{content:"\f234"}.fa-right-from-bracket::before{content:"\f2f5"}.fa-right-to-bracket::before{content:"\f2f6"}.fa-shield-halved::before{content:"\f3ed"}.fa-user-gear::before{content:"\f4fe"}

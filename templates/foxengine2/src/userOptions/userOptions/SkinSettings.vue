@@ -6,7 +6,7 @@ import SkinPreview from './profile/options/SkinPreview.vue'
 
 defineProps<{
   isGuest: boolean
-  viewerGroup: number
+  viewerGroupTag: string
   frontPreview: string
   backPreview: string
   loadingPreview: boolean
@@ -36,17 +36,13 @@ const emit = defineEmits<{
       <p class="lead">PNG-файлы проходят серверную проверку размеров и сохраняются в каталоге текущего пользователя.</p>
     </header>
 
-    <aside v-if="viewerGroup === 1" class="notice-panel skin-group-notice">
+    <aside v-if="viewerGroupTag === 'admin'" class="notice-panel skin-group-notice">
       <strong>Административный режим</strong>
       <p>Доступен полный набор пользовательских визуальных ресурсов.</p>
     </aside>
-    <aside v-else-if="viewerGroup === 3" class="notice-panel skin-group-notice">
-      <strong>Профиль команды</strong>
-      <p>Используйте единый визуальный образ для публичных страниц проекта.</p>
-    </aside>
-    <aside v-else-if="viewerGroup === 4" class="notice-panel skin-group-notice">
-      <strong>Профиль модератора</strong>
-      <p>Визуальные ресурсы отображаются в контексте команды модерации.</p>
+    <aside v-else-if="viewerGroupTag === 'tester'" class="notice-panel skin-group-notice">
+      <strong>Тестовая группа</strong>
+      <p>Визуальные ресурсы доступны для проверки клиентских изменений.</p>
     </aside>
 
     <SkinPreview :front="frontPreview" :back="backPreview" :loading="loadingPreview" />

@@ -4,7 +4,7 @@ import ProfilePage from '@theme/userOptions/userOptions/Profile.vue'
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
 import { loadBadges, type BadgeDefinition } from '@/content/contentData'
-import { bootstrapNumber, bootstrapString } from '@/domain/bootstrap'
+import { bootstrapString } from '@/domain/bootstrap'
 import type { ProfileBadge, ProfileEntry, ProfileRecord } from '@/contracts/user-pages'
 
 interface Props { value: string }
@@ -21,8 +21,9 @@ const loading = ref(true)
 const error = ref('')
 const profile = ref<UserProfile | null>(null)
 const badgeRegistry = ref<readonly BadgeDefinition[]>([])
-const viewerGroup = bootstrapNumber(appBootstrap, 'user_group', 5)
+const viewerGroupTag = bootstrapString(appBootstrap, 'groupTag', 'guest')
 const viewerUuid = bootstrapString(appBootstrap, 'uuid')
+const canAdministerUsers = appBootstrap.frontend.capabilities.includes('admin.panel')
 const photoDialogOpen = ref(false)
 const photoUploading = ref(false)
 const photoError = ref('')
@@ -163,7 +164,8 @@ const accent = computed(() => /^#[0-9a-f]{3,8}$/i.test(profile.value?.colorSchem
 const registration = computed(() => formatDate(profile.value?.reg_date))
 const lastActivity = computed(() => formatDate(profile.value?.last_date))
 const isOwner = computed(() => viewerUuid !== '' && viewerUuid.replaceAll('-', '').toLowerCase() === (profile.value?.uuid ?? '').replaceAll('-', '').toLowerCase())
-const canEditPhoto = computed(() => Boolean(profile.value?.uuid) && (isOwner.value || viewerGroup === 1))
+const canEditUser = canAdministerUsers
+const canEditPhoto = computed(() => Boolean(profile.value?.uuid) && (isOwner.value || canEditUser))
 
 function openPhotoDialog(): void {
   if (!canEditPhoto.value || !profile.value) return
@@ -240,9 +242,10 @@ watch(() => props.value, (value) => {
     :loading="loading"
     :error="error"
     :profile="profile"
-    :viewer-group="viewerGroup"
+    :viewer-group-tag="viewerGroupTag"
     :is-owner="isOwner"
     :can-edit-photo="canEditPhoto"
+    :can-edit-user="canEditUser"
     :photo-dialog-open="photoDialogOpen"
     :photo-uploading="photoUploading"
     :photo-error="photoError"

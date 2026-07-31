@@ -22,7 +22,8 @@ final class Authorise
     {
         $login = $this->request->string('login');
         $password = $this->request->string('password');
-        $remember = $this->request->boolean('rememberMe');
+        $remember = $this->request->boolean('rememberMe')
+            && !$this->request->boolean('maintenanceAdmin');
 
         if (preg_match('/^[A-Za-z0-9_.-]{1,64}$/', $login) !== 1 || $password === '') {
             return false;

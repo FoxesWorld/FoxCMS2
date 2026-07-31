@@ -15,7 +15,10 @@ final class MaintenanceModePolicy
             return true;
         }
         $groups = is_array($settings['allowedGroups'] ?? null)
-            ? array_map('intval', $settings['allowedGroups'])
+            ? array_values(array_filter(array_map(
+                static fn (mixed $group): string => GroupRepository::normalizeTag($group, ''),
+                $settings['allowedGroups'],
+            )))
             : [];
         return in_array($session->group(), $groups, true);
     }

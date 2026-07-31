@@ -4,9 +4,11 @@ import { useRoute } from 'vue-router'
 import type { NavigationDefinition } from '@engine/domain/bootstrap'
 import Logo from '@theme/Logo.vue'
 import UserBlock from '@theme/UserBlock.vue'
+import { accountNavigationIcon } from '@theme/domain/accountNavigation'
 
 interface Props {
   displayName: string
+  profilePhoto: string
   isGuest: boolean
   siteTitle: string
   siteStatus: string
@@ -189,7 +191,10 @@ onBeforeUnmount(() => {
             :key="`${item.intent}:${item.label}`"
             type="button"
             @click="activate(item)"
-          >{{ item.label }}</button>
+          >
+            <i :class="accountNavigationIcon(item)" aria-hidden="true" />
+            <span>{{ item.label }}</span>
+          </button>
         </div>
       </nav>
 
@@ -215,6 +220,7 @@ onBeforeUnmount(() => {
 
         <UserBlock
           :display-name="displayName"
+          :profile-photo="profilePhoto"
           :is-guest="isGuest"
           :guest-items="guestItems"
           :account-items="accountItems"

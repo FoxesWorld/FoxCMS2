@@ -1,0 +1,136 @@
+.json-form-editor {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.json-structure {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.json-structure--nested {
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface-soft) 72%, transparent);
+}
+
+.json-form-title,
+.json-array-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+  font-size: .9rem;
+}
+
+.json-array-header span {
+  min-width: 26px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  font-size: .72rem;
+  text-align: center;
+}
+
+.json-object-fields,
+.json-array-items {
+  display: grid;
+  gap: 9px;
+}
+
+.json-field-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 180px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.json-field-row__label,
+.json-primitive-label {
+  padding-top: 11px;
+  color: var(--color-text-muted);
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+
+.json-field-row__value {
+  min-width: 0;
+}
+
+.json-array-item {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface-soft) 76%, transparent);
+}
+
+.json-array-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: .76rem;
+}
+
+.json-array-item__header button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-danger);
+  background: transparent;
+  cursor: pointer;
+}
+
+.json-array-empty {
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text-muted);
+  font-size: .8rem;
+  text-align: center;
+}
+
+.json-array-add {
+  justify-self: start;
+}
+
+.json-boolean-input {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px !important;
+  min-height: 42px;
+  color: var(--color-text);
+}
+
+.json-boolean-input input {
+  width: 18px;
+  height: 18px;
+  min-height: 0 !important;
+}
+
+
+@media (max-width: 620px) {
+  .json-field-row {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .json-field-row__label,
+  .json-primitive-label {
+    padding-top: 0;
+  }
+
+  .json-array-add {
+    width: 100%;
+  }
+}

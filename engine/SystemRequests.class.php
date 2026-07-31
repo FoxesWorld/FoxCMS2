@@ -170,7 +170,7 @@ final class SystemRequests
 
         UtilityLoader::load('LoadUserInfo', '1.0.0');
         $userInfo = LoadUserInfo::byLogin($login, $this->db)->userInfoArray();
-        $tag = (new GroupRepository($this->db))->tag((int)($userInfo['user_group'] ?? 5));
+        $tag = GroupRepository::normalizeTag($userInfo['groupTag'] ?? 'guest');
         (new InfoBox($this->db, $this->logger, $tag))->getInfoBox();
         throw new LogicException('InfoBox did not terminate the request.');
     }
@@ -187,6 +187,7 @@ final class SystemRequests
         }
 
         UtilityLoader::load('SkinViewer', '1.0.0');
+        UtilityLoader::load('LoadUserInfo', '1.0.0');
         $requestedUuid = $this->request->string('userUuid');
         if ($requestedUuid !== '') {
             if (!Uuid::isValid($requestedUuid)) {
@@ -427,7 +428,7 @@ final class SystemRequests
 
         UtilityLoader::load('LoadUserInfo', '1.0.0');
         $userData = LoadUserInfo::byUuid($launcher['userUuid'], $this->db)->userInfoArray();
-        $group = (new GroupRepository($this->db))->find((int)($userData['user_group'] ?? 5));
+        $group = (new GroupRepository($this->db))->find((string)($userData['groupTag'] ?? 'guest'));
         $this->json([
             'login' => (string)($userData['login'] ?? ''),
             'realname' => (string)($userData['realname'] ?? ''),
@@ -435,8 +436,8 @@ final class SystemRequests
             'userStatus' => (string)($userData['userStatus'] ?? ''),
             'land' => (string)($userData['land'] ?? ''),
             'profilePhoto' => (string)($userData['profilePhoto'] ?? ''),
-            'user_group' => (int)($userData['user_group'] ?? 5),
-            'groupName' => (string)($group['groupType'] ?? 'guest'),
+            'groupTag' => (string)($group['groupTag'] ?? 'guest'),
+            'groupName' => (string)($group['groupName'] ?? 'Гости'),
         ]);
     }
 

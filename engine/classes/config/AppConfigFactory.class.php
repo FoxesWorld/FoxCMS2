@@ -115,7 +115,7 @@ final class AppConfigFactory
             'register' => [
                 'passminCount' => (string)max(8, foxEnvInt('FOXESCRAFT_PASSWORD_MIN_LENGTH', 10)),
                 'maxLoginLength' => (string)max(3, min(64, foxEnvInt('FOXESCRAFT_LOGIN_MAX_LENGTH', 64))),
-                'baseUserGroup' => (string)max(1, foxEnvInt('FOXESCRAFT_DEFAULT_USER_GROUP', 4)),
+                'baseUserGroupTag' => self::identifier(foxEnv('FOXESCRAFT_DEFAULT_USER_GROUP_TAG', 'user') ?? 'user', 'FOXESCRAFT_DEFAULT_USER_GROUP_TAG'),
             ],
             'other' => [
                 'appId' => foxEnv('FOXESCRAFT_DISCORD_APP_ID', '') ?? '',
@@ -127,8 +127,7 @@ final class AppConfigFactory
                 'webserviceName' => 'FoxesCraft',
                 'userOptions' => 'userOptions',
                 'OptionReplaceValues' => '',
-                'userFieldsArray' => 'user_id,email,login,user_group,realname,reg_date,last_date,logged_ip,profilePhoto,userStatus,land,colorScheme,groupName,badges,balance,serversOnline,groupColor,userPerms',
-                'canEditGroup' => '1,4,3,6',
+                'userFieldsArray' => 'user_id,email,login,groupTag,realname,reg_date,last_date,logged_ip,profilePhoto,userStatus,land,colorScheme,groupName,badges,balance,serversOnline,groupColor,userPerms',
             ],
         ];
     }

@@ -9,6 +9,7 @@ export function useEngineShell() {
   const router = useRouter()
   const isGuest = computed(() => !bootstrapBoolean(appBootstrap, 'isLogged', false))
   const displayName = computed(() => bootstrapString(appBootstrap, 'realname', bootstrapString(appBootstrap, 'login', 'Пользователь')))
+  const profilePhoto = computed(() => bootstrapString(appBootstrap, 'profilePhoto'))
 
   function navigation(area: string): NavigationDefinition[] {
     return appBootstrap.frontend.navigation.filter((item) => item.area === area)
@@ -45,12 +46,19 @@ export function useEngineShell() {
     bootstrap: appBootstrap,
     isGuest,
     displayName,
+    profilePhoto,
     siteTitle: appBootstrap.site.title || 'FoxesCraft',
     serviceVersion: appBootstrap.engine.version,
-    primaryItems: computed(() => navigation('header')),
+    primaryItems: computed(() => navigation('header').filter((item) => item.intent !== 'admin')),
     footerItems: computed(() => navigation('footer')),
     guestItems: computed(() => navigation('guest')),
-    accountItems: computed(() => navigation('account')),
+    accountItems: computed(() => appBootstrap.frontend.navigation
+      .filter((item) => item.area === 'account' || item.intent === 'admin')
+      .sort((left, right) => {
+        const leftIsLogout = left.action === 'logout' || left.intent === 'logout'
+        const rightIsLogout = right.action === 'logout' || right.intent === 'logout'
+        return Number(leftIsLogout) - Number(rightIsLogout) || left.order - right.order
+      })),
     activate,
   }
 }

@@ -15,7 +15,7 @@ const contracts = [
   ]],
   ['engine/classes/repositories/MaintenanceModeRepository.class.php', [
     'site_maintenance',
-    "'allowedGroups' => [1]",
+    "'allowedGroups' => ['admin']",
     'public function save(',
   ]],
   ['engine/classes/modules/AdminPanel/AdminOptions.class.php', [
@@ -26,15 +26,35 @@ const contracts = [
   ['engine/classes/modules/AuthReg/AuthReg.class.php', [
     'MaintenanceModePolicy::authActionAllowed($action)',
     "'code' => 'maintenance_mode'",
+    "$this->request->boolean('maintenanceAdmin')",
+    "'code' => 'administrator_required'",
+    '$this->session->clear()',
+  ]],
+  ['engine/classes/modules/AuthReg/actions/authorise.class.php', [
+    "!$this->request->boolean('maintenanceAdmin')",
+  ]],
+  ['engine/classes/themes/MaintenanceRenderer.class.php', [
+    'name=\"maintenanceAdmin\" value=\"1\"',
+    'private function currentSeason()',
+    'data-season=\"',
+    "$logoAsset = $assetBase . 'img/logo.png'",
+    'maintenance-brand__logo',
+    '$month >= 3 && $month <= 5',
+    '$month >= 6 && $month <= 8',
+    '$month >= 9 && $month <= 11',
   ]],
   ['templates/foxengine2/src/foxEngine/admin/Maintenance.vue', [
     'Администраторы допускаются всегда.',
-    "group.groupNum === 1",
+    "group.groupTag === 'admin'",
     "emit('save')",
   ]],
   ['database/migrations/005_site_maintenance.sql', [
     'CREATE TABLE IF NOT EXISTS `site_maintenance`',
     "(1, 0, '[1]'",
+  ]],
+  ['database/migrations/006_group_tag_identity.sql', [
+    "SET `allowedGroups` = '[\"admin\"]'",
+    '`groupTag` VARCHAR(64)',
   ]],
 ]
 
@@ -51,7 +71,19 @@ const adminCss = await readFile(join(themeRoot, 'assets/css/admin-maintenance.cs
 const publicCss = await readFile(join(themeRoot, 'assets/css/maintenance.css'), 'utf8')
 const publicJs = await readFile(join(themeRoot, 'assets/maintenance.js'), 'utf8')
 if (!adminCss.includes('.maintenance-admin')) failures.push('maintenance admin stylesheet is missing')
-if (!publicCss.includes('.maintenance-shell')) failures.push('maintenance placeholder stylesheet is missing')
+if (!publicCss.includes('.maintenance-shell') || !publicCss.includes('.maintenance-admin-access') || !publicCss.includes('.maintenance-brand__logo')) failures.push('maintenance placeholder, administrator access or logo stylesheet is missing')
+const seasonalBackgrounds = {
+  spring: '../img/season/spring.png',
+  summer: '../img/season/summer.png',
+  autumn: '../img/season/autumn.png',
+  winter: '../img/season/winter.jpg',
+}
+for (const [season, asset] of Object.entries(seasonalBackgrounds)) {
+  if (!publicCss.includes(`body[data-season=${season}]`) || !publicCss.includes(asset)) {
+    failures.push(`maintenance seasonal background is missing for ${season}`)
+  }
+}
+if (!publicCss.includes('var(--maintenance-season-image') || !publicCss.includes('backdrop-filter:blur(')) failures.push('maintenance seasonal overlay or glass surface is missing')
 if (!publicJs.includes('new URLSearchParams(new FormData(form))') || !publicJs.includes('window.location.reload()')) failures.push('maintenance access script is missing form submission or access refresh')
 
 if (failures.length) {
@@ -59,4 +91,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
-console.log('Maintenance mode passed: server gate, admin controls, group policy and standalone placeholder are present.')
+console.log('Maintenance mode passed: server gate, admin controls, administrator access and synchronized seasonal background are present.')

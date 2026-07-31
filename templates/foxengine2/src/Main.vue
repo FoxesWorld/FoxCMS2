@@ -24,7 +24,7 @@ const activeSeason = getSiteSeason()
 const seasonalStyle = {
   '--season-background-image': `url("${getSeasonBackground(shell.bootstrap, activeSeason)}")`,
 } as CSSProperties
-const logoUrl = themeAsset(shell.bootstrap, 'img/logoAbbyAnderson.png')
+const logoUrl = themeAsset(shell.bootstrap, 'img/logo.png')
 
 function readStoredTheme(): ColorTheme | null {
   try {
@@ -87,6 +87,7 @@ onBeforeUnmount(() => systemThemeQuery.removeEventListener('change', handleSyste
     <a class="skip-link" href="#main-content">Перейти к содержимому</a>
     <Header
       :display-name="shell.displayName.value"
+      :profile-photo="shell.profilePhoto.value"
       :is-guest="shell.isGuest.value"
       :site-title="shell.siteTitle"
       :site-status="shell.bootstrap.site.status"

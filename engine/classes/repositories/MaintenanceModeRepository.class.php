@@ -11,7 +11,7 @@ final class MaintenanceModeRepository
     {
     }
 
-    /** @return array{enabled:bool,allowedGroups:list<int>,title:string,message:string,updatedAt:string,updatedByUuid:string,storageReady:bool} */
+    /** @return array{enabled:bool,allowedGroups:list<string>,title:string,message:string,updatedAt:string,updatedByUuid:string,storageReady:bool} */
     public function current(bool $ensureSchema = false): array
     {
         if ($ensureSchema) {
@@ -45,7 +45,7 @@ final class MaintenanceModeRepository
         ];
     }
 
-    /** @param list<int> $allowedGroups */
+    /** @param list<string> $allowedGroups */
     public function save(
         bool $enabled,
         array $allowedGroups,
@@ -96,7 +96,7 @@ final class MaintenanceModeRepository
             . 'VALUES (1, 0, :allowedGroups, :title, :message)'
         );
         $statement->execute([
-            ':allowedGroups' => '[1]',
+            ':allowedGroups' => '["admin"]',
             ':title' => self::DEFAULT_TITLE,
             ':message' => self::DEFAULT_MESSAGE,
         ]);
@@ -106,7 +106,7 @@ final class MaintenanceModeRepository
     {
         return [
             'enabled' => false,
-            'allowedGroups' => [1],
+            'allowedGroups' => ['admin'],
             'title' => self::DEFAULT_TITLE,
             'message' => self::DEFAULT_MESSAGE,
             'updatedAt' => '',
@@ -115,18 +115,27 @@ final class MaintenanceModeRepository
         ];
     }
 
-    /** @return list<int> */
+    /** @return list<string> */
     private function normalizeGroups(array $groups): array
     {
-        $normalized = [1];
+        $repository = new GroupRepository($this->db);
+        $normalized = [];
         foreach ($groups as $group) {
-            $value = filter_var($group, FILTER_VALIDATE_INT);
-            if ($value !== false && $value > 0) {
-                $normalized[] = (int)$value;
+            if (is_int($group) || (is_string($group) && ctype_digit(trim($group)))) {
+                $tag = $repository->resolveTag($group, '');
+            } else {
+                $tag = GroupRepository::normalizeTag($group, '');
+            }
+            if ($tag !== '' && $repository->exists($tag)) {
+                $normalized[] = $tag;
             }
         }
-        $normalized = array_values(array_unique($normalized));
-        sort($normalized, SORT_NUMERIC);
+        $normalized = array_values(array_unique(array_filter(
+            $normalized,
+            static fn (string $tag): bool => $tag !== 'admin',
+        )));
+        sort($normalized, SORT_STRING);
+        array_unshift($normalized, 'admin');
         return $normalized;
     }
 

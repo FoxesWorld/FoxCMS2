@@ -9,7 +9,7 @@ export interface FeedbackMessage {
 export interface ProfileRecord {
   uuid?: string
   login?: string
-  user_group?: number | string
+  groupTag?: string
   realname?: string
   reg_date?: number | string
   last_date?: number | string

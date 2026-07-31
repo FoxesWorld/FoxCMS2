@@ -90,15 +90,15 @@ final class Register
             ): array {
                 $insert = $this->db->prepare(
                     'INSERT INTO `users` '
-                    . '(`login`, `uuid`, `password`, `email`, `user_group`, `realname`, `reg_date`, `reg_ip`, `logged_ip`, `last_date`, `profilePhoto`) '
-                    . 'VALUES (:login, :uuid, :password, :email, :user_group, :realname, :reg_date, :reg_ip, :logged_ip, :last_date, :profilePhoto)'
+                    . '(`login`, `uuid`, `password`, `email`, `groupTag`, `realname`, `reg_date`, `reg_ip`, `logged_ip`, `last_date`, `profilePhoto`) '
+                    . 'VALUES (:login, :uuid, :password, :email, :groupTag, :realname, :reg_date, :reg_ip, :logged_ip, :last_date, :profilePhoto)'
                 );
                 $insert->execute([
                     ':login' => $login,
                     ':uuid' => $userUuid,
                     ':password' => authorize::hashPassword($password),
                     ':email' => $email,
-                    ':user_group' => $group,
+                    ':groupTag' => $group,
                     ':realname' => $realname,
                     ':reg_date' => CURRENT_TIME,
                     ':reg_ip' => $clientIp,
@@ -108,7 +108,7 @@ final class Register
                 ]);
 
                 $select = $this->db->prepare(
-                    'SELECT `uuid`, `user_id`, `email`, `login`, `user_group`, `realname`, `reg_date`, `last_date`, '
+                    'SELECT `uuid`, `user_id`, `email`, `login`, `groupTag`, `realname`, `reg_date`, `last_date`, '
                     . '`logged_ip`, `profilePhoto`, `userStatus`, `land`, `colorScheme`, `badges`, `balance`, '
                     . '`serversOnline`, `userPerms` '
                     . 'FROM `users` WHERE `uuid` = :uuid LIMIT 1'
@@ -136,17 +136,25 @@ final class Register
         }
     }
 
-    private function resolveGroup(string $code): int
+    private function resolveGroup(string $code): string
     {
-        $default = max(1, (int)($this->config['register']['baseUserGroup'] ?? 4));
+        $groups = new GroupRepository($this->db);
+        $default = GroupRepository::normalizeTag($this->config['register']['baseUserGroupTag'] ?? 'user', 'user');
+        if (!$groups->exists($default)) {
+            $default = $groups->exists('user') ? 'user' : 'guest';
+        }
         if ($code === '' || preg_match('/^[A-Za-z0-9_-]{4,64}$/', $code) !== 1) {
             return $default;
         }
 
-        $statement = $this->db->prepare('SELECT `groupNum` FROM `regCodes` WHERE `code` = :code LIMIT 1');
+        $statement = $this->db->prepare('SELECT `groupTag` FROM `regCodes` WHERE `code` = :code LIMIT 1');
         $statement->execute([':code' => $code]);
-        $group = $statement->fetchColumn();
-        return $group === false ? $default : max(1, (int)$group);
+        $groupTag = $statement->fetchColumn();
+        if (!is_string($groupTag)) {
+            return $default;
+        }
+        $groupTag = GroupRepository::normalizeTag($groupTag, '');
+        return $groupTag !== '' && $groups->exists($groupTag) ? $groupTag : $default;
     }
 
     private function sendWelcomeMail(string $email, string $login): void

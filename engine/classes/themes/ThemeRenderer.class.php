@@ -5,7 +5,7 @@ declare(strict_types=1);
 final class ThemeRenderer
 {
     private const USER_FIELDS = [
-        'isLogged', 'uuid', 'user_id', 'login', 'realname', 'user_group', 'profilePhoto',
+        'isLogged', 'uuid', 'user_id', 'login', 'realname', 'groupTag', 'profilePhoto',
         'userStatus', 'land', 'colorScheme', 'email', 'groupName', 'groupColor',
     ];
 

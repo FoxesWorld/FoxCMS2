@@ -4,20 +4,15 @@ import { appBootstrap } from '@engine/app/context'
 import { themeAsset } from '@engine/domain/bootstrap'
 
 const stylesheet = themeAsset(appBootstrap, 'css/admin-maintenance.css')
-
-const props = defineProps<{
-  settings: MaintenanceSettings
-  groups: GroupOption[]
-  loading: boolean
-}>()
+const props = defineProps<{ settings: MaintenanceSettings; groups: GroupOption[]; loading: boolean }>()
 const emit = defineEmits<{ save: [] }>()
 
-function toggleGroup(group: number, checked: boolean): void {
-  if (group === 1) return
+function toggleGroup(groupTag: string, checked: boolean): void {
+  if (groupTag === 'admin') return
   const values = new Set(props.settings.allowedGroups)
-  checked ? values.add(group) : values.delete(group)
-  values.add(1)
-  props.settings.allowedGroups = [...values].sort((left, right) => left - right)
+  checked ? values.add(groupTag) : values.delete(groupTag)
+  values.add('admin')
+  props.settings.allowedGroups = [...values].sort()
 }
 </script>
 
@@ -41,12 +36,10 @@ function toggleGroup(group: number, checked: boolean): void {
           <input v-model="settings.enabled" type="checkbox">
           <span><strong>Включить заглушку</strong><small>Изменение применяется сразу после сохранения.</small></span>
         </label>
-
         <label class="maintenance-field">
           <span>Заголовок</span>
           <input v-model="settings.title" maxlength="160" placeholder="Ведутся технические работы">
         </label>
-
         <label class="maintenance-field">
           <span>Сообщение</span>
           <textarea v-model="settings.message" maxlength="1200" rows="5" placeholder="Опишите причину и ожидаемый срок работ." />
@@ -57,18 +50,18 @@ function toggleGroup(group: number, checked: boolean): void {
       <section class="maintenance-admin__panel">
         <div class="maintenance-admin__panel-heading">
           <strong>Группы с доступом</strong>
-          <span>Гости относятся к группе 5.</span>
+          <span>Гостевой доступ определяется тегом guest.</span>
         </div>
         <div class="maintenance-groups">
-          <label v-for="group in groups" :key="group.groupNum" class="maintenance-group">
+          <label v-for="group in groups" :key="group.groupTag" class="maintenance-group">
             <input
               type="checkbox"
-              :checked="group.groupNum === 1 || settings.allowedGroups.includes(group.groupNum)"
-              :disabled="group.groupNum === 1"
-              @change="toggleGroup(group.groupNum, ($event.target as HTMLInputElement).checked)"
+              :checked="group.groupTag === 'admin' || settings.allowedGroups.includes(group.groupTag)"
+              :disabled="group.groupTag === 'admin'"
+              @change="toggleGroup(group.groupTag, ($event.target as HTMLInputElement).checked)"
             >
             <i :style="{ background: group.groupColor || '#888' }" />
-            <span><strong>{{ group.groupName }}</strong><small>Группа {{ group.groupNum }} · {{ group.groupType }}</small></span>
+            <span><strong>{{ group.groupName }}</strong><small>{{ group.groupTag }}</small></span>
           </label>
         </div>
       </section>

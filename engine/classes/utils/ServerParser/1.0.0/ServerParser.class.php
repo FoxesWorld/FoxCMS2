@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 final class ServerParser
 {
-    private int $userGroup;
+    private string $userGroupTag;
+    private GroupRepository $groups;
 
     public function __construct(
         private db $db,
         string $userUuid = '',
         private bool $parseAll = false,
     ) {
-        $this->userGroup = $this->getUserGroup($userUuid);
+        $this->groups = new GroupRepository($db);
+        $this->userGroupTag = $this->getUserGroupTag($userUuid);
     }
 
     public function parseServers(?string $serverName = null): string
@@ -30,11 +32,12 @@ final class ServerParser
         $statement->execute($parameters);
         $visible = [];
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $server) {
-            $groups = array_filter(array_map('trim', explode(',', (string)($server['serverGroups'] ?? ''))));
-            if (!in_array((string)$this->userGroup, $groups, true)) {
+            $groups = $this->normalizeServerGroups($server['serverGroups'] ?? []);
+            if (!in_array($this->userGroupTag, $groups, true)) {
                 continue;
             }
             if (($server['enabled'] ?? 'false') === 'true' || $this->parseAll) {
+                $server['serverGroups'] = $groups;
                 $visible[] = $server;
             }
         }
@@ -42,10 +45,10 @@ final class ServerParser
         return $this->encode($visible ?: ['error' => 'ServerNotFound']);
     }
 
-    private function getUserGroup(string $userUuid): int
+    private function getUserGroupTag(string $userUuid): string
     {
         if (!Uuid::isValid($userUuid)) {
-            return 5;
+            return 'guest';
         }
 
         $placeholders = [];
@@ -56,12 +59,36 @@ final class ServerParser
             $parameters[$placeholder] = $candidate;
         }
         $statement = $this->db->prepare(
-            'SELECT `user_group` FROM `users` '
+            'SELECT `groupTag` FROM `users` '
             . 'WHERE `uuid` IN (' . implode(', ', $placeholders) . ') LIMIT 1'
         );
         $statement->execute($parameters);
-        $group = $statement->fetchColumn();
-        return $group === false ? 5 : (int)$group;
+        $groupTag = $statement->fetchColumn();
+        return is_string($groupTag) ? GroupRepository::normalizeTag($groupTag) : 'guest';
+    }
+
+    /** @return list<string> */
+    private function normalizeServerGroups(mixed $value): array
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            $source = is_array($decoded) ? $decoded : explode(',', $value);
+        } elseif (is_array($value)) {
+            $source = $value;
+        } else {
+            $source = [];
+        }
+
+        $tags = [];
+        foreach ($source as $group) {
+            $tag = $this->groups->resolveTag($group, '');
+            if ($tag !== '' && $this->groups->exists($tag)) {
+                $tags[] = $tag;
+            }
+        }
+        $tags = array_values(array_unique($tags));
+        sort($tags, SORT_STRING);
+        return $tags;
     }
 
     private function encode(array $payload): string

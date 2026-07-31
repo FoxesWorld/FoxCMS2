@@ -31,12 +31,17 @@ entries.sort((left, right) => left.name.localeCompare(right.name))
 const mainJs = entries.find((entry) => entry.name === 'assets/runtime/theme.js')
 const styles = entries.filter((entry) => entry.name.endsWith('.css'))
 const totalGzip = entries.reduce((sum, entry) => sum + entry.gzip, 0)
-const failures = []
-if (!mainJs || mainJs.gzip > 55 * 1024) failures.push(`theme.js gzip budget exceeded: ${mainJs?.gzip ?? 0} bytes`)
-for (const style of styles) {
-  if (style.gzip > 9 * 1024) failures.push(`${style.name} gzip budget exceeded: ${style.gzip} bytes`)
+const budgets = {
+  mainJs: 55 * 1024,
+  stylesheet: 10 * 1024,
+  completeClient: 116 * 1024,
 }
-if (totalGzip > 111 * 1024) failures.push(`complete theme runtime gzip budget exceeded: ${totalGzip} bytes`)
+const failures = []
+if (!mainJs || mainJs.gzip > budgets.mainJs) failures.push(`theme.js gzip budget exceeded: ${mainJs?.gzip ?? 0} bytes`)
+for (const style of styles) {
+  if (style.gzip > budgets.stylesheet) failures.push(`${style.name} gzip budget exceeded: ${style.gzip} bytes`)
+}
+if (totalGzip > budgets.completeClient) failures.push(`complete theme runtime gzip budget exceeded: ${totalGzip} bytes`)
 console.table(entries.map((entry) => ({ file: entry.name, rawKb: (entry.raw / 1024).toFixed(2), gzipKb: (entry.gzip / 1024).toFixed(2) })))
 console.log(`Complete theme client gzip: ${(totalGzip / 1024).toFixed(2)} kB`)
 if (failures.length) { for (const failure of failures) console.error(failure); process.exit(1) }

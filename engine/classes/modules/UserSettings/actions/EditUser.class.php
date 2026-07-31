@@ -10,7 +10,7 @@ if (!defined('profile')) {
 final class EditUser
 {
     private const USER_FIELDS = ['login', 'realname', 'email', 'userStatus', 'land', 'colorScheme'];
-    private const ADMIN_FIELDS = ['user_group', 'reg_date'];
+    private const ADMIN_FIELDS = ['reg_date'];
 
     public function __construct(
         private HttpRequest $request,
@@ -44,11 +44,15 @@ final class EditUser
         CsrfToken::requireValid($this->request->csrfToken());
 
         $isAdmin = $this->session->isAdmin();
-        $targetUuid = $this->session->uuid();
-        if (!Uuid::isValid($targetUuid)) {
+        $sessionUuid = $this->session->uuid();
+        $requestedUuid = $this->request->string('userUuid');
+        if (!Uuid::isValid($sessionUuid) || ($requestedUuid !== '' && !Uuid::isValid($requestedUuid))) {
             throw new InvalidArgumentException('Некорректный UUID пользователя.');
         }
-        $targetUuid = Uuid::normalize($targetUuid);
+        $targetUuid = Uuid::normalize($requestedUuid !== '' ? $requestedUuid : $sessionUuid);
+        if (!$isAdmin && !Uuid::equals($sessionUuid, $targetUuid)) {
+            throw new DomainException('Недостаточно прав для изменения этого профиля.');
+        }
 
         $target = $this->loadTarget($targetUuid);
         if ($target === null) {
@@ -87,7 +91,9 @@ final class EditUser
             throw new RuntimeException('UUID update affected more than one user.');
         }
 
-        $this->session->refreshFromDatabase();
+        if (Uuid::equals($sessionUuid, $targetUuid)) {
+            $this->session->refreshFromDatabase();
+        }
     }
 
     private function loadTarget(string $userUuid): ?array
@@ -101,7 +107,7 @@ final class EditUser
         }
 
         $statement = $this->db->prepare(
-            'SELECT `uuid`, `login`, `password`, `user_group`, `email`, `reg_date` '
+            'SELECT `uuid`, `login`, `password`, `groupTag`, `email`, `reg_date` '
             . 'FROM `users` WHERE `uuid` IN (' . implode(', ', $placeholders) . ') LIMIT 1'
         );
         $statement->execute($parameters);
@@ -165,12 +171,6 @@ final class EditUser
                 case 'colorScheme':
                     if (preg_match('/^#[0-9a-f]{6}$/iD', (string)$value) !== 1) {
                         throw new InvalidArgumentException('Некорректный цвет профиля.');
-                    }
-                    break;
-                case 'user_group':
-                    $value = filter_var($value, FILTER_VALIDATE_INT);
-                    if ($value === false || $value < 1) {
-                        throw new InvalidArgumentException('Некорректная группа пользователя.');
                     }
                     break;
                 case 'reg_date':

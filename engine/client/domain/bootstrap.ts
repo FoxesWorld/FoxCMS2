@@ -65,9 +65,9 @@ function emptyBootstrap(): FoxesCraftBootstrap {
     engine: { version: '', csrfToken: '', endpoints: {} },
     theme: { name: themeName, assets, mount: 'foxescraft-app', settings: {} },
     site: { title: 'FoxesCraft', status: '', description: '' },
-    user: { isLogged: false, user_group: 5, login: 'anonymous' },
+    user: { isLogged: false, groupTag: 'guest', login: 'anonymous' },
     frontend: { routes: [], navigation: [], legacy: [], capabilities: [], endpoints: {} },
-    replaceData: { user_group: 5, login: 'anonymous', siteTitle: 'FoxesCraft', assets },
+    replaceData: { groupTag: 'guest', login: 'anonymous', siteTitle: 'FoxesCraft', assets },
     userFields: [],
   }
 }

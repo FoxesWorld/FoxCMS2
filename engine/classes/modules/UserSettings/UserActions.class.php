@@ -12,7 +12,7 @@ final class UserActions
     private const PUBLIC_PROFILE_FIELDS = [
         'uuid',
         'login',
-        'user_group',
+        'groupTag',
         'realname',
         'reg_date',
         'last_date',
@@ -40,6 +40,7 @@ final class UserActions
             'EditUser' => $this->editUser(),
             'updateProfilePhoto' => $this->updateProfilePhoto(),
             'getUserData' => $this->getUserData(),
+            'getUserSettings' => $this->getUserSettings(),
             'lostpassword' => $this->lostPassword(),
             'resetpassword' => $this->resetPassword(),
             default => $this->respond(['message' => 'Unknown user request.', 'type' => 'error'], 400),
@@ -79,6 +80,51 @@ final class UserActions
         );
     }
 
+    private function getUserSettings(): never
+    {
+        if (!$this->session->isLogged()) {
+            $this->respond(['message' => 'Нужно войти в аккаунт.', 'type' => 'error'], 401);
+        }
+
+        $requestedUuid = $this->request->string('userUuid');
+        $login = $this->request->string('login');
+        if ($requestedUuid !== '' && !Uuid::isValid($requestedUuid)) {
+            $this->respond(['message' => 'Некорректный UUID пользователя.', 'type' => 'error'], 400);
+        }
+        if ($requestedUuid === '' && preg_match('/^[A-Za-z0-9_.-]{3,64}$/D', $login) !== 1) {
+            $this->respond(['message' => 'Некорректный логин.', 'type' => 'error'], 400);
+        }
+
+        $parameters = [];
+        if ($requestedUuid !== '') {
+            $placeholders = [];
+            foreach (Uuid::databaseCandidates($requestedUuid) as $index => $candidate) {
+                $placeholder = ':identity_' . $index;
+                $placeholders[] = $placeholder;
+                $parameters[$placeholder] = $candidate;
+            }
+            $where = '`uuid` IN (' . implode(', ', $placeholders) . ')';
+        } else {
+            $where = '`login` = :identity';
+            $parameters[':identity'] = $login;
+        }
+        $statement = $this->db->prepare(
+            'SELECT `uuid`, `login`, `groupTag`, `realname`, `email`, `profilePhoto`, '
+            . '`userStatus`, `land`, `colorScheme` FROM `users` WHERE ' . $where . ' LIMIT 1'
+        );
+        $statement->execute($parameters);
+        $user = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($user)) {
+            $this->respond(['message' => 'Пользователь не найден.', 'type' => 'error'], 404);
+        }
+
+        $isOwner = Uuid::equals($this->session->uuid(), (string)$user['uuid']);
+        if (!$isOwner && !$this->session->isAdmin()) {
+            $this->respond(['message' => 'Недостаточно прав для изменения этого профиля.', 'type' => 'error'], 403);
+        }
+        $this->respond($user);
+    }
+
     private function getUserData(): never
     {
         $login = $this->request->string('login');
@@ -96,7 +142,7 @@ final class UserActions
             . '`group`.`groupName` AS `groupName`, '
             . '`group`.`groupColor` AS `groupColor` '
             . 'FROM `users` AS `user` '
-            . 'LEFT JOIN `groupAssociation` AS `group` ON `group`.`groupNum` = `user`.`user_group` '
+            . 'LEFT JOIN `groupAssociation` AS `group` ON `group`.`groupTag` = `user`.`groupTag` '
             . 'WHERE `user`.`login` = :login LIMIT 1'
         );
         $statement->execute([':login' => $login]);

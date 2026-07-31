@@ -9,7 +9,7 @@ final class UserSession
         'user_id',
         'email',
         'login',
-        'user_group',
+        'groupTag',
         'realname',
         'reg_date',
         'last_date',
@@ -27,7 +27,6 @@ final class UserSession
     private const DERIVED_FIELDS = [
         'isLogged',
         'groupName',
-        'groupTag',
         'groupColor',
     ];
 
@@ -84,14 +83,14 @@ final class UserSession
         return (string)($this->user['login'] ?? 'anonymous');
     }
 
-    public function group(): int
+    public function group(): string
     {
-        return (int)($this->user['user_group'] ?? 5);
+        return GroupRepository::normalizeTag($this->user['groupTag'] ?? 'guest');
     }
 
     public function isAdmin(): bool
     {
-        return $this->group() === 1 || $this->get('groupTag') === 'admin';
+        return $this->group() === 'admin';
     }
 
     public function set(string $key, mixed $value, bool $persist = false): void
@@ -101,6 +100,8 @@ final class UserSession
         }
         if ($key === 'uuid') {
             $value = Uuid::normalize((string)$value);
+        } elseif ($key === 'groupTag') {
+            $value = GroupRepository::normalizeTag($value);
         }
         $this->user[$key] = $value;
         if ($persist) {
@@ -117,6 +118,8 @@ final class UserSession
             }
             if ($key === 'uuid') {
                 $value = Uuid::normalize((string)$value);
+            } elseif ($key === 'groupTag') {
+                $value = GroupRepository::normalizeTag($value);
             }
             $this->user[$key] = $value;
             if ($persist) {
@@ -336,7 +339,7 @@ final class UserSession
         $uuid = trim((string)($safe['uuid'] ?? ''));
         $safe['uuid'] = $uuid === '' ? '' : Uuid::normalize($uuid);
         $safe['user_id'] = max(0, (int)($safe['user_id'] ?? 0));
-        $safe['user_group'] = max(1, (int)($safe['user_group'] ?? 5));
+        $safe['groupTag'] = GroupRepository::normalizeTag($safe['groupTag'] ?? 'guest');
         $safe['login'] = (string)($safe['login'] ?? 'anonymous');
         $safe['logged_ip'] = $this->network->clientIp();
         $safe['last_date'] = (int)($safe['last_date'] ?? CURRENT_TIME);
@@ -345,25 +348,25 @@ final class UserSession
 
     private function enrichGroup(): void
     {
-        $group = max(1, (int)($this->user['user_group'] ?? 5));
+        $tag = GroupRepository::normalizeTag($this->user['groupTag'] ?? 'guest');
         try {
-            $statement = $this->db->prepare(
-                'SELECT `groupNum`, `groupName`, `groupType`, `groupColor` '
-                . 'FROM `groupAssociation` WHERE `groupNum` = :group LIMIT 1'
-            );
-            $statement->execute([':group' => $group]);
-            $row = $statement->fetch(PDO::FETCH_ASSOC);
+            $group = (new GroupRepository($this->db))->find($tag);
         } catch (Throwable) {
-            $row = false;
+            $group = [
+                'groupTag' => $tag,
+                'groupName' => $tag === 'guest' ? 'Гости' : $tag,
+                'groupColor' => '#ffffff',
+            ];
         }
 
-        $this->user['user_group'] = $row === false ? $group : (int)($row['groupNum'] ?? $group);
-        $this->user['groupName'] = $row === false ? 'Гость' : (string)($row['groupName'] ?? 'Гость');
-        $this->user['groupTag'] = $row === false ? 'guest' : (string)($row['groupType'] ?? 'guest');
-        $this->user['groupColor'] = $row === false ? '#ffffff' : (string)($row['groupColor'] ?? '#ffffff');
+        $this->user['groupTag'] = (string)$group['groupTag'];
+        $this->user['groupName'] = (string)$group['groupName'];
+        $this->user['groupColor'] = (string)$group['groupColor'];
 
         if ($this->isLogged()) {
-            $_SESSION['user_group'] = $this->user['user_group'];
+            $_SESSION['groupTag'] = $this->user['groupTag'];
+            $_SESSION['groupName'] = $this->user['groupName'];
+            $_SESSION['groupColor'] = $this->user['groupColor'];
             $_SESSION['_fox_last_seen'] = CURRENT_TIME;
         }
     }
@@ -380,7 +383,7 @@ final class UserSession
             'reg_date' => 0,
             'last_date' => CURRENT_TIME,
             'logged_ip' => $this->network->clientIp(),
-            'user_group' => 5,
+            'groupTag' => 'guest',
             'balance' => '[]',
             'profilePhoto' => UPLOADS_DIR . USR_SUBFOLDER . 'anonymous/avatar.jpg',
         ];

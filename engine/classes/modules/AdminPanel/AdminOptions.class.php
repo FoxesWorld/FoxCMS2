@@ -12,7 +12,7 @@ final class AdminOptions {
         'serverImage', 'modsInfo'
     ];
     private const USER_FIELDS = [
-        'login', 'realname', 'email', 'userStatus', 'user_group', 'balance', 'badges', 'serversOnline'
+        'login', 'realname', 'email', 'userStatus', 'groupTag', 'balance', 'badges', 'serversOnline'
     ];
     private const CATALOGS = [
         'infobox' => [
@@ -27,8 +27,8 @@ final class AdminOptions {
         ],
         'groups' => [
             'table' => 'groupAssociation',
-            'key' => 'groupName',
-            'fields' => ['groupName', 'groupColor', 'groupNum', 'groupType'],
+            'key' => 'groupTag',
+            'fields' => ['groupTag', 'groupName', 'groupColor'],
         ],
     ];
 
@@ -37,6 +37,7 @@ final class AdminOptions {
     private UserSession $session;
     private ?Logger $logger;
     private MaintenanceModeRepository $maintenanceRepository;
+    private GroupRepository $groupRepository;
 
     public function __construct(array $request, $db, UserSession $session, ?Logger $logger = null) {
         if (!$session->isAdmin()) {
@@ -48,6 +49,7 @@ final class AdminOptions {
         $this->logger = $logger;
         $this->request = $request;
         $this->maintenanceRepository = new MaintenanceModeRepository($db);
+        $this->groupRepository = new GroupRepository($db);
         $action = (string)($this->request['admPanel'] ?? '');
 
         try {
@@ -132,15 +134,27 @@ final class AdminOptions {
         $where = '';
         $params = [];
         if ($search !== '') {
-            $where = ' WHERE `login` LIKE :search OR `email` LIKE :search OR `realname` LIKE :search';
+            $where = ' WHERE `user`.`login` LIKE :search OR `user`.`email` LIKE :search OR `user`.`realname` LIKE :search';
             $params[':search'] = '%' . $search . '%';
         }
 
-        $sql = 'SELECT `uuid`, `user_id`, `login`, `email`, `realname`, `user_group`, `last_date`, `reg_date`, `profilePhoto`, `userStatus`, `balance`, `badges`, `serversOnline` FROM `users`' . $where . ' ORDER BY `last_date` DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
+        $sql = 'SELECT `user`.`uuid`, `user`.`user_id`, `user`.`login`, `user`.`email`, '
+            . '`user`.`realname`, `user`.`groupTag`, `user`.`last_date`, `user`.`reg_date`, '
+            . '`user`.`profilePhoto`, `user`.`userStatus`, `user`.`balance`, `user`.`badges`, '
+            . '`user`.`serversOnline`, `group`.`groupName`, `group`.`groupColor` '
+            . 'FROM `users` AS `user` '
+            . 'LEFT JOIN `groupAssociation` AS `group` ON `group`.`groupTag` = `user`.`groupTag`'
+            . $where . ' ORDER BY `user`.`last_date` DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $this->respond(['items' => $rows ?: [], 'limit' => $limit, 'offset' => $offset]);
+        $this->respond([
+            'items' => $rows ?: [],
+            'groups' => $this->groupRepository->all(),
+            'badgeOptions' => $this->badgeOptions(),
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
     }
 
     private function updateUser(): void {
@@ -177,10 +191,10 @@ final class AdminOptions {
                     $this->respond(['message' => 'Email уже используется.', 'type' => 'error'], 409);
                 }
             }
-            if ($field === 'user_group') {
-                $value = filter_var($value, FILTER_VALIDATE_INT);
-                if ($value === false || $value < 1) {
-                    $this->respond(['message' => 'Некорректная группа.', 'type' => 'error'], 400);
+            if ($field === 'groupTag') {
+                $value = GroupRepository::normalizeTag($value, '');
+                if ($value === '' || !$this->groupRepository->exists($value)) {
+                    $this->respond(['message' => 'Выбранная группа не существует.', 'type' => 'error'], 400);
                 }
             }
             if (in_array($field, ['balance', 'badges', 'serversOnline'], true)) {
@@ -215,7 +229,12 @@ final class AdminOptions {
     private function servers(): void {
         $stmt = $this->db->prepare('SELECT `id`, ' . $this->quotedFields(self::SERVER_FIELDS) . ' FROM `servers` ORDER BY `serverName`');
         $stmt->execute();
-        $this->respond(['items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($items as &$server) {
+            $server['serverGroups'] = $this->normalizeGroupList($server['serverGroups'] ?? []);
+        }
+        unset($server);
+        $this->respond(['items' => $items, 'groups' => $this->groupRepository->all()]);
     }
 
     private function saveServer(): void {
@@ -230,13 +249,22 @@ final class AdminOptions {
         foreach (self::SERVER_FIELDS as $field) {
             if (!array_key_exists($field, $payload)) continue;
             $value = $payload[$field];
-            if (in_array($field, ['enabled', 'checkLib'], true)) $value = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+            if (in_array($field, ['enabled', 'checkLib'], true)) {
+                $value = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+            }
             if ($field === 'port') {
                 $value = filter_var($value, FILTER_VALIDATE_INT);
-                if ($value === false || $value < 1 || $value > 65535) $this->respond(['message' => 'Некорректный порт.', 'type' => 'error'], 400);
+                if ($value === false || $value < 1 || $value > 65535) {
+                    $this->respond(['message' => 'Некорректный порт.', 'type' => 'error'], 400);
+                }
             }
-            if (in_array($field, ['ignoreDirs', 'serverGroups', 'modsInfo'], true) && (is_array($value) || is_object($value))) {
-                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($field === 'serverGroups') {
+                $value = json_encode(
+                    $this->normalizeGroupList($value),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+                );
+            } elseif (in_array($field, ['ignoreDirs', 'modsInfo'], true) && (is_array($value) || is_object($value))) {
+                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             }
             $data[$field] = is_string($value) ? trim($value) : $value;
         }
@@ -273,18 +301,10 @@ final class AdminOptions {
 
 
     private function maintenance(): void {
-        $settings = $this->maintenanceRepository->current(true);
-        $statement = $this->db->prepare(
-            'SELECT `groupNum`, `groupName`, `groupColor`, `groupType` '
-            . 'FROM `groupAssociation` ORDER BY `groupNum`'
-        );
-        $statement->execute();
-        $groups = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        foreach ($groups as &$group) {
-            $group['groupNum'] = (int)($group['groupNum'] ?? 0);
-        }
-        unset($group);
-        $this->respond(['settings' => $settings, 'groups' => $groups]);
+        $this->respond([
+            'settings' => $this->maintenanceRepository->current(true),
+            'groups' => $this->groupRepository->all(),
+        ]);
     }
 
     private function saveMaintenance(): void {
@@ -293,15 +313,11 @@ final class AdminOptions {
         $requestedGroups = is_array($payload['allowedGroups'] ?? null)
             ? $payload['allowedGroups']
             : [];
-
-        $statement = $this->db->prepare('SELECT `groupNum` FROM `groupAssociation`');
-        $statement->execute();
-        $existingGroups = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN) ?: []);
-        $allowedGroups = [1];
+        $allowedGroups = ['admin'];
         foreach ($requestedGroups as $group) {
-            $value = filter_var($group, FILTER_VALIDATE_INT);
-            if ($value !== false && in_array((int)$value, $existingGroups, true)) {
-                $allowedGroups[] = (int)$value;
+            $tag = GroupRepository::normalizeTag($group, '');
+            if ($tag !== '' && $this->groupRepository->exists($tag)) {
+                $allowedGroups[] = $tag;
             }
         }
 
@@ -360,18 +376,28 @@ final class AdminOptions {
         }
         $lineCount = max(1, min(500, (int)($this->request['lines'] ?? 100)));
         $lines = is_file($path) ? $this->tail($path, $lineCount) : [];
-        $this->respond(['file' => $name, 'lines' => $lines]);
+        $this->respond([
+            'file' => $name,
+            'entries' => array_map(fn(string $line): array => $this->parseLogLine($line), $lines),
+        ]);
     }
 
     private function catalog(): void {
         [$spec] = $this->catalogSpec();
         $stmt = $this->db->prepare('SELECT ' . $this->quotedFields($spec['fields']) . ' FROM `' . $spec['table'] . '` ORDER BY `' . $spec['key'] . '`');
         $stmt->execute();
-        $this->respond(['items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []]);
+        $this->respond([
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'fields' => array_values($spec['fields']),
+        ]);
     }
 
     private function saveCatalogEntry(): void {
-        [$spec] = $this->catalogSpec();
+        [$spec, $catalog] = $this->catalogSpec();
+        if ($catalog === 'groups') {
+            $this->saveGroupCatalogEntry();
+        }
+
         $payload = $this->decodeObject('entry');
         $originalKey = trim((string)($this->request['originalKey'] ?? ''));
         $keyField = $spec['key'];
@@ -403,12 +429,102 @@ final class AdminOptions {
     }
 
     private function deleteCatalogEntry(): void {
-        [$spec] = $this->catalogSpec();
+        [$spec, $catalog] = $this->catalogSpec();
+        if ($catalog === 'groups') {
+            $this->deleteGroupCatalogEntry();
+        }
         $key = trim((string)($this->request['key'] ?? ''));
         if ($key === '') $this->respond(['message' => 'Ключ не указан.', 'type' => 'error'], 400);
         $stmt = $this->db->prepare('DELETE FROM `' . $spec['table'] . '` WHERE `' . $spec['key'] . '` = :key');
         $stmt->execute([':key' => $key]);
         $this->respond(['message' => 'Запись удалена.', 'type' => 'success']);
+    }
+
+    private function saveGroupCatalogEntry(): never {
+        $payload = $this->decodeObject('entry');
+        $originalTag = GroupRepository::normalizeTag($this->request['originalKey'] ?? '', '');
+        $groupTag = GroupRepository::normalizeTag($payload['groupTag'] ?? '', '');
+        $groupName = trim((string)($payload['groupName'] ?? ''));
+        $groupColor = strtolower(trim((string)($payload['groupColor'] ?? '#ffffff')));
+
+        if ($groupTag === '') {
+            $this->respond(['message' => 'Тег группы должен начинаться с латинской буквы и содержать только a-z, 0-9, _ или -.', 'type' => 'error'], 400);
+        }
+        if ($groupName === '' || mb_strlen($groupName) > 64) {
+            $this->respond(['message' => 'Название группы должно содержать от 1 до 64 символов.', 'type' => 'error'], 400);
+        }
+        if (preg_match('/^#[0-9a-f]{6}$/D', $groupColor) !== 1) {
+            $this->respond(['message' => 'Цвет группы должен быть записан в формате #RRGGBB.', 'type' => 'error'], 400);
+        }
+
+        $duplicateName = $this->db->prepare(
+            'SELECT `groupTag` FROM `groupAssociation` WHERE `groupName` = :groupName AND `groupTag` <> :groupTag LIMIT 1'
+        );
+        $duplicateName->execute([':groupName' => $groupName, ':groupTag' => $originalTag !== '' ? $originalTag : $groupTag]);
+        if ($duplicateName->fetchColumn() !== false) {
+            $this->respond(['message' => 'Группа с таким названием уже существует.', 'type' => 'error'], 409);
+        }
+
+        if ($originalTag !== '') {
+            if ($groupTag !== $originalTag) {
+                $this->respond(['message' => 'Тег группы является стабильным идентификатором и не может быть изменён.', 'type' => 'error'], 409);
+            }
+            $statement = $this->db->prepare(
+                'UPDATE `groupAssociation` SET `groupName` = :groupName, `groupColor` = :groupColor, `groupType` = :groupTag '
+                . 'WHERE `groupTag` = :groupTag'
+            );
+            $statement->execute([
+                ':groupName' => $groupName,
+                ':groupColor' => $groupColor,
+                ':groupTag' => $groupTag,
+            ]);
+        } else {
+            if ($this->groupRepository->exists($groupTag)) {
+                $this->respond(['message' => 'Группа с таким тегом уже существует.', 'type' => 'error'], 409);
+            }
+            $legacyNumber = max(1, (int)$this->scalar('SELECT COALESCE(MAX(`groupNum`), 0) + 1 FROM `groupAssociation`'));
+            $statement = $this->db->prepare(
+                'INSERT INTO `groupAssociation` (`groupTag`, `groupName`, `groupColor`, `groupNum`, `groupType`) '
+                . 'VALUES (:groupTag, :groupName, :groupColor, :groupNum, :groupType)'
+            );
+            $statement->execute([
+                ':groupTag' => $groupTag,
+                ':groupName' => $groupName,
+                ':groupColor' => $groupColor,
+                ':groupNum' => $legacyNumber,
+                ':groupType' => $groupTag,
+            ]);
+        }
+        $this->respond(['message' => 'Группа сохранена.', 'type' => 'success']);
+    }
+
+    private function deleteGroupCatalogEntry(): never {
+        $groupTag = GroupRepository::normalizeTag($this->request['key'] ?? '', '');
+        if ($groupTag === '') {
+            $this->respond(['message' => 'Тег группы не указан.', 'type' => 'error'], 400);
+        }
+        if (in_array($groupTag, ['admin', 'user', 'guest'], true)) {
+            $this->respond(['message' => 'Системную группу удалить нельзя.', 'type' => 'error'], 409);
+        }
+        $assignedUsers = (int)$this->scalar('SELECT COUNT(*) FROM `users` WHERE `groupTag` = :groupTag', [':groupTag' => $groupTag]);
+        $registrationCodes = (int)$this->scalar('SELECT COUNT(*) FROM `regCodes` WHERE `groupTag` = :groupTag', [':groupTag' => $groupTag]);
+        if ($assignedUsers > 0 || $registrationCodes > 0) {
+            $this->respond(['message' => 'Группа используется пользователями или регистрационными кодами.', 'type' => 'error'], 409);
+        }
+        $maintenance = $this->maintenanceRepository->current();
+        if (in_array($groupTag, $maintenance['allowedGroups'] ?? [], true)) {
+            $this->respond(['message' => 'Сначала удалите группу из доступа во время техработ.', 'type' => 'error'], 409);
+        }
+        $statement = $this->db->prepare('SELECT `serverGroups` FROM `servers`');
+        $statement->execute();
+        foreach ($statement->fetchAll(PDO::FETCH_COLUMN) ?: [] as $serverGroups) {
+            if (in_array($groupTag, $this->normalizeGroupList($serverGroups), true)) {
+                $this->respond(['message' => 'Сначала удалите группу из списков доступа серверов.', 'type' => 'error'], 409);
+            }
+        }
+        $statement = $this->db->prepare('DELETE FROM `groupAssociation` WHERE `groupTag` = :groupTag');
+        $statement->execute([':groupTag' => $groupTag]);
+        $this->respond(['message' => 'Группа удалена.', 'type' => 'success']);
     }
 
     private function catalogSpec(): array {
@@ -444,6 +560,59 @@ final class AdminOptions {
         $decoded = json_decode((string)$value, true);
         if (!is_array($decoded)) $this->respond(['message' => 'Некорректный JSON payload.', 'type' => 'error'], 400);
         return $decoded;
+    }
+
+    /** @return list<string> */
+    private function normalizeGroupList(mixed $value): array {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            $source = is_array($decoded) ? $decoded : explode(',', $value);
+        } elseif (is_array($value)) {
+            $source = $value;
+        } else {
+            $source = [];
+        }
+        $tags = [];
+        foreach ($source as $group) {
+            $tag = $this->groupRepository->resolveTag($group, '');
+            if ($tag !== '' && $this->groupRepository->exists($tag)) {
+                $tags[] = $tag;
+            }
+        }
+        $tags = array_values(array_unique($tags));
+        sort($tags, SORT_STRING);
+        return $tags;
+    }
+
+    /** @return list<string> */
+    private function badgeOptions(): array {
+        $stmt = $this->db->prepare('SELECT `badgeName` FROM `badgesList` ORDER BY `badgeName`');
+        $stmt->execute();
+        return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    }
+
+    /** @return array{timestamp: string, time: string, level: string, message: string, tone: string} */
+    private function parseLogLine(string $line): array {
+        $record = json_decode($line, true);
+        if (is_array($record)) {
+            $timestamp = is_string($record['timestamp'] ?? null) ? $record['timestamp'] : '';
+            $level = is_string($record['level'] ?? null) ? strtoupper(trim($record['level'])) : 'LOG';
+            $message = is_string($record['message'] ?? null) ? $record['message'] : $line;
+            $time = $timestamp;
+            if ($timestamp !== '') {
+                try { $time = (new DateTimeImmutable($timestamp))->format('d.m.Y H:i:s'); } catch (Throwable) {}
+            }
+            $level = $level ?: 'LOG';
+            $tone = match ($level) {
+                'ERROR', 'CRITICAL', 'FATAL' => 'error',
+                'WARNING', 'WARN' => 'warning',
+                'INFO', 'NOTICE' => 'info',
+                'DEBUG', 'TRACE' => 'debug',
+                default => 'default',
+            };
+            return ['timestamp' => $timestamp, 'time' => $time, 'level' => $level, 'message' => $message, 'tone' => $tone];
+        }
+        return ['timestamp' => '', 'time' => '—', 'level' => 'LOG', 'message' => $line, 'tone' => 'default'];
     }
 
     private function scalar(string $sql, array $params = []) {

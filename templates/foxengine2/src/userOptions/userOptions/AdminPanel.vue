@@ -8,8 +8,8 @@ import AdminLogs from '@theme/foxEngine/admin/Logs.vue'
 import AdminCatalogs from '@theme/foxEngine/admin/Catalogs.vue'
 
 const {
-  isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, maintenanceGroups, users, userSearch, selectedUser, userDraft,
-  servers, selectedServer, serverDraft, logFile, logLines, autoRefreshLogs, catalogName, catalogRows,
+  isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
+  servers, selectedServer, serverDraft, logFile, logEntries, autoRefreshLogs, catalogName, catalogRows,
   catalogDraft, originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp, loadMaintenance, saveMaintenance, loadUsers, editUser,
   saveUser, newServer, editServer, saveServer, deleteServer, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
@@ -19,7 +19,7 @@ const {
 <template>
   <div v-if="!isAdmin" class="system-message system-message--error">
     <strong>Доступ запрещён</strong>
-    <p>Административное рабочее пространство доступно только группе 1.</p>
+    <p>Административное рабочее пространство доступно только группе с тегом admin.</p>
   </div>
   <article v-else class="content-surface admin-page">
     <header class="admin-header">
@@ -45,13 +45,15 @@ const {
     <AdminMaintenance
       v-else-if="activeTab==='maintenance'"
       :settings="maintenance"
-      :groups="maintenanceGroups"
+      :groups="groupOptions"
       :loading="loading"
       @save="saveMaintenance"
     />
     <AdminUsers
       v-else-if="activeTab==='users'"
       :users="users"
+      :groups="groupOptions"
+      :badge-options="badgeOptions"
       v-model:search="userSearch"
       :selected="selectedUser"
       :draft="userDraft"
@@ -65,6 +67,7 @@ const {
       :servers="servers"
       :selected="selectedServer"
       :draft="serverDraft"
+      :groups="groupOptions"
       @create="newServer"
       @edit="editServer"
       @remove="deleteServer"
@@ -73,7 +76,7 @@ const {
     <AdminLogs
       v-else-if="activeTab==='logs'"
       v-model:file="logFile"
-      :lines="logLines"
+      :entries="logEntries"
       v-model:auto-refresh="autoRefreshLogs"
       @reload="loadLogs"
       @clear="clearLogs"

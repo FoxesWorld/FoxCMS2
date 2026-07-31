@@ -206,33 +206,83 @@ final class RuntimeErrorHandler
 
     private static function renderHtml(Throwable $throwable): string
     {
-        $title = self::$debug ? get_class($throwable) : 'Internal server error';
-        $message = self::$debug ? $throwable->getMessage() : 'FoxCMS could not complete the request.';
+        $title = self::$debug ? get_class($throwable) : 'Внутренняя ошибка сервера';
+        $message = self::$debug
+            ? $throwable->getMessage()
+            : 'FoxCMS не удалось завершить запрос. Ошибка уже зафиксирована в журнале.';
         $details = '';
 
         if (self::$debug) {
             $location = self::relativePath($throwable->getFile()) . ':' . $throwable->getLine();
-            $details = '<dl>'
-                . '<dt>Location</dt><dd><code>' . self::escape($location) . '</code></dd>'
-                . '<dt>Trace</dt><dd><pre>' . self::escape($throwable->getTraceAsString()) . '</pre></dd>'
-                . '</dl>';
+            $details = '<details class="runtime-error__details" open>'
+                . '<summary>Технические детали</summary><dl>'
+                . '<dt>Расположение</dt><dd><code>' . self::escape($location) . '</code></dd>'
+                . '<dt>Стек вызовов</dt><dd><pre>' . self::escape($throwable->getTraceAsString()) . '</pre></dd>'
+                . '</dl></details>';
         }
 
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        $stylesheet = self::errorStylesheet();
+        $season = self::currentSeason();
+
+        return '<!doctype html><html lang="ru"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width,initial-scale=1">'
             . '<meta name="robots" content="noindex,nofollow">'
+            . '<meta name="theme-color" content="#152019">'
+            . '<link rel="icon" type="image/png" href="/templates/foxengine2/assets/img/logo.png">'
             . '<title>FoxCMS · HTTP 500</title>'
-            . '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;'
-            . 'background:#090d0b;color:#eef4f0;font-family:system-ui,sans-serif}main{width:min(880px,100%);padding:32px;'
-            . 'border:1px solid #26332c;border-radius:18px;background:#101712}h1{margin:0 0 16px;font-size:clamp(2rem,6vw,4rem)}'
-            . 'p,dd{color:#aab9b0;line-height:1.6}code,pre{font-family:ui-monospace,monospace}pre{max-height:45vh;overflow:auto;'
-            . 'padding:16px;border-radius:10px;background:#080c09;white-space:pre-wrap;overflow-wrap:anywhere}dt{margin-top:18px;font-weight:700}'
-            . '.id{display:inline-block;margin-top:20px;padding:8px 12px;border-radius:999px;background:#19251e;color:#bfdbc9}</style>'
-            . '</head><body><main><div>HTTP 500</div><h1>' . self::escape($title) . '</h1>'
-            . '<p>' . self::escape($message) . '</p>'
-            . '<div class="id">Request ID: ' . self::escape(self::$requestId) . '</div>'
+            . '<style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:#090d0b;color:#eef4f0;font-family:system-ui,sans-serif}main{width:min(920px,100%)}</style>'
+            . $stylesheet
+            . '</head><body data-season="' . self::escape($season) . '">'
+            . '<main class="runtime-error-shell">'
+            . '<section class="runtime-error-card" aria-labelledby="runtime-error-title">'
+            . '<header class="runtime-error-card__header">'
+            . '<div class="runtime-error-brand"><img class="runtime-error-brand__logo"'
+                . ' src="/templates/foxengine2/assets/img/logo.png" alt="" width="72" height="54">'
+            . '<span><strong>FoxCMS</strong><small>Runtime protection layer</small></span></div>'
+            . '<span class="runtime-error-status"><i aria-hidden="true"></i>HTTP 500</span>'
+            . '</header>'
+            . '<div class="runtime-error-code" aria-hidden="true">500</div>'
+            . '<p class="runtime-error-eyebrow">Системная ошибка</p>'
+            . '<h1 id="runtime-error-title">' . self::escape($title) . '</h1>'
+            . '<p class="runtime-error-message">' . self::escape($message) . '</p>'
+            . '<div class="runtime-error-request"><span>Request ID</span><code>'
+            . self::escape(self::$requestId) . '</code></div>'
             . $details
-            . '</main></body></html>';
+            . '<nav class="runtime-error-actions" aria-label="Действия страницы ошибки">'
+            . '<a class="runtime-error-button runtime-error-button--primary" href="">Повторить запрос</a>'
+            . '<a class="runtime-error-button" href="/">На главную</a>'
+            . '</nav>'
+            . '<footer>Укажите Request ID при обращении к администратору.</footer>'
+            . '</section></main></body></html>';
+    }
+
+    private static function errorStylesheet(): string
+    {
+        $relative = 'templates' . DIRECTORY_SEPARATOR . 'foxengine2'
+            . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css'
+            . DIRECTORY_SEPARATOR . 'error.css';
+        $file = self::$rootDirectory . DIRECTORY_SEPARATOR . $relative;
+
+        if (!is_file($file) || !is_readable($file)) {
+            return '';
+        }
+
+        return '<link rel="stylesheet" href="/templates/foxengine2/assets/css/error.css">';
+    }
+
+    private static function currentSeason(): string
+    {
+        $month = (int)date('n');
+        if ($month >= 3 && $month <= 5) {
+            return 'spring';
+        }
+        if ($month >= 6 && $month <= 8) {
+            return 'summer';
+        }
+        if ($month >= 9 && $month <= 11) {
+            return 'autumn';
+        }
+        return 'winter';
     }
 
     private static function expectsJson(): bool

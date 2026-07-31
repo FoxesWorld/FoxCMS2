@@ -5,14 +5,14 @@ import SkinSettingsPage from '@theme/userOptions/userOptions/SkinSettings.vue'
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
 import { toastFeedback } from '@/notifications/toasts'
-import { bootstrapNumber, bootstrapString } from '@/domain/bootstrap'
+import { bootstrapString } from '@/domain/bootstrap'
 import type { FeedbackMessage, SkinResource } from '@/contracts/user-pages'
 
 interface ApiResponse extends FeedbackMessage {}
 const router = useRouter()
 const userUuid = bootstrapString(appBootstrap, 'uuid')
-const group = bootstrapNumber(appBootstrap, 'user_group', 5)
-const isGuest = group === 5 || userUuid === ''
+const groupTag = bootstrapString(appBootstrap, 'groupTag', 'guest')
+const isGuest = groupTag === 'guest' || userUuid === ''
 const frontPreview = ref('')
 const backPreview = ref('')
 const loadingPreview = ref(false)
@@ -94,7 +94,7 @@ onMounted(() => void refreshPreview())
 <template>
   <SkinSettingsPage
     :is-guest="isGuest"
-    :viewer-group="group"
+    :viewer-group-tag="groupTag"
     :front-preview="frontPreview"
     :back-preview="backPreview"
     :loading-preview="loadingPreview"

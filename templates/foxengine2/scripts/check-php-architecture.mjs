@@ -107,7 +107,7 @@ for (const module of manifest) {
     failures.push(`invalid module class for ${name}: ${String(moduleClass)}`)
   }
   if (!knownPriorities.has(priority)) failures.push(`invalid module priority for ${name}: ${String(priority)}`)
-  if (groups !== null && (!Array.isArray(groups) || groups.some((group) => !Number.isInteger(group)))) {
+  if (groups !== null && groups !== '*' && (!Array.isArray(groups) || groups.some((group) => typeof group !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(group)))) {
     failures.push(`invalid groups contract for ${name}`)
   }
 

@@ -1,12 +1,14 @@
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, shallowReactive, watch } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
-import { bootstrapNumber } from '@/domain/bootstrap'
-import { toastFeedback } from '@/notifications/toasts'
+import { bootstrapString } from '@/domain/bootstrap'
+import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
+import type { JsonObject, JsonValue } from '@/forms/json-form'
 
 export type Tab = 'overview' | 'maintenance' | 'users' | 'servers' | 'logs' | 'catalogs'
 export type Feedback = { type?: string; message?: string }
 export type JsonRow = Record<string, unknown>
+export interface LogEntry { timestamp: string; time: string; level: string; message: string; tone: string }
 
 export interface Overview {
   users: number
@@ -18,7 +20,7 @@ export interface Overview {
 export interface Hardware { cpu: Record<string, number>; gpu: Record<string, number> }
 export interface MaintenanceSettings {
   enabled: boolean
-  allowedGroups: number[]
+  allowedGroups: string[]
   title: string
   message: string
   updatedAt: string
@@ -26,17 +28,18 @@ export interface MaintenanceSettings {
   storageReady: boolean
 }
 export interface GroupOption {
-  groupNum: number
+  groupTag: string
   groupName: string
   groupColor: string
-  groupType: string
 }
 export interface UserRow extends JsonRow {
   uuid: string
   login: string
   email: string
   realname?: string
-  user_group: number | string
+  groupTag: string
+  groupName?: string
+  groupColor?: string
   last_date?: number | string
   profilePhoto?: string
   userStatus?: string
@@ -59,20 +62,34 @@ export interface ServerRow extends JsonRow {
   serverImage?: string
   modsInfo?: unknown
 }
-
+export interface ServerDraft {
+  id?: number | string
+  serverName: string
+  host: string
+  port: number | string
+  ignoreDirs: JsonValue
+  enabled: boolean
+  checkLib: boolean
+  serverGroups: string[]
+  serverDescription: string
+  serverVersion: string
+  jreVersion: string
+  serverImage: string
+  modsInfo: JsonValue
+}
 export interface UserDraft {
   login: string
   realname: string
   email: string
   userStatus: string
-  user_group: number
-  balance: string
-  badges: string
-  serversOnline: string
+  groupTag: string
+  balance: JsonValue
+  badges: JsonValue
+  serversOnline: JsonValue
 }
 
 export function useAdminPanel() {
-  const isAdmin = bootstrapNumber(appBootstrap, 'user_group', 5) === 1
+  const isAdmin = appBootstrap.frontend.capabilities.includes('admin.panel')
   const activeTab = ref<Tab>('overview')
   const loading = ref(false)
   const feedback = ref<Feedback | null>(null)
@@ -80,28 +97,52 @@ export function useAdminPanel() {
   const hardware = ref<Hardware | null>(null)
   const maintenance = reactive<MaintenanceSettings>({
     enabled: false,
-    allowedGroups: [1],
+    allowedGroups: ['admin'],
     title: 'Ведутся технические работы',
     message: 'Мы обновляем систему. Доступ будет восстановлен после завершения работ.',
     updatedAt: '',
     updatedByUuid: '',
     storageReady: false,
   })
-  const maintenanceGroups = ref<GroupOption[]>([])
+  const groupOptions = ref<GroupOption[]>([])
+  const badgeOptions = ref<string[]>([])
   const users = ref<UserRow[]>([])
   const userSearch = ref('')
   const selectedUser = ref<UserRow | null>(null)
-  const userDraft = reactive({ login: '', realname: '', email: '', userStatus: '', user_group: 5, balance: '', badges: '', serversOnline: '' })
+  const userDraft = shallowReactive<UserDraft>({
+    login: '',
+    realname: '',
+    email: '',
+    userStatus: '',
+    groupTag: 'guest',
+    balance: '',
+    badges: '',
+    serversOnline: '',
+  })
   const servers = ref<ServerRow[]>([])
   const selectedServer = ref<ServerRow | null>(null)
-  const serverDraft = reactive<ServerRow>({ serverName: '', host: '', port: 25565, enabled: false, checkLib: false, ignoreDirs: '[]', serverGroups: '[]', serverDescription: '', serverVersion: '', jreVersion: '', serverImage: '', modsInfo: '[]' })
+  const serverDraft = shallowReactive<ServerDraft>({
+    serverName: '',
+    host: '',
+    port: 25565,
+    enabled: false,
+    checkLib: false,
+    ignoreDirs: [],
+    serverGroups: [],
+    serverDescription: '',
+    serverVersion: '',
+    jreVersion: '',
+    serverImage: '',
+    modsInfo: [],
+  })
   const logFile = ref<'lastlog' | 'error' | 'access'>('lastlog')
-  const logLines = ref<string[]>([])
+  const logEntries = ref<LogEntry[]>([])
   const autoRefreshLogs = ref(false)
   let logTimer: number | undefined
   const catalogName = ref<'infobox' | 'badges' | 'groups'>('infobox')
   const catalogRows = ref<JsonRow[]>([])
-  const catalogDraft = ref('{}')
+  const catalogFields = ref<string[]>([])
+  const catalogDraft = ref<JsonObject>({})
   const originalCatalogKey = ref('')
 
   const tabs: Array<{ id: Tab; label: string }> = [
@@ -112,21 +153,10 @@ export function useAdminPanel() {
     { id: 'logs', label: 'Журналы' },
     { id: 'catalogs', label: 'Каталоги' },
   ]
-  const catalogKey = computed(() => ({ infobox: 'group_name', badges: 'badgeName', groups: 'groupName' })[catalogName.value])
+  const catalogKey = computed(() => ({ infobox: 'group_name', badges: 'badgeName', groups: 'groupTag' })[catalogName.value])
   const hardwareMax = computed(() => Math.max(1, ...Object.values(hardware.value?.cpu ?? {}), ...Object.values(hardware.value?.gpu ?? {})))
 
-  function toEditorValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') return ''
-    if (typeof value === 'string') {
-      try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value }
-    }
-    return JSON.stringify(value, null, 2)
-  }
-  function parseEditorValue(value: string): unknown {
-    const trimmed = value.trim()
-    if (!trimmed) return ''
-    try { return JSON.parse(trimmed) } catch { return trimmed }
-  }
+  function setGroups(groups: GroupOption[]): void { groupOptions.value = groups }
   function formatTimestamp(value?: number | string): string {
     if (!value) return '—'
     const numeric = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value
@@ -155,7 +185,7 @@ export function useAdminPanel() {
     const response = await run(() => foxesApi.post<{ settings: MaintenanceSettings; groups: GroupOption[] }>({ admPanel: 'maintenance' }))
     if (!response) return
     Object.assign(maintenance, response.settings, { allowedGroups: [...response.settings.allowedGroups] })
-    maintenanceGroups.value = response.groups
+    setGroups(response.groups)
   }
   async function saveMaintenance(): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback & { settings: MaintenanceSettings }>({
@@ -173,8 +203,11 @@ export function useAdminPanel() {
     }
   }
   async function loadUsers(): Promise<void> {
-    const response = await run(() => foxesApi.post<{ items: UserRow[] }>({ admPanel: 'users', search: userSearch.value, limit: 100 }))
-    if (response) users.value = response.items
+    const response = await run(() => foxesApi.post<{ items: UserRow[]; groups: GroupOption[]; badgeOptions: string[] }>({ admPanel: 'users', search: userSearch.value, limit: 100 }))
+    if (!response) return
+    users.value = response.items
+    setGroups(response.groups)
+    badgeOptions.value = response.badgeOptions
   }
   function editUser(user: UserRow): void {
     selectedUser.value = user
@@ -182,10 +215,10 @@ export function useAdminPanel() {
     userDraft.realname = String(user.realname ?? '')
     userDraft.email = String(user.email ?? '')
     userDraft.userStatus = String(user.userStatus ?? '')
-    userDraft.user_group = Number(user.user_group) || 5
-    userDraft.balance = toEditorValue(user.balance)
-    userDraft.badges = toEditorValue(user.badges)
-    userDraft.serversOnline = toEditorValue(user.serversOnline)
+    userDraft.groupTag = user.groupTag || 'guest'
+    userDraft.balance = decodeJsonValue(user.balance)
+    userDraft.badges = decodeJsonValue(user.badges)
+    userDraft.serversOnline = decodeJsonValue(user.serversOnline)
   }
   async function saveUser(): Promise<void> {
     if (!selectedUser.value) return
@@ -194,34 +227,46 @@ export function useAdminPanel() {
       realname: userDraft.realname,
       email: userDraft.email,
       userStatus: userDraft.userStatus,
-      user_group: userDraft.user_group,
-      balance: parseEditorValue(userDraft.balance),
-      badges: parseEditorValue(userDraft.badges),
-      serversOnline: parseEditorValue(userDraft.serversOnline),
+      groupTag: userDraft.groupTag,
+      balance: userDraft.balance,
+      badges: userDraft.badges,
+      serversOnline: userDraft.serversOnline,
     }
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'updateUser', userUuid: selectedUser.value?.uuid, entry: JSON.stringify(entry) }))
     if (response) { feedback.value = response; await loadUsers(); selectedUser.value = null }
   }
   async function loadServers(): Promise<void> {
-    const response = await run(() => foxesApi.post<{ items: ServerRow[] }>({ admPanel: 'servers' }))
-    if (response) servers.value = response.items
+    const response = await run(() => foxesApi.post<{ items: ServerRow[]; groups: GroupOption[] }>({ admPanel: 'servers' }))
+    if (!response) return
+    servers.value = response.items
+    setGroups(response.groups)
   }
   function newServer(): void {
     selectedServer.value = null
-    Object.assign(serverDraft, { serverName: '', host: '', port: 25565, enabled: false, checkLib: false, ignoreDirs: '[]', serverGroups: '[]', serverDescription: '', serverVersion: '', jreVersion: '', serverImage: '', modsInfo: '[]' })
+    Object.assign(serverDraft, {
+      serverName: '', host: '', port: 25565, enabled: false, checkLib: false,
+      ignoreDirs: [],
+      serverGroups: groupOptions.value.filter((group) => group.groupTag !== 'admin').map((group) => group.groupTag),
+      serverDescription: '', serverVersion: '', jreVersion: '', serverImage: '', modsInfo: [],
+    })
   }
   function editServer(server: ServerRow): void {
     selectedServer.value = server
     Object.assign(serverDraft, server, {
       enabled: server.enabled === true || server.enabled === 'true',
       checkLib: server.checkLib === true || server.checkLib === 'true',
-      ignoreDirs: toEditorValue(server.ignoreDirs),
-      serverGroups: toEditorValue(server.serverGroups),
-      modsInfo: toEditorValue(server.modsInfo),
+      ignoreDirs: decodeJsonValue(server.ignoreDirs, []),
+      serverGroups: Array.isArray(server.serverGroups) ? server.serverGroups.map(String) : [],
+      modsInfo: decodeJsonValue(server.modsInfo, []),
     })
   }
   async function saveServer(): Promise<void> {
-    const entry = { ...serverDraft, ignoreDirs: parseEditorValue(String(serverDraft.ignoreDirs ?? '')), serverGroups: parseEditorValue(String(serverDraft.serverGroups ?? '')), modsInfo: parseEditorValue(String(serverDraft.modsInfo ?? '')) }
+    const entry = {
+      ...serverDraft,
+      ignoreDirs: serverDraft.ignoreDirs,
+      serverGroups: [...serverDraft.serverGroups],
+      modsInfo: serverDraft.modsInfo,
+    }
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'saveServer', originalName: selectedServer.value?.serverName ?? '', entry: JSON.stringify(entry) }))
     if (response) { feedback.value = response; await loadServers(); newServer() }
   }
@@ -231,8 +276,8 @@ export function useAdminPanel() {
     if (response) { feedback.value = response; await loadServers(); if (selectedServer.value?.serverName === server.serverName) newServer() }
   }
   async function loadLogs(): Promise<void> {
-    const response = await run(() => foxesApi.post<{ lines: string[] }>({ admPanel: 'log', file: logFile.value, lines: 200 }))
-    if (response) logLines.value = response.lines
+    const response = await run(() => foxesApi.post<{ entries: LogEntry[] }>({ admPanel: 'log', file: logFile.value, lines: 200 }))
+    if (response) logEntries.value = response.entries
   }
   async function clearLogs(): Promise<void> {
     if (!window.confirm(`Очистить ${logFile.value}.log?`)) return
@@ -244,20 +289,25 @@ export function useAdminPanel() {
     logTimer = autoRefreshLogs.value ? window.setInterval(() => void loadLogs(), 10_000) : undefined
   }
   async function loadCatalog(): Promise<void> {
-    const response = await run(() => foxesApi.post<{ items: JsonRow[] }>({ admPanel: 'catalog', catalog: catalogName.value }))
-    if (response) catalogRows.value = response.items
+    const response = await run(() => foxesApi.post<{ items: JsonRow[]; fields: string[] }>({ admPanel: 'catalog', catalog: catalogName.value }))
+    if (response) {
+      catalogRows.value = response.items
+      catalogFields.value = response.fields
+      if (catalogName.value === 'groups') setGroups(response.items as unknown as GroupOption[])
+    }
     newCatalogEntry()
   }
-  function newCatalogEntry(): void { originalCatalogKey.value = ''; catalogDraft.value = JSON.stringify({}, null, 2) }
+  function newCatalogEntry(): void {
+    originalCatalogKey.value = ''
+    catalogDraft.value = createJsonObjectTemplate(catalogRows.value, catalogFields.value)
+  }
   function editCatalogEntry(row: JsonRow): void {
     originalCatalogKey.value = String(row[catalogKey.value] ?? '')
-    catalogDraft.value = JSON.stringify(row, null, 2)
+    const template = createJsonObjectTemplate(catalogRows.value, catalogFields.value)
+    catalogDraft.value = mergeJsonWithTemplate(normalizeJsonValue(row), template) as JsonObject
   }
   async function saveCatalogEntry(): Promise<void> {
-    let parsed: unknown
-    try { parsed = JSON.parse(catalogDraft.value) }
-    catch { feedback.value = toastFeedback({ type: 'error', message: 'Каталог содержит некорректный JSON.' }); return }
-    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'saveCatalogEntry', catalog: catalogName.value, originalKey: originalCatalogKey.value, entry: JSON.stringify(parsed) }))
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'saveCatalogEntry', catalog: catalogName.value, originalKey: originalCatalogKey.value, entry: JSON.stringify(catalogDraft.value) }))
     if (response) { feedback.value = response; await loadCatalog() }
   }
   async function deleteCatalogEntry(row: JsonRow): Promise<void> {
@@ -282,48 +332,12 @@ export function useAdminPanel() {
   onUnmounted(() => { if (logTimer) window.clearInterval(logTimer) })
 
   return {
-    isAdmin,
-    activeTab,
-    loading,
-    feedback,
-    overview,
-    hardware,
-    maintenance,
-    maintenanceGroups,
-    users,
-    userSearch,
-    selectedUser,
-    userDraft,
-    servers,
-    selectedServer,
-    serverDraft,
-    logFile,
-    logLines,
-    autoRefreshLogs,
-    catalogName,
-    catalogRows,
-    catalogDraft,
-    originalCatalogKey,
-    tabs,
-    catalogKey,
-    hardwareMax,
-    formatTimestamp,
-    loadMaintenance,
-    saveMaintenance,
-    loadUsers,
-    editUser,
-    saveUser,
-    newServer,
-    editServer,
-    saveServer,
-    deleteServer,
-    loadLogs,
-    clearLogs,
-    loadCatalog,
-    newCatalogEntry,
-    editCatalogEntry,
-    saveCatalogEntry,
-    deleteCatalogEntry,
-    activate,
+    isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, groupOptions, badgeOptions,
+    users, userSearch, selectedUser, userDraft, servers, selectedServer, serverDraft,
+    logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
+    originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp, loadMaintenance,
+    saveMaintenance, loadUsers, editUser, saveUser, newServer, editServer, saveServer,
+    deleteServer, loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
+    saveCatalogEntry, deleteCatalogEntry, activate,
   }
 }

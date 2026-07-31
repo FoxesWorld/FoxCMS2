@@ -6,13 +6,13 @@ final class HealthCheckService
 {
     private const REQUIRED_SCHEMA = [
         'users' => [
-            'user_id', 'login', 'uuid', 'password', 'email', 'user_group', 'realname',
+            'user_id', 'login', 'uuid', 'password', 'email', 'groupTag', 'realname',
             'reg_date', 'last_date', 'profilePhoto', 'logged_ip', 'reg_ip', 'userStatus',
             'land', 'colorScheme', 'token', 'units', 'balance', 'badges', 'serversOnline',
             'userPerms',
         ],
-        'groupAssociation' => ['id', 'groupName', 'groupColor', 'groupNum', 'groupType'],
-        'regCodes' => ['id', 'name', 'code', 'groupNum'],
+        'groupAssociation' => ['id', 'groupTag', 'groupName', 'groupColor'],
+        'regCodes' => ['id', 'name', 'code', 'groupTag'],
         'servers' => [
             'id', 'serverName', 'host', 'port', 'ignoreDirs', 'enabled', 'checkLib',
             'serverGroups', 'serverDescription', 'serverVersion', 'jreVersion',

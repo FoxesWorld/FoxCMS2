@@ -3,10 +3,10 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StartGamePage from '@theme/userOptions/pages/StartGame.vue'
 import { appBootstrap } from '@/app/context'
-import { bootstrapNumber, bootstrapString, themeAsset } from '@/domain/bootstrap'
+import { bootstrapString, themeAsset } from '@/domain/bootstrap'
 
 const router = useRouter()
-const isGuest = bootstrapNumber(appBootstrap, 'user_group', 5) === 5
+const isGuest = bootstrapString(appBootstrap, 'groupTag', 'guest') === 'guest'
 const login = bootstrapString(appBootstrap, 'login')
 const vkLink = bootstrapString(appBootstrap, 'vkLink')
 const discordLink = bootstrapString(appBootstrap, 'discordLink')

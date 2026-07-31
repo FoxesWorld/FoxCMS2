@@ -217,7 +217,10 @@ final class FrontendRegistry
         if (!is_array($groups)) {
             $groups = [$groups];
         }
-        return in_array($this->session->group(), array_map('intval', $groups), true);
+        return in_array($this->session->group(), array_map(
+            static fn (mixed $group): string => GroupRepository::normalizeTag($group, ''),
+            $groups,
+        ), true);
     }
 
     private function registerCapability(string $capability, string $owner): void

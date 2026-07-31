@@ -11,7 +11,8 @@ CREATE TABLE `users` (
     `uuid` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
     `password` VARCHAR(255) NOT NULL,
     `email` VARCHAR(254) NOT NULL,
-    `user_group` INT UNSIGNED NOT NULL DEFAULT 4,
+    `groupTag` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'user',
+    `user_group` INT UNSIGNED NOT NULL DEFAULT 4 COMMENT 'legacy compatibility only',
     `realname` VARCHAR(64) NOT NULL DEFAULT '',
     `hash` VARCHAR(64) NOT NULL DEFAULT '',
     `reg_date` BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -32,6 +33,7 @@ CREATE TABLE `users` (
     UNIQUE KEY `uq_users_legacy_uuid` (`uuid`),
     KEY `ix_users_login` (`login`),
     KEY `ix_users_email` (`email`),
+    KEY `ix_users_group_tag` (`groupTag`),
     KEY `ix_users_last_date` (`last_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -58,24 +60,27 @@ CREATE TABLE `groupAssociation` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `groupName` VARCHAR(64) NOT NULL,
     `groupColor` VARCHAR(16) NOT NULL DEFAULT '#ffffff',
+    `groupTag` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     `groupNum` INT UNSIGNED NOT NULL,
     `groupType` VARCHAR(64) NOT NULL DEFAULT 'guest',
     PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_group_tag` (`groupTag`),
     UNIQUE KEY `uq_group_number` (`groupNum`),
     UNIQUE KEY `uq_group_name` (`groupName`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `groupAssociation` (`groupName`, `groupColor`, `groupNum`, `groupType`) VALUES
-    ('Администраторы', '#e85d5d', 1, 'admin'),
-    ('Игроки', '#5bd08b', 4, 'user'),
-    ('Гости', '#ffffff', 5, 'guest'),
-    ('Тестировщики', '#d6b35b', 6, 'tester');
+INSERT INTO `groupAssociation` (`groupName`, `groupColor`, `groupTag`, `groupNum`, `groupType`) VALUES
+    ('Администраторы', '#e85d5d', 'admin', 1, 'admin'),
+    ('Игроки', '#5bd08b', 'user', 4, 'user'),
+    ('Гости', '#ffffff', 'guest', 5, 'guest'),
+    ('Тестировщики', '#d6b35b', 'tester', 6, 'tester');
 
 CREATE TABLE `regCodes` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(64) NOT NULL,
     `code` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    `groupNum` INT UNSIGNED NOT NULL DEFAULT 4,
+    `groupTag` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'user',
+    `groupNum` INT UNSIGNED NOT NULL DEFAULT 4 COMMENT 'legacy compatibility only',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uq_registration_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -88,7 +93,7 @@ CREATE TABLE `servers` (
     `ignoreDirs` LONGTEXT NOT NULL DEFAULT '[]',
     `enabled` VARCHAR(5) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'false',
     `checkLib` VARCHAR(5) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'false',
-    `serverGroups` VARCHAR(255) NOT NULL DEFAULT '4,5,6',
+    `serverGroups` VARCHAR(255) NOT NULL DEFAULT '["user","guest","tester"]',
     `serverDescription` TEXT NOT NULL,
     `serverVersion` VARCHAR(64) NOT NULL DEFAULT '',
     `jreVersion` VARCHAR(64) NOT NULL DEFAULT '',

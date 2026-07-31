@@ -24,8 +24,9 @@
   --transition-standard: 240ms cubic-bezier(.2, .8, .2, 1);
   --transition-slow: 420ms cubic-bezier(.2, .8, .2, 1);
 
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "FS Elliot Pro", "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fox Rostov", "FS Elliot Pro", "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
+  --font-game: "Fox Minecraft", "FS Elliot Pro", "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
 
   /* Original FoxEngine copper / stone spectrum. Light is the fallback. */

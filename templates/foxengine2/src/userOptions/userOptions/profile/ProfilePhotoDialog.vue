@@ -140,7 +140,7 @@ onBeforeUnmount(revokeUrl)
             @pointercancel="pointerUp"
           />
           <img v-if="!selected && preview" :src="preview" :alt="`Фото ${targetLogin}`">
-          <span v-else-if="!selected">{{ targetLogin.slice(0, 1).toUpperCase() }}</span>
+          <span v-else-if="!selected">{{ targetLogin.slice(0, 1).toUpperCase() || '?' }}</span>
           <div v-if="uploading" class="profile-photo-dialog__busy" aria-label="Загрузка изображения"><span class="profile-photo-spinner" /></div>
       </div>
 

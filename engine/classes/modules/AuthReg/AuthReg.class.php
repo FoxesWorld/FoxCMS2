@@ -96,6 +96,22 @@ final class AuthManager extends Module
             }
         }
 
+        $maintenanceAdmin = $this->request->boolean('maintenanceAdmin');
+        if ($maintenanceAdmin && !$this->session->isAdmin()) {
+            $rejectedLogin = $this->session->login();
+            $this->logger->logError(
+                'Maintenance administrator access rejected for ' . $rejectedLogin
+                . ' from ' . $this->request->clientIp()
+            );
+            $this->session->clear();
+            $this->clearRememberCookie();
+            $this->json([
+                'type' => 'error',
+                'code' => 'administrator_required',
+                'message' => 'Эта форма предназначена только для администраторов.',
+            ], 403);
+        }
+
         $user = $this->session->all();
         $accessToken = bin2hex(random_bytes(16));
         if ($this->request->userAgent() === 'FoxesWorldLauncher') {
@@ -112,12 +128,14 @@ final class AuthManager extends Module
 
         $this->json([
             'type' => 'success',
-            'message' => $lang['authSuccess'] ?? 'Вход выполнен.',
+            'message' => $maintenanceAdmin
+                ? 'Администратор авторизован. Открываем сайт…'
+                : ($lang['authSuccess'] ?? 'Вход выполнен.'),
             'balance' => json_decode((string)($user['balance'] ?? '[]'), true) ?? [],
             'login' => (string)($user['login'] ?? ''),
             'token' => $accessToken,
-            'group' => (int)($user['user_group'] ?? 5),
-            'groupName' => (string)($user['groupName'] ?? ''),
+            'groupTag' => $this->session->group(),
+            'groupName' => (string)$this->session->get('groupName', ''),
             'userUuid' => $this->session->uuid(),
             'uuid' => $this->session->compactUuid(),
             'colorScheme' => (string)($user['colorScheme'] ?? ''),

@@ -203,9 +203,9 @@ if ($skipDatabase) {
         $pass('MariaDB/MySQL connection and SELECT 1 succeeded.');
 
         $requiredSchema = [
-            'users' => ['user_id', 'login', 'uuid', 'password', 'email', 'user_group', 'realname', 'reg_date', 'last_date', 'profilePhoto', 'logged_ip', 'reg_ip', 'userStatus', 'land', 'colorScheme', 'token', 'units', 'balance', 'badges', 'serversOnline', 'userPerms'],
-            'groupAssociation' => ['id', 'groupName', 'groupColor', 'groupNum', 'groupType'],
-            'regCodes' => ['id', 'name', 'code', 'groupNum'],
+            'users' => ['user_id', 'login', 'uuid', 'password', 'email', 'groupTag', 'realname', 'reg_date', 'last_date', 'profilePhoto', 'logged_ip', 'reg_ip', 'userStatus', 'land', 'colorScheme', 'token', 'units', 'balance', 'badges', 'serversOnline', 'userPerms'],
+            'groupAssociation' => ['id', 'groupTag', 'groupName', 'groupColor'],
+            'regCodes' => ['id', 'name', 'code', 'groupTag'],
             'servers' => ['id', 'serverName', 'host', 'port', 'ignoreDirs', 'enabled', 'checkLib', 'serverGroups', 'serverDescription', 'serverVersion', 'jreVersion', 'serverImage', 'modsInfo', 'mainClass', 'forgeVersion', 'client', 'mcpVersion', 'forgeGroup'],
             'infobox' => ['id', 'group_name', 'start_timestamp', 'end_timestamp', 'title', 'text', 'image', 'button_text', 'button_url'],
             'badgesList' => ['id', 'badgeName', 'description', 'img'],

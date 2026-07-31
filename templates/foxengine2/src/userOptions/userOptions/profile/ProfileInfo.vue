@@ -27,7 +27,7 @@ defineProps<{ profile: ProfileRecord }>()
       </div>
       <div>
         <dt>Группа</dt>
-        <dd>{{ profile.groupName || `Группа ${profile.user_group ?? '—'}` }}</dd>
+        <dd>{{ profile.groupName || profile.groupTag || 'Гости' }}</dd>
       </div>
     </dl>
   </section>

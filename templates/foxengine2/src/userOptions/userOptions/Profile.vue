@@ -12,9 +12,10 @@ const props = defineProps<{
   loading: boolean
   error: string
   profile: ProfileRecord | null
-  viewerGroup: number
+  viewerGroupTag: string
   isOwner: boolean
   canEditPhoto: boolean
+  canEditUser: boolean
   photoDialogOpen: boolean
   photoUploading: boolean
   photoError: string
@@ -33,6 +34,10 @@ const emit = defineEmits<{
 const router = useRouter()
 function openBadge(id: string): void { void router.push({ name: 'badge', params: { id } }) }
 function openSettings(): void { void router.push({ name: 'profile-settings' }) }
+function openUserSettings(): void {
+  if (!props.profile?.uuid) return
+  void router.push(`/settings/profile/${encodeURIComponent(props.profile.uuid)}`)
+}
 </script>
 
 <template>
@@ -44,11 +49,14 @@ function openSettings(): void { void router.push({ name: 'profile-settings' }) }
 
   <article v-else class="content-surface profile-page" :style="{ '--profile-accent': accent }">
     <ProfileHeader
+      :key="profile.uuid || profile.login"
       :profile="profile"
       :accent="accent"
       :is-owner="isOwner"
       :can-edit-photo="canEditPhoto"
+      :can-edit-user="canEditUser"
       @settings="openSettings"
+      @edit-user="openUserSettings"
       @edit-photo="emit('editPhoto')"
     />
     <ProfileFacts
@@ -59,7 +67,7 @@ function openSettings(): void { void router.push({ name: 'profile-settings' }) }
       @open-badge="openBadge"
     />
 
-    <div v-if="viewerGroup === 1 && !isOwner" class="profile-admin-context">
+    <div v-if="viewerGroupTag === 'admin' && !isOwner" class="profile-admin-context">
       Административный просмотр: приватные данные отображаются только в пределах разрешённого API-контракта.
     </div>
 
@@ -77,7 +85,7 @@ function openSettings(): void { void router.push({ name: 'profile-settings' }) }
       <aside class="profile-content-grid__aside">
         <ProfileBadges :badges="badges" @open="openBadge" />
         <ProfileDataSection
-          v-if="isOwner || viewerGroup === 1"
+          v-if="isOwner || viewerGroupTag === 'admin'"
           title="Баланс"
           eyebrow="Личный счёт"
           :entries="balances"
