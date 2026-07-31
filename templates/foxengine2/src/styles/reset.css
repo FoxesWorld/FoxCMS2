@@ -1,0 +1,18 @@
+*, *::before, *::after { box-sizing: border-box; }
+html { min-width: 320px; scroll-behavior: smooth; background: var(--color-bg); font-family: var(--font-sans); }
+body { margin: 0; min-width: 320px; min-height: 100vh; font-family: inherit; font-size: 16px; line-height: 1.5; color: var(--color-text); background: var(--color-bg); text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+button, input, textarea, select, optgroup { font: inherit; color: inherit; }
+button { padding: 0; }
+a { color: inherit; }
+img, svg, video, canvas { display: block; max-width: 100%; }
+p, h1, h2, h3, h4, figure, blockquote { margin-top: 0; }
+code, pre, kbd, samp { font-family: var(--font-mono); }
+h1, h2, h3, h4 { text-wrap: balance; }
+p, li { text-wrap: pretty; }
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-accent) 72%, white); outline-offset: 3px; }
+::selection { color: #160c06; background: #eda86f; }
+:target { scroll-margin-top: calc(var(--header-height) + 20px); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

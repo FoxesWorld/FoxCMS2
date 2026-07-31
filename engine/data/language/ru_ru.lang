@@ -1,0 +1,207 @@
+<?php
+
+	$lang = array(
+	
+		/*Bugs*/
+		'bugs' => '<div class="alert alert-danger" role="alert">Возможны баги!</div>',
+	
+		/*ProfileEdit*/
+		'profileEdit' => array(
+			'noLoginSent' => "Не передан логин!",
+			'noHashSent' => "Не передан хеш!",
+			'hashMismatch' => "Не подошёл хеш для {user}!",
+			'noPassword' => "Не введен пароль!",
+			'incorrectPassword' => "Неправильный пароль!",
+			'noEmail' => "Не введена почта!",
+			'invalidEmail' => "Не валидная почта!",
+			'noUsergroup' => "Не передана группа!",
+			'invalidUsergroup' => "Не твоя группа!",
+			'restrictdUsergroup' => "Вашей группе запрещено изменять профиль",
+			'profileUpdated' => "Профиль обновлен!",
+			'needAuthorise' => "Необходима авторизация!"
+		),
+		
+		/*adminPanel*/
+		'adminPanel' => array(
+			'adminOptions' => "Опции Администратора",
+			'settings.title' => "Настройки",
+			'settings.desc' => "Настройка сайта",
+			'users.title' => "Пользователи",
+			'users.desc' => "Список пользователей проекта",
+			'modules.title' => "Модули",
+			'modules.desc' => "Модули FoxEngine",
+			'groupAssoc.title' => "Группы",
+			'groupAssoc.desc' => "Ассоциация групп",
+			'servers.title' => "Сервера",
+			'servers.desc' => "Конфигурация игровых серверов",
+			'templateEditor.title' => "Шаблоны",
+			'templateEditor.desc' => "Редактор шаблонов",
+			'pages.title' => "Страницы",
+			'pages.desc' => "Страницы сайта",
+			'permissions.title' => "Права",
+			'permissions.desc' => "Настройки прав пользователей"
+		),
+		
+		'mail' => array(
+			'register' => "Регистрация"
+		),
+		
+		
+		'userProfile' => array(
+			'profileTitle' => "Давай, меняй! :fox:",
+			'profileDesc' => "Посмотрим %realname%, что ты тут можешь поменять...",
+			'personalisationTitle' => "Давай, украшай!",
+			'personalisationDesc' => "Посмотрим %realname%, что ты тут можешь сделать...",
+			'securityTitle' => "Давай, защищайся!",
+			'securityDesc' => "Настройки безопасности, %realname%, изменить может тут",
+			
+			'profileOf' =>"Профиль пользователя ",
+			'profileSettings' => "Основные",		
+			'takeMeBack' => "Верни меня назад",
+			'personalisation' => "Персонализация",
+			'security' => "Безопасность",
+			'connections' => "Учётные записи",
+			'edit' => "Изменить профиль",
+			'submit' => "Сохранить",
+			'ago' => "назад",
+			'offline' => "Только что",
+			
+			'fullName' => "Имя",
+			'status' => "Статус",
+			'land' => "Зона обитания",
+			'email' => "Электронная почта ",
+			'timeToProject' => "Время на проекте",
+			'currentPass' => "Текущий пароль",
+			'userGroup' => "Группа пользователя",
+			'loadPhoto' => "Загрузка фото профиля:",
+			'colorScheme' => "Цветовая схема профиля:",
+			'units' => "Юниты",
+			'crystals' => "Кристаллы",
+			'online' => "Последний вход: ",
+			'skin' => "Скин",
+			'cape' => "Плащ"
+		),
+		
+		/*LoadFile*/
+		'successLoad' => "Успешная загрузка",
+		'errorLoad' => "Ошибка загрузки",
+		'noFiles' => "Нет файла для загрузки!",
+		
+		/*Auth*/
+		'authSuccess' => "Успешная авторизация!",
+		'authWrong' => "Неверный логин или пароль!",
+		
+		/*LogOut*/
+		'loggedOut' => "Выход произведен!",
+		
+		/*Register*/
+		'loginUsed' => "Данный логин уже зарегистрирован!",
+		'loginTooLong' => "Логин длиннее %key% символов!",
+		'emailUsed' => "Данная почта уже была зарегистрирована!",
+		'noEmail' => "Кто-то забыл почту ввести",
+		'badSyms' => "Недопустимые символы - ",
+		"passUnequals" => "Пароли не совпадают",
+		'passBadSyms' => "Плохие символы пароля!",
+		'passTooShort' => "Короткий пароль - ",
+		'regComplete' => "Регистрация завершена!",
+		'enterCaptcha' => "Капча не завершена!",
+		'dataProcessing' => "Необходимо принять соглашение об обработке персональных данных!",
+		'acceptRules' => "С правилами обычно соглашаются!",
+		
+		/*Settings*/
+		'dbHost-title' => "Хост базы данных",
+		'dbHost-desc' => "Хост на котором работает ваша база данных, чаще всего localhost",
+		'dbUser-title' => "Логин пользователя Базы данных",
+		'dbUser-desc' => "Имя пользователя базы данных",
+		"dbPass-title" => "Пароль от базы данных",
+		"dbPass-desc" => "Пароль, с которым пользователь может войти в базу данных",
+		"dbName-title" => "Имя базы данных",
+		"dbName-desc" => "Имя базы данных для хранения данных веб сервиса",
+		"lang-title" => "Язык сайта",
+		"lang-desc" => "Какой язык будет использоваться в HTML",
+		"siteTpl-title" => "Шаблон сайта",
+		"siteTpl-desc" => "Шаблон из папки /templates/",
+		"siteTitle-title" => "Заголовок сайта",
+		"siteTitle-desc" => "Имя веб сервиса",
+		"siteStatus-title" => "Статус сайта",
+		"siteStatus-desc" => "Статус веб сервиса",
+		"siteDesc-title" => "Описание веб сервиса",
+		"siteDesc-desc" => "Мета тег description",
+		"keywords-title" => "Ключевые слова",
+		"keywords-desc" => "Слова, по которым сайт можно найти в поисковике",
+		"contactEmail-title" => "Контактная электронная почта",
+		"contactEmail-desc" => "",
+		"contactPhone-title" => "Контактный телефон",
+		"contactPhone-desc" => "",
+		"ServiceVersion-title" => "Версия веб сервиса",
+		"ServiceVersion-desc" => "",
+		"reCaptchaSecret-title" => "Секретный ключ ReCaptcha",
+		"reCaptchaSecret-desc" => "Ключ необходимый для верификации капчи",
+		"reCaptchaWebsite-title" => "Публичный ключ ReCaptcha",
+		"reCaptchaWebsite-desc" => "Клиентский ключ, необходимый для шифровки капчи",
+		"bantime-title" => "Время блокировки пользователя",
+		"bantime-desc" => "Время, на которое пользователь будет заблокирован при превышении разрешенного количества ошибочных авторизаций",
+		"maxLoginAttempts-title" => "Количество разрешенных ошибок при авторизации",
+		"maxLoginAttempts-desc" => "",
+		"reCaptchaCheck-title" => "Проверка капчи",
+		"reCaptchaCheck-desc" => "",
+		"timezone-title" => "Часовой пояс",
+		"timezone-desc" => "Где обитаем?",
+		"webserviceName-title" => "Название веб сервиса",
+		"keyCheck-title" => "Проверка ключа при отправке JavaScript",
+		"keyCheck-desc" => "",
+		"webserviceName-desc" => "",
+		"gameFiles-title" => "Игровые файлы",
+		"gameFiles-desc" =>"В какой директории лежат файлы игры",
+		"platformExtensions-title" => "Разрешения платформ",
+		"platformExtensions-desc" => "Файлы каких разрешений скачиваем для каждой платформы",
+		"serverPictures-title" => "Изображения серверов",
+		"serverPictures-desc" => "Директория с изображениями использующимися для серверов",
+		"jreDir-title" =>  "Путь к архивам Jre",
+		"jreDir-desc" => "В какой директории лежат JVM",
+		"userOptions-title" => "Директория опций пользователя",
+		"userOptions-desc" => "Директория шаблона в которой находятся опции и страницы для различных групп пользователей",
+		"OptionReplaceValues-title" => "Заменяемые фрагменты текста",
+		"OptionReplaceValues-desc" => "Замена полей в файлах <b>userOptions</b> динамически, подгружаемого шаблона на произвольные значения. <b>cfgVal()</b> - поле из конфигурации.",
+		"userFieldsArray-title" => "Строка полей пользователя",
+		"userFieldsArray-desc" => "Поля пользователя, которые мы достаём из БД при успешной авторизации",
+		"canEditGroup-title" => "Группы, которым разрешено редактировать профиль",
+		"canEditGroup-desc" => "",
+		"contentBlock-title" => "Блок контента",
+		"contentBlock-desc" => "HTML блок для загрузки в него контента",
+		"secureKey-title" => "Ключ безопасности",
+		"secureKey-desc" => "Код, проверяемый при обмене информацией между бэкендом и фронтендом",
+		"debug-title" => "Дебаг решим",
+		"debug-desc" => "Отображает в консоли дебаг информацию JavaScript",
+		"telegramBotToken-title" => "Токен Телеграм Бота",
+		"appId-title" => "DiscordRPC key",
+		"appId-desc" => "Ключ для работы Discord RPC",
+		"accessToken-title" => "VK accessToken",
+		"accessToken-desc" => "Токен для доступа к новостям ВК",
+		"telegramBotToken-desc" => "",
+		"telegramChatId-title" => "ID чата для отправки сообщений ботом",
+		"telegramChatId-desc" => "",
+		"discordLink-title" => "Ссылка на сервер Дискорд",
+		"discordLink-desc" =>"Приглашение для пользователей на наш сервер",
+		"vkLink-title" => "Ссылка на группу ВК",
+		"vkLink-desc" => "Приглашение пользователей в нашу группу",
+		"passminCount-title" => "Минимальная длина пароля",
+		"maxLoginLength-title" => "Максимальная длина логина",
+		"baseUserGroup-title" => "Базовая группа пользователя",
+		
+		
+		
+		
+		/*Tabs*/
+		"databaseTab" => '<i class="fa fa-database"></i> База данных',
+		"frontendSettingsTab" => '<i class="fa-solid fa-coffee-beans"></i> JavaScript',
+		"siteSettingsTab" => '<i class="fa fa-cogs"></i> Настройки сайта',
+		"launcherSettingsTab" => '<i class="fa-thin fa-screwdriver-wrench"></i> Настройки Лаунчера',
+		"securitySetingsTab" => '<i class="fa fa-shield"></i> Безопасность',
+		"registerTab" => "Регистрация",
+		"otherTab" => '<i class="fa fa-archive"></i> Другое',
+		"configChanged" => "Конфигурация изменена",
+		
+		"userNotFound" => 'Пользователь <strong>{replace}</strong> не найден!',
+		"optionInvalid" => 'Опция - <strong>{replace}</strong> не найдена или <b style="color: {groupColor}">{groupName}</b> просто не может её находить  :form:'
+	);

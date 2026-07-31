@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+if (!defined('FOXXEY')) {
+    http_response_code(403);
+    exit('{"message":"Not in FOXXEY thread"}');
+}
+
+final class authorize
+{
+    public static function passVerify(string $input, string $storedHash): bool
+    {
+        if ($input === '' || $storedHash === '') {
+            return false;
+        }
+
+        if (self::isLegacyHash($storedHash)) {
+            return hash_equals(strtolower($storedHash), self::legacyHash($input));
+        }
+
+        return password_verify($input, $storedHash);
+    }
+
+    public static function needsRehash(string $storedHash): bool
+    {
+        return self::isLegacyHash($storedHash)
+            || password_needs_rehash($storedHash, PASSWORD_DEFAULT);
+    }
+
+    public static function hashPassword(string $password): string
+    {
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        if (!is_string($hash) || $hash === '') {
+            throw new RuntimeException('Unable to hash the password.');
+        }
+        return $hash;
+    }
+
+    public static function isLegacyHash(string $storedHash): bool
+    {
+        return strlen($storedHash) === 32 && ctype_xdigit($storedHash);
+    }
+
+    private static function legacyHash(string $password): string
+    {
+        return md5(md5($password));
+    }
+}

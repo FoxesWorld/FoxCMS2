@@ -1,0 +1,2 @@
+import{a as e,o as t}from"../theme.js";var n=null,r=null;function i(n){let r=t(e,`content`);if(!r)throw Error(`Engine content endpoint is unavailable`);let i=new URL(r,window.location.origin);return i.searchParams.set(`registry`,n),i.toString()}function a(e){return fetch(i(e),{credentials:`same-origin`}).then(e=>{if(!e.ok)throw Error(`Content registry request failed: ${e.status}`);return e.json()})}function o(){return n??=a(`static-pages`)}function s(){return r??=a(`badges`)}export{o as n,s as t};
+//# sourceMappingURL=contentData-DQqTtrYY.js.map

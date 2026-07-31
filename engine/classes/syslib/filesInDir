@@ -1,0 +1,138 @@
+<?php
+/**
+ * Script to get list of files with !ignoreFiles option
+ *
+ * @version	2021.11.11
+ * @author  Aiden Fox
+ * @link    https://github.com/AidenF0X
+ * @license	GNU/GPL http://www.gnu.org/licenses/gpl.html
+
+ * FOXXEY library file `filesInDir`
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
+if(!defined('FOXXEY')) {
+	die ('{"message": "Not in FOXXEY thread"}');
+}
+	class filesInDir {
+
+		private static $ignoreFileName 	= '!ignoredFiles';
+		private static $allFilesArray 	= array();
+		private static $ignoreFilesArray = array();
+		private static $ignoreFilePath  = array();
+
+		/*CONFIG*/
+		private static $mdlName		  = 'filesInDir';
+		private static $config		  = array();
+		private static $defaultConfig = array('filesInDir' =>
+		array(
+			'ignoreFileName' => '!ignoredFiles',
+			'explodeSymbol'  => ','
+		));
+
+		public static function filesInDirArray($path, $mask = "*", $useIgnoreFile = true, $debug = false): array {
+			$files = array();
+
+			if (!is_dir($path)) {
+				return array();
+			}
+
+			$openDir = @opendir($path);
+			if ($openDir === false) {
+				return array();
+			}
+
+			self::$ignoreFilePath = $path . DIRECTORY_SEPARATOR . self::$ignoreFileName;
+			self::$ignoreFilesArray = self::getIgnoreFile($debug);
+
+			while (($file = readdir($openDir)) !== false) {
+				if ($file === '.' || $file === '..' || $file === self::$ignoreFileName) {
+					continue;
+				}
+
+				if ($mask === '*') {
+					$files[] = $file;
+					continue;
+				}
+
+				if (strpos($file, $mask) !== false && !is_dir($path . DIRECTORY_SEPARATOR . $file)) {
+					$files[] = $file;
+				}
+			}
+
+			closedir($openDir);
+			self::$allFilesArray = $files;
+
+			if (!$useIgnoreFile) {
+				return array_values(self::$allFilesArray);
+			}
+
+			return array_values(self::filterFiles(
+				self::$allFilesArray,
+				is_array(self::$ignoreFilesArray) ? self::$ignoreFilesArray : array(),
+				$debug
+			));
+		}
+
+		public static function getIncludes($dir, $mask = '*'){
+			self::confInit(self::$mdlName, self::$defaultConfig);
+			$filePath = INCDIR.$dir.'/';
+			$filesAray = self::filesInDirArray($filePath,$mask);
+			$count = count($filesAray);
+			for($i = 0; $i < $count; $i++){
+				if(is_file($filePath.$filesAray[$i])) {
+					require ($filePath.$filesAray[$i]);
+				}
+			}
+		}
+
+		private static function getIgnoreFile($debug = false){
+			if(file_exists(self::$ignoreFilePath)) {
+				if($debug) echo 'Ignore file was found! <br/>';
+				$fileContents = self::getFileContents(self::$ignoreFilePath);
+				$exploded = @explode(self::$config['explodeSymbol'], $fileContents[0]);
+				if(count($exploded) > 0) {
+					$explodedArray = $exploded;
+					if(count($explodedArray) < 2) {
+						$explodedArray = $fileContents;
+					}
+
+					return $explodedArray;
+				} else {
+					return array();
+				}
+			} else {
+				return array();
+				if($debug) echo 'Ignore file not found! <br/>';
+			}
+		}
+
+		private static function getFileContents($path){
+			$finalArray = array();
+			$file = (Array) file(self::$ignoreFilePath);
+			foreach($file as $key){
+				if(strpos($key,"#") !== 0){
+					$finalArray[] = $key;
+				}
+			}
+			return (Array) $finalArray;
+		}
+
+		private static function filterFiles($allFiles = array(), $ignoreList = array(), $debug = false){
+			$filesArray = array_merge(array_diff($allFiles,$ignoreList),array_diff($ignoreList,$allFiles));
+			sort($filesArray);
+			return array_diff($filesArray, array(''));
+		}
+
+		private static function confInit(){
+			$conf = conff::confGen(self::$mdlName, self::$defaultConfig);
+			self::$config = $conf->readInIarray();
+		}
+
+	}

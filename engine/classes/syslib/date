@@ -1,0 +1,99 @@
+<?php
+/**
+ * Script to get list of files with !ignoreFiles option
+ *
+ * @version	2021.12.01
+ * @author  Aiden Fox
+ * @link    https://github.com/AidenF0X
+ * @license	GNU/GPL http://www.gnu.org/licenses/gpl.html
+ 
+  * FOXXEY library file `date`
+ 
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
+if(!defined('FOXXEY')) {
+	die ('{"message": "Not in FOXXEY thread"}');
+}
+	class date {
+		
+		public static function getCurrentDate($dateType){			
+			$dateExploded = explode ('.',CURRENT_DATE);
+			$day = $dateExploded[0];
+			$month = $dateExploded[1];
+			$year = $dateExploded[2];
+
+			switch($dateType){
+				case 'day':
+					$strOut =  $day;
+				break;
+				
+				case 'month':
+					$strOut = $month;
+				break;
+				
+				case 'year':
+					$strOut = $year;
+				break;
+			}
+
+			return $strOut;
+		}
+		
+		public static function shortDateToUnix($tempTime){
+			$timeToBan = intval($tempTime);
+			$duraion = 60;
+
+			switch($tempTime){
+
+				case (strpos($tempTime, 'm') === 1):
+					$duraion = 60;
+				break;
+					
+				case (strpos($tempTime, 'h') === 1):
+					$duraion = 3600;
+				break;
+					
+				case (strpos($tempTime, 'd') === 1):
+					$duraion = 86400;
+				break;
+					
+				case (strpos($tempTime, 'w') === 1):
+					$duraion = 604800;
+				break;
+					
+				case (strpos($tempTime, 'm') === 1):
+					$duraion = 2629743;
+				break;
+					
+				case (strpos($tempTime, 'y') === 1):
+					$duraion = 31556926;
+				break;
+			}
+				$totalTime = $duraion * $timeToBan + CURRENT_TIME;
+
+				return $totalTime;
+			}
+			
+		public static function checkTime ($timestamp) {
+			if($timestamp) {
+				switch ($timestamp){
+					case ($timestamp > CURRENT_TIME):
+						return false;
+					break;
+						
+					case ($timestamp < CURRENT_TIME):
+						return true;
+					break;
+				}
+			} else {
+				return null;
+			}
+		}
+		
+	}

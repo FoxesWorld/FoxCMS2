@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+if (!defined('FOXXEY')) {
+    http_response_code(403);
+    exit('{"message":"Not in FOXXEY thread"}');
+}
+
+/**
+ * Compatibility JSON responder retained for the few remaining legacy call
+ * sites. New code should use an endpoint-specific response object instead.
+ */
+final class functions
+{
+    public static function jsonAnswer(string $message, bool $isError = true, ?int $status = null): never
+    {
+        if ($status === null) {
+            $status = $isError ? 400 : 200;
+        }
+        http_response_code($status);
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+
+        $payload = [
+            'message' => $message,
+            'type' => $isError ? 'error' : 'success',
+        ];
+        $encoded = json_encode(
+            $payload,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
+        if (!is_string($encoded)) {
+            throw new RuntimeException('Unable to encode the JSON response.');
+        }
+        exit($encoded);
+    }
+}

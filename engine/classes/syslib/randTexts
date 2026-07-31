@@ -1,0 +1,73 @@
+<?php 
+/*
+=====================================================
+ Well, you are Tespi today!
+-----------------------------------------------------
+ https://Foxesworld.ru/
+-----------------------------------------------------
+ Copyright (c) 2016-2021  FoxesWorld
+-----------------------------------------------------
+ This code is reserved
+-----------------------------------------------------
+ File: randTexts.class.php
+-----------------------------------------------------
+ Verssion: 0.1.4.2 Alpha
+-----------------------------------------------------
+ Usage: Generate random text to entertain user
+=====================================================
+*/
+
+if (!defined('FOXXEY')) {
+	die ('{"message": "Not in FOXXEY thread"}');
+}
+	class randTexts {
+	
+		/* INPUT */
+		private $textToSend;
+		private $debug;
+		
+		/* INTERNAL */
+		
+		private $textsDir;
+		private $textArr;
+
+		function __construct($textType, $debug = false){
+			
+			$this->textsDir 	= RT_DIR;
+			$this->debug 		= $debug;
+			$this->textToSend 	= $textType;
+
+			if($this->debug){
+				echo 'TextType - '.$this->textToSend;
+			}
+		}
+		
+		public function textOut(){
+			return $this->getTexts();
+			
+		}
+
+		private function getTexts(){
+			if(is_dir($this->textsDir)) {
+				$filePath = $this->textsDir.$this->textToSend.'.json';
+				if(file_exists($filePath)) {
+					$this->textArr = json_decode(file::efile($filePath)["content"], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+					$randWord = rand(0, count($this->textArr)-1);
+				} else {
+				$answer = '{"message": "File '.$filePath.' not found!"}}';
+				}
+				return $this->textArr[$randWord];
+			}
+		}
+		
+		private function prepareWorkDir(){
+			//WIP
+		}
+
+		public static function getRandText($file){
+			$randTexts = new randTexts($file, false);
+			$name = $randTexts->textOut();
+			
+			return $name;
+			}
+	}

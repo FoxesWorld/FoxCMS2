@@ -1,0 +1,204 @@
+<?php
+
+declare(strict_types=1);
+
+if (!defined('FOXXEY')) {
+    http_response_code(403);
+    exit('{"message":"Not in FOXXEY thread"}');
+}
+
+final class Logger
+{
+    private const MAX_BYTES = 8_388_608;
+    private const RETAIN_BYTES = 2_097_152;
+    private const LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
+
+    private string $file;
+
+    public function __construct(string $logName)
+    {
+        if (preg_match('/^[A-Za-z0-9_-]{1,48}$/D', $logName) !== 1) {
+            throw new InvalidArgumentException('Invalid log name.');
+        }
+
+        $directory = ENGINE_DIR . 'cache' . DIRECTORY_SEPARATOR . 'logs';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new RuntimeException('Unable to create the log directory.');
+        }
+        $this->file = $directory . DIRECTORY_SEPARATOR . $logName . '.log';
+    }
+
+    public function read(int $maximumBytes = self::RETAIN_BYTES): string
+    {
+        if (!is_file($this->file)) {
+            return '';
+        }
+
+        $maximumBytes = max(1_024, min(self::MAX_BYTES, $maximumBytes));
+        $size = filesize($this->file);
+        if (!is_int($size) || $size <= $maximumBytes) {
+            $content = file_get_contents($this->file);
+            return is_string($content) ? $content : '';
+        }
+
+        $handle = fopen($this->file, 'rb');
+        if ($handle === false) {
+            return '';
+        }
+        fseek($handle, -$maximumBytes, SEEK_END);
+        $content = stream_get_contents($handle);
+        fclose($handle);
+        if (!is_string($content)) {
+            return '';
+        }
+        $newline = strpos($content, "\n");
+        return $newline === false ? $content : substr($content, $newline + 1);
+    }
+
+    public function clear(): void
+    {
+        $handle = fopen($this->file, 'c+');
+        if ($handle === false) {
+            throw new RuntimeException('Unable to open the log file for clearing.');
+        }
+        try {
+            if (!flock($handle, LOCK_EX)) {
+                throw new RuntimeException('Unable to lock the log file.');
+            }
+            if (!ftruncate($handle, 0)) {
+                throw new RuntimeException('Unable to clear the log file.');
+            }
+            fflush($handle);
+            flock($handle, LOCK_UN);
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    public function log(string $level, string $message, array $context = []): void
+    {
+        $level = strtoupper($level);
+        if (!in_array($level, self::LEVELS, true)) {
+            $level = 'INFO';
+        }
+
+        $record = [
+            'timestamp' => gmdate('c'),
+            'level' => $level,
+            'message' => $this->sanitizeMessage($message),
+        ];
+        $safeContext = $this->sanitizeContext($context);
+        if ($safeContext !== []) {
+            $record['context'] = $safeContext;
+        }
+
+        $encoded = json_encode(
+            $record,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
+        if (!is_string($encoded)) {
+            $encoded = '{"timestamp":"' . gmdate('c') . '","level":"ERROR","message":"log_encoding_failed"}';
+        }
+        $this->append($encoded . PHP_EOL);
+    }
+
+    public function logInfo(string $message, array $context = []): void
+    {
+        $this->log('INFO', $message, $context);
+    }
+
+    public function logWarn(string $message, array $context = []): void
+    {
+        $this->log('WARNING', $message, $context);
+    }
+
+    public function logError(string $message, array $context = []): void
+    {
+        $this->log('ERROR', $message, $context);
+    }
+
+    public function debug(string $message, array $context = []): void
+    {
+        $this->log('DEBUG', $message, $context);
+    }
+
+    private function append(string $line): void
+    {
+        $handle = fopen($this->file, 'c+b');
+        if ($handle === false) {
+            error_log('[FoxCMS Logger] Unable to open ' . $this->file);
+            return;
+        }
+
+        try {
+            if (!flock($handle, LOCK_EX)) {
+                error_log('[FoxCMS Logger] Unable to lock ' . $this->file);
+                return;
+            }
+
+            $stats = fstat($handle);
+            $size = is_array($stats) ? (int)($stats['size'] ?? 0) : 0;
+            if ($size > self::MAX_BYTES) {
+                $retain = min(self::RETAIN_BYTES, $size);
+                fseek($handle, -$retain, SEEK_END);
+                $tail = stream_get_contents($handle);
+                if (!is_string($tail)) {
+                    $tail = '';
+                }
+                $newline = strpos($tail, "\n");
+                if ($newline !== false) {
+                    $tail = substr($tail, $newline + 1);
+                }
+                ftruncate($handle, 0);
+                rewind($handle);
+                fwrite($handle, $tail);
+            }
+
+            fseek($handle, 0, SEEK_END);
+            fwrite($handle, $line);
+            fflush($handle);
+            flock($handle, LOCK_UN);
+            @chmod($this->file, 0640);
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    private function sanitizeMessage(string $message): string
+    {
+        $message = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $message) ?? '';
+        $patterns = [
+            '/\b(Bearer)\s+[A-Za-z0-9._~+\/-]+=*/i' => '$1 [REDACTED]',
+            '/\b(password|passwd|pass|token|secret|authorization|cookie)\b\s*[:=]\s*[^\s,;]+/i' => '$1=[REDACTED]',
+            '/\b[a-f0-9]{64}\b/i' => '[REDACTED_DIGEST]',
+        ];
+        $message = preg_replace(array_keys($patterns), array_values($patterns), $message) ?? $message;
+        return mb_substr(trim($message), 0, 4_096);
+    }
+
+    private function sanitizeContext(array $context, int $depth = 0): array
+    {
+        if ($depth > 3) {
+            return [];
+        }
+
+        $safe = [];
+        foreach (array_slice($context, 0, 50, true) as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+            if (preg_match('/password|passwd|pass|token|secret|authorization|cookie/i', $key) === 1) {
+                $safe[$key] = '[REDACTED]';
+                continue;
+            }
+            if (is_array($value)) {
+                $safe[$key] = $this->sanitizeContext($value, $depth + 1);
+            } elseif (is_bool($value) || is_int($value) || is_float($value) || $value === null) {
+                $safe[$key] = $value;
+            } elseif (is_string($value)) {
+                $safe[$key] = mb_substr($this->sanitizeMessage($value), 0, 1_024);
+            }
+        }
+        return $safe;
+    }
+}

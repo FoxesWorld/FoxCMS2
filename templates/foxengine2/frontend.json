@@ -1,0 +1,492 @@
+{
+  "schema": 1,
+  "routes": [
+    {
+      "path": "/",
+      "name": "home",
+      "view": "HomeView",
+      "title": "FoxesCraft"
+    },
+    {
+      "path": "/about",
+      "name": "about",
+      "view": "AboutView",
+      "title": "О проекте"
+    },
+    {
+      "path": "/rules",
+      "name": "rules",
+      "view": "RulesView",
+      "title": "Правила"
+    },
+    {
+      "path": "/funding",
+      "name": "funding",
+      "view": "FundingView",
+      "title": "Поддержать проект"
+    },
+    {
+      "path": "/guides/draft",
+      "name": "guide-draft",
+      "view": "GuideDraftView",
+      "title": "Черновик гайда"
+    },
+    {
+      "path": "/guides/discord-access",
+      "name": "discord-access",
+      "view": "DiscordAccessView",
+      "title": "Доступ к Discord"
+    },
+    {
+      "path": "/badges/:id",
+      "name": "badge",
+      "view": "BadgeView",
+      "title": "Значок",
+      "props": true
+    },
+    {
+      "path": "/legal/privacy",
+      "name": "privacy",
+      "view": "StaticContentView",
+      "title": "Конфиденциальность",
+      "props": {
+        "pageId": "privacy"
+      }
+    },
+    {
+      "path": "/legal/cookies",
+      "name": "cookies",
+      "view": "StaticContentView",
+      "title": "Cookie",
+      "props": {
+        "pageId": "cookies"
+      }
+    },
+    {
+      "path": "/security/verified-libraries",
+      "name": "verified-libraries",
+      "view": "StaticContentView",
+      "title": "Проверенные библиотеки",
+      "props": {
+        "pageId": "verified-libraries"
+      }
+    },
+    {
+      "path": "/security/unverified-libraries",
+      "name": "unverified-libraries",
+      "view": "StaticContentView",
+      "title": "Непроверенные библиотеки",
+      "props": {
+        "pageId": "unverified-libraries"
+      }
+    },
+    {
+      "path": "/technology",
+      "name": "technology",
+      "view": "StaticContentView",
+      "title": "Технологии",
+      "props": {
+        "pageId": "technology"
+      }
+    },
+    {
+      "path": "/roadmap",
+      "name": "roadmap",
+      "view": "StaticContentView",
+      "title": "Roadmap",
+      "props": {
+        "pageId": "roadmap"
+      }
+    },
+    {
+      "path": "/admin",
+      "name": "admin",
+      "view": "AdminView",
+      "title": "Управление",
+      "auth": "user",
+      "groups": [
+        1
+      ],
+      "module": "AdminPanel"
+    },
+    {
+      "path": "/auth",
+      "name": "auth",
+      "view": "AuthView",
+      "title": "Вход",
+      "auth": "guest",
+      "module": "AuthReg"
+    },
+    {
+      "path": "/register",
+      "name": "register",
+      "view": "RegisterView",
+      "title": "Регистрация",
+      "auth": "guest",
+      "module": "AuthReg"
+    },
+    {
+      "path": "/lost-password",
+      "name": "lost-password",
+      "view": "LostPasswordView",
+      "title": "Восстановление пароля",
+      "auth": "guest",
+      "module": "AuthReg"
+    },
+    {
+      "path": "/reset-password",
+      "name": "reset-password",
+      "view": "ResetPasswordView",
+      "title": "Новый пароль",
+      "auth": "guest",
+      "module": "AuthReg"
+    },
+    {
+      "path": "/start",
+      "name": "start",
+      "view": "StartGameView",
+      "title": "Начать игру",
+      "module": "GameScanner"
+    },
+    {
+      "path": "/server/:value",
+      "name": "server",
+      "view": "ServerView",
+      "title": "Сервер",
+      "props": true,
+      "module": "GameScanner"
+    },
+    {
+      "path": "/settings/skin",
+      "name": "skin-settings",
+      "view": "SkinSettingsView",
+      "title": "Скин и плащ",
+      "auth": "user",
+      "module": "UserSettings"
+    },
+    {
+      "path": "/settings/profile",
+      "name": "profile-settings",
+      "view": "ProfileSettingsView",
+      "title": "Настройки профиля",
+      "auth": "user",
+      "module": "UserSettings"
+    },
+    {
+      "path": "/profile/:value",
+      "name": "profile",
+      "view": "ProfileView",
+      "title": "Профиль",
+      "props": true,
+      "module": "UserSettings"
+    },
+    {
+      "path": "/players",
+      "name": "players",
+      "view": "PlayersView",
+      "title": "Наши игроки",
+      "module": "UserTop"
+    },
+    {
+      "path": "/:pathMatch(.*)*",
+      "name": "fallback",
+      "redirect": "/"
+    }
+  ],
+  "navigation": [
+    {
+      "area": "header",
+      "label": "Главная",
+      "route": "home",
+      "order": 10
+    },
+    {
+      "area": "header",
+      "label": "О проекте",
+      "route": "about",
+      "order": 30
+    },
+    {
+      "area": "header",
+      "label": "Правила",
+      "route": "rules",
+      "order": 40
+    },
+    {
+      "area": "footer",
+      "label": "Конфиденциальность",
+      "route": "privacy",
+      "order": 10
+    },
+    {
+      "area": "footer",
+      "label": "Cookie",
+      "route": "cookies",
+      "order": 20
+    },
+    {
+      "area": "footer",
+      "label": "Технологии",
+      "route": "technology",
+      "order": 30
+    },
+    {
+      "area": "footer",
+      "label": "Roadmap",
+      "route": "roadmap",
+      "order": 40
+    },
+    {
+      "area": "header",
+      "label": "Управление",
+      "route": "admin",
+      "order": 90,
+      "auth": "user",
+      "groups": [
+        1
+      ],
+      "module": "AdminPanel"
+    },
+    {
+      "area": "guest",
+      "intent": "login",
+      "label": "Войти",
+      "route": "auth",
+      "order": 10,
+      "auth": "guest",
+      "module": "AuthReg"
+    },
+    {
+      "area": "guest",
+      "intent": "register",
+      "label": "Регистрация",
+      "route": "register",
+      "order": 20,
+      "auth": "guest",
+      "module": "AuthReg"
+    },
+    {
+      "area": "header",
+      "label": "Начать играть",
+      "route": "start",
+      "order": 20,
+      "module": "GameScanner"
+    },
+    {
+      "area": "account",
+      "intent": "profile",
+      "label": "Профиль",
+      "route": "profile",
+      "order": 10,
+      "auth": "user",
+      "paramsFromUser": {
+        "value": "login"
+      },
+      "module": "UserSettings"
+    },
+    {
+      "area": "account",
+      "intent": "logout",
+      "label": "Выйти",
+      "action": "logout",
+      "order": 30,
+      "auth": "user",
+      "module": "UserSettings"
+    },
+    {
+      "area": "header",
+      "label": "Игроки",
+      "route": "players",
+      "order": 50,
+      "module": "UserTop"
+    }
+  ],
+  "legacy": [
+    {
+      "kind": "page",
+      "value": "welcome",
+      "route": "home"
+    },
+    {
+      "kind": "page",
+      "value": "info",
+      "route": "about"
+    },
+    {
+      "kind": "page",
+      "value": "rules",
+      "route": "rules"
+    },
+    {
+      "kind": "page",
+      "value": "privacyPolicy",
+      "route": "privacy"
+    },
+    {
+      "kind": "page",
+      "value": "cookies",
+      "route": "cookies"
+    },
+    {
+      "kind": "page",
+      "value": "verifiedLibs",
+      "route": "verified-libraries"
+    },
+    {
+      "kind": "page",
+      "value": "unVerifiedLibs",
+      "route": "unverified-libraries"
+    },
+    {
+      "kind": "page",
+      "value": "newAge",
+      "route": "technology"
+    },
+    {
+      "kind": "page",
+      "value": "upcomingUpdates",
+      "route": "roadmap"
+    },
+    {
+      "kind": "page",
+      "value": "article",
+      "route": "guide-draft"
+    },
+    {
+      "kind": "page",
+      "value": "saveDiscord",
+      "route": "discord-access"
+    },
+    {
+      "kind": "page",
+      "value": "payment",
+      "route": "funding"
+    },
+    {
+      "kind": "page",
+      "value": "gallery",
+      "route": "home"
+    },
+    {
+      "kind": "page",
+      "value": "Three.js",
+      "route": "technology"
+    },
+    {
+      "kind": "badge",
+      "route": "badge",
+      "param": "id"
+    },
+    {
+      "kind": "page",
+      "value": "auth",
+      "route": "auth",
+      "module": "AuthReg"
+    },
+    {
+      "kind": "page",
+      "value": "reg",
+      "route": "register",
+      "module": "AuthReg"
+    },
+    {
+      "kind": "page",
+      "value": "lostpassword",
+      "route": "lost-password",
+      "module": "AuthReg"
+    },
+    {
+      "kind": "page",
+      "value": "passReset",
+      "route": "reset-password",
+      "query": {
+        "test": "token"
+      },
+      "module": "AuthReg"
+    },
+    {
+      "kind": "page",
+      "value": "startGame",
+      "route": "start",
+      "module": "GameScanner"
+    },
+    {
+      "kind": "server",
+      "route": "server",
+      "param": "value",
+      "module": "GameScanner"
+    },
+    {
+      "kind": "user",
+      "route": "profile",
+      "param": "value",
+      "module": "UserSettings"
+    },
+    {
+      "kind": "page",
+      "value": "playerTop",
+      "route": "players",
+      "module": "UserTop"
+    }
+  ],
+  "capabilities": [
+    "content.static",
+    "content.badges",
+    {
+      "name": "admin.panel",
+      "module": "AdminPanel"
+    },
+    {
+      "name": "auth.login",
+      "module": "AuthReg"
+    },
+    {
+      "name": "auth.register",
+      "module": "AuthReg"
+    },
+    {
+      "name": "auth.logout",
+      "module": "AuthReg"
+    },
+    {
+      "name": "auth.password-reset",
+      "module": "AuthReg"
+    },
+    {
+      "name": "game.launch",
+      "module": "GameScanner"
+    },
+    {
+      "name": "servers.read",
+      "module": "GameScanner"
+    },
+    {
+      "name": "content.infobox",
+      "module": "InfoBox"
+    },
+    {
+      "name": "servers.monitoring",
+      "module": "Monitoring"
+    },
+    {
+      "name": "profile.read",
+      "module": "UserSettings"
+    },
+    {
+      "name": "profile.update",
+      "module": "UserSettings"
+    },
+    {
+      "name": "skin.update",
+      "module": "UserSettings"
+    },
+    {
+      "name": "players.top",
+      "module": "UserTop"
+    }
+  ],
+  "endpoints": {
+    "actions": "/",
+    "content": "/api/content.php"
+  }
+}

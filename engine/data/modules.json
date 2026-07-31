@@ -1,0 +1,51 @@
+[
+  {
+    "name": "AuthReg",
+    "main": "AuthReg.class.php",
+    "class": "AuthManager",
+    "priority": "preInit",
+    "groups": null
+  },
+  {
+    "name": "GameScanner",
+    "main": "GameScanner.class.php",
+    "class": null,
+    "priority": "preInit",
+    "groups": null
+  },
+  {
+    "name": "InfoBox",
+    "main": "InfoBox.class.php",
+    "class": null,
+    "priority": "preInit",
+    "groups": null
+  },
+  {
+    "name": "Monitoring",
+    "main": "Monitoring.class.php",
+    "class": null,
+    "priority": "preInit",
+    "groups": null
+  },
+  {
+    "name": "UserTop",
+    "main": "UserTop.class.php",
+    "class": null,
+    "priority": "preInit",
+    "groups": null
+  },
+  {
+    "name": "AdminPanel",
+    "main": "AdminPanel.class.php",
+    "class": "AdminPanel",
+    "priority": "secondary",
+    "groups": [1]
+  },
+  {
+    "name": "UserSettings",
+    "main": "UserSettings.class.php",
+    "class": "User",
+    "priority": "secondary",
+    "groups": [1, 3, 4, 5, 6]
+  }
+]

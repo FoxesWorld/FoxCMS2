@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "name": "foxengine2",
+  "shell": "index.html",
+  "mount": "foxescraft-app",
+  "assets": {
+    "styles": [
+      "assets/runtime/theme.css",
+      "assets/css/legacy-continuation.css"
+    ],
+    "scripts": [
+      "assets/runtime/theme.js"
+    ]
+  },
+  "frontend": "frontend.json"
+}

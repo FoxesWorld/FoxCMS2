@@ -1,0 +1,37 @@
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import PassResetPage from '@theme/userOptions/content/guest/PassReset.vue'
+import { foxesApi } from '@/api'
+import { toastFeedback } from '@/notifications/toasts'
+
+interface ApiResponse { type: 'success' | 'error' | string; message: string }
+const route = useRoute()
+const router = useRouter()
+const token = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
+const form = reactive({ password: '', confirmation: '' })
+const submitting = ref(false)
+const feedback = ref<ApiResponse | null>(null)
+
+async function submit(): Promise<void> {
+  feedback.value = null
+  if (!token.value) { feedback.value = toastFeedback({ type: 'error', message: 'В ссылке отсутствует token восстановления.' }); return }
+  if (form.password !== form.confirmation) { feedback.value = toastFeedback({ type: 'error', message: 'Пароли не совпадают.' }); return }
+  if (form.password.length < 10 || /[А-Яа-яЁё]/u.test(form.password)) { feedback.value = toastFeedback({ type: 'error', message: 'Пароль должен содержать минимум 10 символов без кириллицы.' }); return }
+
+  submitting.value = true
+  try {
+    feedback.value = await foxesApi.post<ApiResponse>({
+      user_doaction: 'resetpassword',
+      token: token.value,
+      new_password: form.password,
+      confirm_password: form.confirmation,
+    })
+    if (feedback.value.type === 'success') window.setTimeout(() => void router.push({ name: 'auth' }), 1000)
+  } catch (error) {
+    console.error('[FoxesCraft] Password reset request failed', error)
+    feedback.value = { type: 'error', message: 'Сервер восстановления временно недоступен.' }
+  } finally { submitting.value = false }
+}
+</script>
+<template><PassResetPage :form="form" :token-available="Boolean(token)" :submitting="submitting" :feedback="feedback" @submit="submit" @navigate="router.push({ name: $event })" /></template>

@@ -1,0 +1,14 @@
+/.idea/
+/.springsuite-repository.json
+/.springsuite/
+/.env
+/.env.*
+!/.env.example
+/templates/*/node_modules/
+/templates/*/.vite/
+/templates/*/npm-debug.log*
+/uploads/
+*.log
+engine/templates_c/
+engine/cache/logs/*.log
+.phpunit.result.cache

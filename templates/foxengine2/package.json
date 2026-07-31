@@ -1,0 +1,38 @@
+{
+  "name": "foxescraft-theme-foxengine2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "vue-tsc --noEmit -p tsconfig.json && vite build --config vite.config.ts",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "audit:legacy": "node scripts/audit-legacy.mjs",
+    "audit:legacy:baseline": "node scripts/audit-legacy.mjs --write-baseline",
+    "check": "npm run typecheck && npm run build && npm run check:assets && npm run check:boundary && npm run check:frontend-registry && npm run check:contracts && npm run check:php && npm run check:php-architecture && npm run check:identity && npm run check:maintenance && npm run check:secrets && npm run check:removed-runtime && npm run audit:legacy && npm run check:bundle",
+    "check:assets": "node scripts/check-assets.mjs",
+    "check:boundary": "node scripts/check-modern-boundary.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "check:php": "node scripts/check-php-syntax.mjs",
+    "check:removed-runtime": "node scripts/check-removed-runtime.mjs",
+    "check:php-architecture": "node scripts/check-php-architecture.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:frontend-registry": "node scripts/check-frontend-registry.mjs",
+    "check:identity": "node scripts/check-uuid-identity.mjs",
+    "check:maintenance": "node scripts/check-maintenance-mode.mjs"
+  },
+  "dependencies": {
+    "vue": "3.5.40",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@vitejs/plugin-vue": "6.0.8",
+    "php-parser": "^3.7.0",
+    "typescript": "^5.9.3",
+    "vite": "8.2.0",
+    "vue-tsc": "3.3.8"
+  },
+  "description": "Autonomous FoxesCraft foxengine2 template and verification suite."
+}

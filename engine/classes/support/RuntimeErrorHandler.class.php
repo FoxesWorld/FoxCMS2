@@ -1,0 +1,277 @@
+<?php
+
+declare(strict_types=1);
+
+final class RuntimeErrorHandler
+{
+    private static string $rootDirectory = '';
+    private static string $logFile = '';
+    private static bool $debug = false;
+    private static bool $handlingFailure = false;
+    private static string $requestId = '';
+
+    public static function register(string $rootDirectory, bool $debug = false): void
+    {
+        self::$rootDirectory = rtrim($rootDirectory, '/\\');
+        self::$logFile = self::$rootDirectory
+            . DIRECTORY_SEPARATOR . 'engine'
+            . DIRECTORY_SEPARATOR . 'cache'
+            . DIRECTORY_SEPARATOR . 'logs'
+            . DIRECTORY_SEPARATOR . 'runtime.log';
+        self::$requestId = self::createRequestId();
+        self::setDebug($debug);
+
+        ini_set('log_errors', '1');
+        error_reporting(E_ALL);
+
+        set_error_handler([self::class, 'handleError']);
+        set_exception_handler([self::class, 'handleException']);
+        register_shutdown_function([self::class, 'handleShutdown']);
+    }
+
+    public static function setDebug(bool $debug): void
+    {
+        self::$debug = $debug;
+        ini_set('display_errors', $debug ? '1' : '0');
+        ini_set('display_startup_errors', $debug ? '1' : '0');
+    }
+
+    public static function handleError(
+        int $severity,
+        string $message,
+        string $file,
+        int $line,
+    ): bool {
+        if ((error_reporting() & $severity) === 0) {
+            return false;
+        }
+
+        self::writeLog('PHP error', $message, $file, $line, null, $severity);
+
+        if (in_array($severity, [E_USER_ERROR, E_RECOVERABLE_ERROR], true)) {
+            throw new ErrorException($message, 0, $severity, $file, $line);
+        }
+
+        return true;
+    }
+
+    public static function handleException(Throwable $throwable): void
+    {
+        if (self::$handlingFailure) {
+            self::fallbackLog($throwable);
+            return;
+        }
+
+        self::$handlingFailure = true;
+        self::writeLog(
+            get_class($throwable),
+            $throwable->getMessage(),
+            $throwable->getFile(),
+            $throwable->getLine(),
+            $throwable->getTraceAsString(),
+            $throwable->getCode(),
+        );
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Cache-Control: no-store');
+            header('X-Content-Type-Options: nosniff');
+            header('X-FoxCMS-Request-Id: ' . self::$requestId);
+        }
+
+        if (self::expectsJson()) {
+            if (!headers_sent()) {
+                header('Content-Type: application/json; charset=UTF-8');
+            }
+
+            $payload = [
+                'type' => 'error',
+                'message' => self::$debug
+                    ? $throwable->getMessage()
+                    : 'Internal server error.',
+                'requestId' => self::$requestId,
+            ];
+
+            if (self::$debug) {
+                $payload['exception'] = get_class($throwable);
+                $payload['file'] = self::relativePath($throwable->getFile());
+                $payload['line'] = $throwable->getLine();
+            }
+
+            echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=UTF-8');
+        }
+
+        echo self::renderHtml($throwable);
+    }
+
+    public static function handleShutdown(): void
+    {
+        $error = error_get_last();
+        if ($error === null) {
+            return;
+        }
+
+        if (!in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+            return;
+        }
+
+        if (self::$handlingFailure) {
+            return;
+        }
+
+        self::$handlingFailure = true;
+        self::writeLog(
+            'Fatal shutdown error',
+            (string)$error['message'],
+            (string)$error['file'],
+            (int)$error['line'],
+            null,
+            (int)$error['type'],
+        );
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=UTF-8');
+            header('Cache-Control: no-store');
+            header('X-FoxCMS-Request-Id: ' . self::$requestId);
+        }
+
+        if (self::$debug) {
+            echo "Fatal error: {$error['message']}\n"
+                . 'File: ' . self::relativePath((string)$error['file']) . ':' . (int)$error['line'] . "\n"
+                . 'Request ID: ' . self::$requestId;
+            return;
+        }
+
+        echo 'Internal server error. Request ID: ' . self::$requestId;
+    }
+
+    private static function writeLog(
+        string $type,
+        string $message,
+        string $file,
+        int $line,
+        ?string $trace,
+        int|string $code,
+    ): void {
+        $context = [
+            'timestamp' => gmdate('c'),
+            'requestId' => self::$requestId,
+            'type' => $type,
+            'code' => $code,
+            'message' => $message,
+            'file' => self::relativePath($file),
+            'line' => $line,
+            'method' => (string)($_SERVER['REQUEST_METHOD'] ?? 'CLI'),
+            'uri' => self::sanitizeUri((string)($_SERVER['REQUEST_URI'] ?? '')),
+            'remoteIp' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+        ];
+
+        if ($trace !== null && $trace !== '') {
+            $context['trace'] = $trace;
+        }
+
+        $lineValue = json_encode(
+            $context,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
+        if (!is_string($lineValue)) {
+            $lineValue = gmdate('c') . ' [' . self::$requestId . '] ' . $type . ': ' . $message;
+        }
+        $lineValue .= PHP_EOL;
+
+        $directory = dirname(self::$logFile);
+        if ((is_dir($directory) || @mkdir($directory, 0775, true)) && is_writable($directory)) {
+            if (@file_put_contents(self::$logFile, $lineValue, FILE_APPEND | LOCK_EX) !== false) {
+                return;
+            }
+        }
+
+        error_log(rtrim($lineValue));
+    }
+
+    private static function fallbackLog(Throwable $throwable): void
+    {
+        error_log(
+            '[FoxCMS][' . self::$requestId . '] '
+            . get_class($throwable) . ': ' . $throwable->getMessage()
+            . ' in ' . $throwable->getFile() . ':' . $throwable->getLine()
+        );
+    }
+
+    private static function renderHtml(Throwable $throwable): string
+    {
+        $title = self::$debug ? get_class($throwable) : 'Internal server error';
+        $message = self::$debug ? $throwable->getMessage() : 'FoxCMS could not complete the request.';
+        $details = '';
+
+        if (self::$debug) {
+            $location = self::relativePath($throwable->getFile()) . ':' . $throwable->getLine();
+            $details = '<dl>'
+                . '<dt>Location</dt><dd><code>' . self::escape($location) . '</code></dd>'
+                . '<dt>Trace</dt><dd><pre>' . self::escape($throwable->getTraceAsString()) . '</pre></dd>'
+                . '</dl>';
+        }
+
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<meta name="robots" content="noindex,nofollow">'
+            . '<title>FoxCMS · HTTP 500</title>'
+            . '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;'
+            . 'background:#090d0b;color:#eef4f0;font-family:system-ui,sans-serif}main{width:min(880px,100%);padding:32px;'
+            . 'border:1px solid #26332c;border-radius:18px;background:#101712}h1{margin:0 0 16px;font-size:clamp(2rem,6vw,4rem)}'
+            . 'p,dd{color:#aab9b0;line-height:1.6}code,pre{font-family:ui-monospace,monospace}pre{max-height:45vh;overflow:auto;'
+            . 'padding:16px;border-radius:10px;background:#080c09;white-space:pre-wrap;overflow-wrap:anywhere}dt{margin-top:18px;font-weight:700}'
+            . '.id{display:inline-block;margin-top:20px;padding:8px 12px;border-radius:999px;background:#19251e;color:#bfdbc9}</style>'
+            . '</head><body><main><div>HTTP 500</div><h1>' . self::escape($title) . '</h1>'
+            . '<p>' . self::escape($message) . '</p>'
+            . '<div class="id">Request ID: ' . self::escape(self::$requestId) . '</div>'
+            . $details
+            . '</main></body></html>';
+    }
+
+    private static function expectsJson(): bool
+    {
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        $requestedWith = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $uri = strtolower((string)($_SERVER['REQUEST_URI'] ?? ''));
+
+        return str_contains($accept, 'application/json')
+            || $requestedWith === 'xmlhttprequest'
+            || str_contains($uri, '/api/');
+    }
+
+    private static function createRequestId(): string
+    {
+        try {
+            return bin2hex(random_bytes(8));
+        } catch (Throwable) {
+            return str_replace('.', '', uniqid('fox', true));
+        }
+    }
+
+    private static function relativePath(string $file): string
+    {
+        if (self::$rootDirectory !== '' && str_starts_with($file, self::$rootDirectory)) {
+            return ltrim(substr($file, strlen(self::$rootDirectory)), '/\\');
+        }
+
+        return $file;
+    }
+
+    private static function sanitizeUri(string $uri): string
+    {
+        $questionMark = strpos($uri, '?');
+        return $questionMark === false ? $uri : substr($uri, 0, $questionMark);
+    }
+
+    private static function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+}

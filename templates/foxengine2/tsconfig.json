@@ -1,0 +1,52 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "vite/client"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "../../engine/client/*"
+      ],
+      "@engine/*": [
+        "../../engine/client/*"
+      ],
+      "@theme/*": [
+        "src/*"
+      ],
+      "@modules/*": [
+        "../../engine/classes/modules/*"
+      ]
+    },
+    "noEmit": true,
+    "skipLibCheck": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "../../engine/client/**/*.ts",
+    "../../engine/client/**/*.d.ts",
+    "../../engine/client/**/*.vue",
+    "../../engine/classes/modules/*/client/**/*.ts",
+    "../../engine/classes/modules/*/client/**/*.vue"
+  ]
+}

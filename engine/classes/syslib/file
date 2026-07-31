@@ -1,0 +1,125 @@
+<?php
+/**
+ * Script to get list of files with !ignoreFiles option
+ *
+ * @version	2021.11.11
+ * @author  Aiden Fox
+ * @link    https://github.com/AidenF0X
+ * @license	GNU/GPL http://www.gnu.org/licenses/gpl.html
+ 
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
+class file {
+    private static $filePath = 'undefined';
+    private static $inputText = 'undefined';
+    private static $writeNode = 'undefined';
+    private static $fileResourceLink;
+    private static $rights = 'undefined';
+    private static $fileSize = 'undefined';
+    private static $message = 'undefined';
+    private static $fileContents = 'undefined';
+    private static $recordedContents = 'undefined';
+    private static $outArray = array();
+    private static $serialize = false;
+    private static $workDone = false;
+
+    public static function efile($filePath, $serialize = false, $str = null){
+        self::$serialize = $serialize;
+        if ($filePath) {
+            self::$filePath = $filePath;
+            if (file_exists($filePath)) {
+                self::fileMode($filePath, $str);
+                self::fileop($filePath, $str);
+            } elseif ($str) {
+                self::fcreate($filePath, $str);
+            }
+
+            self::$outArray = array(
+                'path' => self::$filePath,
+                'size' => self::$fileSize,
+                'status' => self::$workDone ? 'true' : 'false',
+                'rights' => self::$rights,
+                'content' => self::$fileContents,
+                'message' => self::$message
+            );
+            if (self::$workDone === 'true') {
+                fclose(self::$fileResourceLink);
+            }
+            return self::$outArray;
+        } else {
+            return array("status" => self::$workDone ? 'true' : 'false', "message" => $filePath . ' is an unexisting Path!');
+        }
+    }
+
+    private static function fcreate($file, $str){
+        self::$fileResourceLink = fopen($file, "a+");
+        self::fileMode($file, $str);
+        self::fileop($file, $str);
+    }
+
+    private static function flread($file){
+        ob_start();
+        readfile($file);
+        $fileContents = ob_get_clean();
+
+        return self::$serialize ? @unserialize($fileContents) : $fileContents;
+    }
+
+    private static function fileMode($file, $str){
+        $message = 'Reading file';
+        $writeNode = 'r';
+
+        if ($str) {
+            if (is_array($str)) {
+                if (is_writable($file)) {
+                    $fcont = self::flread($file);
+                    if ($fcont === null) {
+                        $writeNode = 'w';
+                        $message = 'Writing ' . $file;
+						self::$workDone = true;
+                    }
+                } else {
+                    self::$message = 'Not enough rights for that file';
+                    return;
+                }
+            } elseif ($str !== self::flread($file)) {
+                if (is_writable($file)) {
+                    $message = 'Writing ' . $file;
+                    $writeNode = 'w';
+					self::$workDone = true;
+                } else {
+                    self::$message = 'Not enough rights for that file';
+                    return;
+                }
+            }
+        }
+
+        if (file_exists($file)) {
+            self::$message = $message;
+            self::$writeNode = $writeNode;
+            self::$fileResourceLink = fopen($file, self::$writeNode);
+        } else {
+            return 'Not found a file- ' . $file;
+        }
+    }
+
+    private static function fileop($file, $str){
+        switch (self::$writeNode) {
+            case 'r':
+                self::$fileContents = self::flread($file);
+                break;
+            case 'w':
+                $writeString = self::$serialize ? serialize($str) : $str;
+                self::$recordedContents = fputs(self::$fileResourceLink, $writeString);
+                $recorded = is_numeric(self::$fileSize) ? (filesize(self::$filePath) - self::$fileSize) : 0;
+                self::$fileContents = self::flread($file);
+                break;
+        }
+    }
+}
