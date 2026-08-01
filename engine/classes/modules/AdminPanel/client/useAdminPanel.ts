@@ -1,14 +1,33 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowReactive, watch } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
+import { invalidateContentRegistry } from '@/content/contentData'
 import { bootstrapString } from '@/domain/bootstrap'
 import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
 import type { JsonObject, JsonValue } from '@/forms/json-form'
 
-export type Tab = 'overview' | 'maintenance' | 'users' | 'servers' | 'logs' | 'catalogs'
+export type Tab = 'overview' | 'slides' | 'content' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
 export type Feedback = { type?: string; message?: string }
 export type JsonRow = Record<string, unknown>
 export interface LogEntry { timestamp: string; time: string; level: string; message: string; tone: string }
+export interface FileEntry {
+  name: string
+  path: string
+  type: 'file' | 'directory'
+  size: number
+  modified: number
+  extension: string
+  mime: string
+  url: string
+}
+export interface FileListResponse {
+  root: string
+  path: string
+  parent: string | null
+  items: FileEntry[]
+  writable: boolean
+  totalBytes: number
+}
 
 export interface Overview {
   users: number
@@ -27,6 +46,74 @@ export interface MaintenanceSettings {
   updatedByUuid: string
   storageReady: boolean
 }
+export interface SlideRouteOption {
+  name: string
+  path: string
+  title: string
+}
+export interface SlideDraft {
+  id: string
+  enabled: boolean
+  title: string
+  description: string
+  image: string
+  route: string
+  action: string
+  secondaryRoute: string
+  secondaryAction: string
+}
+export interface SliderSettings {
+  schema: number
+  eyebrow: string
+  autoplayMs: number
+  slides: SlideDraft[]
+}
+
+export interface ContentCardDraft {
+  title: string
+  text: string
+}
+export interface ContentNoticeDraft {
+  title: string
+  text: string
+}
+export interface ContentSectionDraft {
+  title: string
+  paragraphs: string[]
+  items: string[]
+  cards: ContentCardDraft[]
+  notice: ContentNoticeDraft | null
+}
+export interface ProjectPageDraft {
+  id: string
+  layout: 'default' | 'rules'
+  eyebrow: string
+  title: string
+  summary: string
+  updated: string
+  image: string
+  imageAlt: string
+  imageCaption: string
+  sections: ContentSectionDraft[]
+}
+export interface BadgePageDraft {
+  badgeName: string
+  slug: string
+  html: string
+}
+export interface BadgeCatalogRow {
+  id: number
+  badgeName: string
+  description: string
+  img: string
+  pageSlug: string
+  pageConfigured: boolean
+}
+export interface RuntimeContentDocument<T> {
+  schema: number
+  pages: T[]
+}
+
 export interface GroupOption {
   groupTag: string
   groupName: string
@@ -104,6 +191,16 @@ export function useAdminPanel() {
     updatedByUuid: '',
     storageReady: false,
   })
+  const sliderSettings = reactive<SliderSettings>({
+    schema: 1,
+    eyebrow: 'FoxesCraft — новая глава',
+    autoplayMs: 7000,
+    slides: [],
+  })
+  const sliderRoutes = ref<SlideRouteOption[]>([])
+  const projectPages = ref<ProjectPageDraft[]>([])
+  const badgePages = ref<BadgePageDraft[]>([])
+  const contentBadges = ref<BadgeCatalogRow[]>([])
   const groupOptions = ref<GroupOption[]>([])
   const badgeOptions = ref<string[]>([])
   const users = ref<UserRow[]>([])
@@ -135,6 +232,13 @@ export function useAdminPanel() {
     serverImage: '',
     modsInfo: [],
   })
+  const filePath = ref('')
+  const fileParent = ref<string | null>(null)
+  const fileEntries = ref<FileEntry[]>([])
+  const fileWritable = ref(false)
+  const fileTotalBytes = ref(0)
+  const selectedUpload = ref<File | null>(null)
+  const newDirectoryName = ref('')
   const logFile = ref<'lastlog' | 'error' | 'access'>('lastlog')
   const logEntries = ref<LogEntry[]>([])
   const autoRefreshLogs = ref(false)
@@ -145,13 +249,16 @@ export function useAdminPanel() {
   const catalogDraft = ref<JsonObject>({})
   const originalCatalogKey = ref('')
 
-  const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'overview', label: 'Обзор' },
-    { id: 'maintenance', label: 'Техработы' },
-    { id: 'users', label: 'Пользователи' },
-    { id: 'servers', label: 'Серверы' },
-    { id: 'logs', label: 'Журналы' },
-    { id: 'catalogs', label: 'Каталоги' },
+  const tabs: Array<{ id: Tab; label: string; description: string; icon: string }> = [
+    { id: 'overview', label: 'Обзор', description: 'Состояние системы и основные показатели', icon: 'fa-chart-line' },
+    { id: 'slides', label: 'Слайды', description: 'Главный экран и порядок публикаций', icon: 'fa-images' },
+    { id: 'content', label: 'Контент', description: 'Страницы проекта и полные страницы бейджей', icon: 'fa-newspaper' },
+    { id: 'maintenance', label: 'Техработы', description: 'Режим обслуживания и доступ групп', icon: 'fa-screwdriver-wrench' },
+    { id: 'users', label: 'Пользователи', description: 'Аккаунты, группы и профильные данные', icon: 'fa-users' },
+    { id: 'servers', label: 'Серверы', description: 'Игровые серверы и параметры запуска', icon: 'fa-server' },
+    { id: 'files', label: 'Файлы', description: 'Управление каталогом uploads', icon: 'fa-folder-open' },
+    { id: 'logs', label: 'Журналы', description: 'Системные события и ошибки', icon: 'fa-rectangle-list' },
+    { id: 'catalogs', label: 'Каталоги', description: 'Справочники и структурированные данные', icon: 'fa-table-list' },
   ]
   const catalogKey = computed(() => ({ infobox: 'group_name', badges: 'badgeName', groups: 'groupTag' })[catalogName.value])
   const hardwareMax = computed(() => Math.max(1, ...Object.values(hardware.value?.cpu ?? {}), ...Object.values(hardware.value?.gpu ?? {})))
@@ -202,6 +309,162 @@ export function useAdminPanel() {
       Object.assign(maintenance, response.settings, { allowedGroups: [...response.settings.allowedGroups] })
     }
   }
+  async function loadSlides(): Promise<void> {
+    const response = await run(() => foxesApi.post<{ settings: SliderSettings; routes: SlideRouteOption[] }>({ admPanel: 'slides' }))
+    if (!response) return
+    Object.assign(sliderSettings, response.settings, {
+      slides: response.settings.slides.map((slide) => ({ ...slide })),
+    })
+    sliderRoutes.value = response.routes
+  }
+  function addSlide(): void {
+    const fallbackRoute = sliderRoutes.value.find((route) => route.name === 'about')?.name
+      ?? sliderRoutes.value[0]?.name
+      ?? 'home'
+    sliderSettings.slides.push({
+      id: `slide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      enabled: true,
+      title: 'Новый слайд',
+      description: '',
+      image: 'img/slides/slide1.png',
+      route: fallbackRoute,
+      action: 'Подробнее',
+      secondaryRoute: '',
+      secondaryAction: '',
+    })
+  }
+  function removeSlide(index: number): void {
+    const slide = sliderSettings.slides[index]
+    if (!slide || !window.confirm(`Удалить слайд «${slide.title}»?`)) return
+    sliderSettings.slides.splice(index, 1)
+  }
+  function moveSlide(index: number, direction: number): void {
+    const target = index + direction
+    if (index < 0 || target < 0 || index >= sliderSettings.slides.length || target >= sliderSettings.slides.length) return
+    const [slide] = sliderSettings.slides.splice(index, 1)
+    if (slide) sliderSettings.slides.splice(target, 0, slide)
+  }
+  async function uploadSlideImage(index: number, file: File): Promise<void> {
+    const slide = sliderSettings.slides[index]
+    if (!slide) return
+    const body = new FormData()
+    body.set('admPanel', 'uploadSlideImage')
+    body.set('image', file, file.name)
+    const response = await run(() => foxesApi.postFormData<Feedback & { image: string }>(body))
+    if (response?.image) {
+      slide.image = response.image
+      feedback.value = response
+    }
+  }
+  async function saveSlides(): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & { settings: SliderSettings }>({
+      admPanel: 'saveSlides',
+      entry: JSON.stringify({
+        schema: 1,
+        eyebrow: sliderSettings.eyebrow,
+        autoplayMs: sliderSettings.autoplayMs,
+        slides: sliderSettings.slides,
+      }),
+    }))
+    if (!response) return
+    feedback.value = response
+    if (response.settings) {
+      Object.assign(sliderSettings, response.settings, {
+        slides: response.settings.slides.map((slide) => ({ ...slide })),
+      })
+    }
+  }
+
+  function cloneContent<T>(value: T): T {
+    return structuredClone(value)
+  }
+  function escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;')
+  }
+  function badgePageTemplate(badge: BadgeCatalogRow, slug: string): string {
+    const badgeName = escapeHtml(badge.badgeName)
+    return `<article class="content-surface badge-page badge-page--runtime" data-badge-page="1" data-badge-name="${badgeName}" data-badge-slug="${slug}">
+  <header class="badge-page__header">
+    <div class="badge-page__visual">
+      <img data-badge-image src="" alt="" loading="eager" decoding="async">
+    </div>
+    <div>
+      <span class="eyebrow" data-badge-eyebrow>FoxesCraft badge</span>
+      <h1 data-badge-title></h1>
+      <p class="lead" data-badge-description></p>
+    </div>
+  </header>
+  <section class="badge-story" data-badge-history>
+    <h2>История бейджа</h2>
+    <p>Добавьте полное описание, происхождение и историю этого бейджа.</p>
+  </section>
+</article>
+`
+  }
+  async function loadContent(): Promise<void> {
+    const response = await run(() => foxesApi.post<{
+      projectPages: RuntimeContentDocument<ProjectPageDraft>
+      badgePages: { pages: BadgePageDraft[] }
+      badges: BadgeCatalogRow[]
+    }>({ admPanel: 'content' }))
+    if (!response) return
+    projectPages.value = cloneContent(response.projectPages.pages)
+    badgePages.value = cloneContent(response.badgePages.pages)
+    contentBadges.value = response.badges.map((badge) => ({ ...badge, id: Number(badge.id) }))
+  }
+  function ensureBadgePage(badge: BadgeCatalogRow): BadgePageDraft {
+    const existing = badgePages.value.find((page) => page.slug === badge.pageSlug)
+    if (existing) return existing
+    const created: BadgePageDraft = {
+      badgeName: badge.badgeName,
+      slug: badge.pageSlug,
+      html: badgePageTemplate(badge, badge.pageSlug),
+    }
+    badgePages.value.push(created)
+    return created
+  }
+  function removeBadgePage(badgeName: string): void {
+    const badge = contentBadges.value.find((entry) => entry.badgeName === badgeName)
+    if (!badge) return
+    const index = badgePages.value.findIndex((page) => page.slug === badge.pageSlug)
+    if (index >= 0) badgePages.value.splice(index, 1)
+  }
+  async function saveProjectPages(): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & { document: RuntimeContentDocument<ProjectPageDraft> }>({
+      admPanel: 'saveProjectPages',
+      entry: JSON.stringify({ schema: 1, pages: projectPages.value }),
+    }))
+    if (!response) return
+    feedback.value = response
+    projectPages.value = cloneContent(response.document.pages)
+    invalidateContentRegistry('project-pages')
+  }
+  async function saveBadgePage(page: BadgePageDraft): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & { page: BadgePageDraft }>({
+      admPanel: 'saveBadgePage',
+      entry: JSON.stringify(page),
+    }))
+    if (!response) return
+    feedback.value = response
+    const index = badgePages.value.findIndex((entry) => entry.slug === response.page.slug)
+    if (index >= 0) badgePages.value.splice(index, 1, cloneContent(response.page))
+    else badgePages.value.push(cloneContent(response.page))
+    invalidateContentRegistry('badges')
+  }
+  async function deleteBadgePage(page: BadgePageDraft): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteBadgePage', slug: page.slug }))
+    if (!response) return
+    feedback.value = response
+    const index = badgePages.value.indexOf(page)
+    if (index >= 0) badgePages.value.splice(index, 1)
+    invalidateContentRegistry('badges')
+  }
+
   async function loadUsers(): Promise<void> {
     const response = await run(() => foxesApi.post<{ items: UserRow[]; groups: GroupOption[]; badgeOptions: string[] }>({ admPanel: 'users', search: userSearch.value, limit: 100 }))
     if (!response) return
@@ -275,6 +538,59 @@ export function useAdminPanel() {
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteServer', serverName: server.serverName }))
     if (response) { feedback.value = response; await loadServers(); if (selectedServer.value?.serverName === server.serverName) newServer() }
   }
+  async function loadFiles(path = filePath.value): Promise<void> {
+    const response = await run(() => foxesApi.post<FileListResponse>({ admPanel: 'fileList', path }))
+    if (!response) return
+    filePath.value = response.path
+    fileParent.value = response.parent
+    fileEntries.value = response.items
+    fileWritable.value = response.writable
+    fileTotalBytes.value = response.totalBytes
+  }
+  function selectUpload(event: Event): void {
+    selectedUpload.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  }
+  async function uploadFile(): Promise<void> {
+    if (!selectedUpload.value) return
+    const body = new FormData()
+    body.set('admPanel', 'fileUpload')
+    body.set('path', filePath.value)
+    const file = selectedUpload.value
+    body.set('file', file, file.name)
+    const response = await run(() => foxesApi.postFormData<Feedback>(body))
+    if (response) {
+      feedback.value = response
+      selectedUpload.value = null
+      await loadFiles()
+    }
+  }
+  async function createDirectory(): Promise<void> {
+    const name = newDirectoryName.value.trim()
+    if (!name) return
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'fileCreateDirectory', path: filePath.value, name }))
+    if (response) {
+      feedback.value = response
+      newDirectoryName.value = ''
+      await loadFiles()
+    }
+  }
+  async function renameFile(entry: FileEntry): Promise<void> {
+    const name = window.prompt('Новое имя', entry.name)?.trim()
+    if (!name || name === entry.name) return
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'fileRename', path: entry.path, name }))
+    if (response) { feedback.value = response; await loadFiles() }
+  }
+  async function deleteFile(entry: FileEntry): Promise<void> {
+    const label = entry.type === 'directory' ? `каталог ${entry.name} со всем содержимым` : `файл ${entry.name}`
+    if (!window.confirm(`Удалить ${label}?`)) return
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'fileDelete', path: entry.path }))
+    if (response) { feedback.value = response; await loadFiles() }
+  }
+  function openFile(entry: FileEntry): void {
+    if (entry.type === 'directory') { void loadFiles(entry.path); return }
+    if (entry.url) window.open(entry.url, '_blank', 'noopener,noreferrer')
+  }
+
   async function loadLogs(): Promise<void> {
     const response = await run(() => foxesApi.post<{ entries: LogEntry[] }>({ admPanel: 'log', file: logFile.value, lines: 200 }))
     if (response) logEntries.value = response.entries
@@ -308,20 +624,31 @@ export function useAdminPanel() {
   }
   async function saveCatalogEntry(): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'saveCatalogEntry', catalog: catalogName.value, originalKey: originalCatalogKey.value, entry: JSON.stringify(catalogDraft.value) }))
-    if (response) { feedback.value = response; await loadCatalog() }
+    if (response) {
+      feedback.value = response
+      if (catalogName.value === 'badges') invalidateContentRegistry('badges')
+      await loadCatalog()
+    }
   }
   async function deleteCatalogEntry(row: JsonRow): Promise<void> {
     const key = String(row[catalogKey.value] ?? '')
     if (!key || !window.confirm(`Удалить запись ${key}?`)) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteCatalogEntry', catalog: catalogName.value, key }))
-    if (response) { feedback.value = response; await loadCatalog() }
+    if (response) {
+      feedback.value = response
+      if (catalogName.value === 'badges') invalidateContentRegistry('badges')
+      await loadCatalog()
+    }
   }
   async function activate(tab: Tab): Promise<void> {
     activeTab.value = tab
     if (tab === 'overview') await loadOverview()
+    if (tab === 'slides') await loadSlides()
+    if (tab === 'content') await loadContent()
     if (tab === 'maintenance') await loadMaintenance()
     if (tab === 'users') await loadUsers()
     if (tab === 'servers') { await loadServers(); if (!selectedServer.value) newServer() }
+    if (tab === 'files') await loadFiles()
     if (tab === 'logs') await loadLogs()
     if (tab === 'catalogs') await loadCatalog()
   }
@@ -332,12 +659,16 @@ export function useAdminPanel() {
   onUnmounted(() => { if (logTimer) window.clearInterval(logTimer) })
 
   return {
-    isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, groupOptions, badgeOptions,
+    isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, servers, selectedServer, serverDraft,
+    filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp, loadMaintenance,
-    saveMaintenance, loadUsers, editUser, saveUser, newServer, editServer, saveServer,
-    deleteServer, loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
+    saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
+    loadContent, ensureBadgePage, removeBadgePage, saveProjectPages, saveBadgePage, deleteBadgePage,
+    loadUsers, editUser, saveUser, newServer, editServer, saveServer,
+    deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
+    loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,
   }
 }

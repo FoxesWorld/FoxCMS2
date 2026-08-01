@@ -123,7 +123,7 @@ final class Register
 
             $this->session->authenticate($user);
             $folder = $this->session->userFolder();
-            if (!is_dir($folder) && !mkdir($folder, 0750, true) && !is_dir($folder)) {
+            if (!is_dir($folder) && !mkdir($folder, 0755, true) && !is_dir($folder)) {
                 $this->logger->logError('Unable to create user directory for ' . $login);
             }
 

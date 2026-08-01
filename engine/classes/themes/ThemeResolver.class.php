@@ -24,6 +24,10 @@ final class ThemeResolver
         $shell = $this->resolveFile($directory, (string)($manifest['shell'] ?? 'index.html'));
         $frontend = $this->resolveFile($directory, (string)($manifest['frontend'] ?? 'frontend.json'));
         $assets = is_array($manifest['assets'] ?? null) ? $manifest['assets'] : [];
+        $settings = is_array($manifest['settings'] ?? null) ? $manifest['settings'] : [];
+        $data = is_array($manifest['data'] ?? null)
+            ? $this->resolveData($directory, $manifest['data'])
+            : [];
         return [
             'name' => $name,
             'directory' => $directory,
@@ -33,8 +37,30 @@ final class ThemeResolver
             'mount' => (string)($manifest['mount'] ?? 'foxescraft-app'),
             'styles' => $this->resolveAssets($directory, $name, $assets['styles'] ?? []),
             'scripts' => $this->resolveAssets($directory, $name, $assets['scripts'] ?? []),
-            'settings' => is_array($manifest['settings'] ?? null) ? $manifest['settings'] : [],
+            'settings' => array_replace($settings, $data),
         ];
+    }
+
+    private function resolveData(string $directory, array $sources): array
+    {
+        $resolved = [];
+        foreach ($sources as $key => $relative) {
+            if (!is_string($key) || preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/D', $key) !== 1
+                || !is_string($relative)) {
+                throw new RuntimeException('Invalid theme data source declaration.');
+            }
+            $path = $this->resolveFile($directory, $relative);
+            $json = file_get_contents($path);
+            if (!is_string($json)) {
+                throw new RuntimeException('Theme data source is unavailable: ' . $path);
+            }
+            $value = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+            if (!is_array($value)) {
+                throw new RuntimeException('Theme data source must contain a JSON object or array: ' . $path);
+            }
+            $resolved[$key] = $value;
+        }
+        return $resolved;
     }
 
     private function resolveAssets(string $directory, string $themeName, mixed $assets): array

@@ -38,8 +38,29 @@ function routeRecord(definition: FrontendRouteDefinition): RouteRecordRaw {
 
 const engineRoutes = appBootstrap.frontend.routes.map(routeRecord)
 const routes: RouteRecordRaw[] = engineRoutes.length > 0
-  ? engineRoutes
+  ? [...engineRoutes]
   : [{ path: '/:pathMatch(.*)*', name: 'engine-unavailable', component: EngineUnavailableView }]
+
+/*
+ * The news feed is rendered by the theme on the home page, while its detail
+ * view belongs to the News engine module. A stale or partially cached server
+ * bootstrap can therefore expose the feed before it exposes the corresponding
+ * named route. Keep the client usable in that state and let the next complete
+ * bootstrap restore the manifest-owned definition.
+ */
+if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news')) {
+  const component = viewModules.get('NewsView')
+  if (component) {
+    console.warn('[FoxesCraft] News route is missing from bootstrap; applying client fallback.')
+    routes.push({
+      path: '/news/:id',
+      name: 'news',
+      component,
+      props: true,
+      meta: { title: 'Новость' },
+    })
+  }
+}
 
 export const router = createRouter({
   history: createWebHashHistory(),

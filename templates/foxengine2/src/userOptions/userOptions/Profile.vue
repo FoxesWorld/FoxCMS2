@@ -67,9 +67,23 @@ function openUserSettings(): void {
       @open-badge="openBadge"
     />
 
-    <div v-if="viewerGroupTag === 'admin' && !isOwner" class="profile-admin-context">
-      Административный просмотр: приватные данные отображаются только в пределах разрешённого API-контракта.
-    </div>
+    <aside
+      v-if="viewerGroupTag === 'admin' && !isOwner"
+      class="profile-admin-context"
+      aria-label="Контекст административного просмотра"
+    >
+      <span class="profile-admin-context__icon" aria-hidden="true">
+        <i class="fa-solid fa-shield-halved" />
+      </span>
+      <span class="profile-admin-context__copy">
+        <strong>Административный режим</strong>
+        <span>Приватные данные отображаются только в пределах разрешённого API-контракта.</span>
+      </span>
+      <span class="profile-admin-context__status">
+        <span aria-hidden="true" />
+        Ограниченный доступ
+      </span>
+    </aside>
 
     <div class="profile-content-grid">
       <div class="profile-content-grid__main">

@@ -4,74 +4,33 @@ declare(strict_types=1);
 
 final class UpdateProfilePhoto
 {
-    private const MAX_FILE_SIZE = 5 * 1024 * 1024;
-    private const MAX_DIMENSION = 4096;
-    private const MIME_EXTENSIONS = [
-        'image/jpeg' => 'jpg',
-        'image/png' => 'png',
-        'image/webp' => 'webp',
-        'image/gif' => 'gif',
-    ];
+    private UploadService $uploads;
 
     public function __construct(
         private db $db,
         private HttpRequest $request,
         private UserSession $session,
+        private Logger $logger,
     ) {
+        $this->uploads = new UploadService($db, $session, $logger, $request);
     }
 
     public function upload(): never
     {
-        if (!$this->session->isLogged()) {
-            $this->respond('Нужно войти в аккаунт.', 'error', null, 401);
-        }
-        CsrfToken::requireValid($this->request->csrfToken());
-
         $target = $this->resolveTarget();
-        $file = $this->request->file('image');
-        if ($file === null) {
-            $this->respond('Файл не выбран.', 'error', null, 400);
-        }
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string)$file['tmp_name'])) {
-            $this->respond('Файл не был загружен.', 'error', null, 400);
-        }
-        if (($file['size'] ?? 0) <= 0 || $file['size'] > self::MAX_FILE_SIZE) {
-            $this->respond('Размер изображения должен быть не больше 5 МБ.', 'error', null, 400);
-        }
-
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file((string)$file['tmp_name']);
-        $extension = self::MIME_EXTENSIONS[$mime] ?? null;
-        if ($extension === null) {
-            $this->respond('Разрешены JPEG, PNG, WebP и GIF.', 'error', null, 400);
-        }
-
-        $dimensions = @getimagesize((string)$file['tmp_name']);
-        if (!$dimensions
-            || $dimensions[0] < 64
-            || $dimensions[1] < 64
-            || $dimensions[0] > self::MAX_DIMENSION
-            || $dimensions[1] > self::MAX_DIMENSION) {
-            $this->respond('Изображение должно быть от 64×64 до 4096×4096 пикселей.', 'error', null, 400);
+        try {
+            $result = $this->uploads->store(
+                UploadPurpose::PROFILE_PHOTO,
+                $this->request->file('image'),
+                ['ownerUuid' => (string)$target['uuid']],
+            );
+        } catch (UploadException $error) {
+            $this->respond($error->getMessage(), 'error', null, $error->httpStatus());
         }
 
         $targetUuid = (string)$target['uuid'];
         $storageUuid = (string)$target['storageUuid'];
-        $directory = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $targetUuid . DIRECTORY_SEPARATOR;
-        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
-            $this->respond('Не удалось создать каталог пользователя.', 'error', null, 500);
-        }
-
-        $destination = $directory . 'profilePhoto.' . $extension;
-        if (!move_uploaded_file((string)$file['tmp_name'], $destination)) {
-            $this->respond('Не удалось сохранить изображение.', 'error', null, 500);
-        }
-        @chmod($destination, 0644);
-
-        $publicFolder = rtrim(UPLOADS_DIR, '/')
-            . '/' . trim(USR_SUBFOLDER, '/')
-            . '/' . rawurlencode($targetUuid) . '/';
-        $publicPath = $publicFolder . 'profilePhoto.' . $extension;
+        $publicPath = $result->publicPath();
         $currentPath = (string)($target['profilePhoto'] ?? '');
 
         try {
@@ -82,17 +41,35 @@ final class UpdateProfilePhoto
                 ':path' => $publicPath,
                 ':userUuid' => $storageUuid,
             ]);
-        } catch (Throwable) {
-            @unlink($destination);
+            if ($statement->rowCount() !== 1) {
+                throw new RuntimeException('Profile row was not updated.');
+            }
+        } catch (Throwable $error) {
+            @unlink($result->absolutePath());
+            $this->logger->logError('Profile photo database update failed.', [
+                'event' => 'upload.profile.commit_failed',
+                'actorUuid' => $this->session->uuid(),
+                'ownerUuid' => $targetUuid,
+                'target' => $result->relativePath(),
+                'exception' => $error::class,
+            ]);
             $this->respond('Не удалось обновить профиль.', 'error', null, 500);
         }
 
-        if ($currentPath !== ''
-            && str_starts_with($currentPath, $publicFolder)
-            && $currentPath !== $publicPath) {
-            $oldAbsolutePath = ROOT_DIR . $currentPath;
-            if (is_file($oldAbsolutePath)) {
-                @unlink($oldAbsolutePath);
+        if ($currentPath !== '' && $currentPath !== $publicPath) {
+            try {
+                $this->uploads->removeReference(
+                    UploadPurpose::PROFILE_PHOTO,
+                    $currentPath,
+                    ['ownerUuid' => $targetUuid],
+                );
+            } catch (UploadException $error) {
+                $this->logger->logWarn('Previous profile photo could not be removed.', [
+                    'event' => 'upload.profile.cleanup_failed',
+                    'ownerUuid' => $targetUuid,
+                    'path' => $currentPath,
+                    'reason' => $error->getMessage(),
+                ]);
             }
         }
 
@@ -117,9 +94,6 @@ final class UpdateProfilePhoto
         }
 
         $targetIdentity = $requestedUuid !== '' ? $requestedUuid : $sessionUuid;
-        if (!$this->session->isAdmin() && !Uuid::equals($sessionUuid, $targetIdentity)) {
-            $this->respond('Недостаточно прав для изменения этого профиля.', 'error', null, 403);
-        }
 
         $placeholders = [];
         $parameters = [];

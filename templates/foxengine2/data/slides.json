@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "eyebrow": "FoxesCraft — новая глава",
+  "autoplayMs": 7000,
+  "slides": [
+    {
+      "id": "welcome",
+      "enabled": true,
+      "title": "Добро пожаловать в Лисий Мир",
+      "description": "Знакомая атмосфера FoxesCraft продолжается в новой, лёгкой и адаптивной версии 3.0.",
+      "image": "img/slides/slide1.png",
+      "route": "start",
+      "action": "Начать играть",
+      "secondaryRoute": "about",
+      "secondaryAction": "История проекта"
+    },
+    {
+      "id": "fox-world-3",
+      "enabled": true,
+      "title": "Лисий Мир 3.0",
+      "description": "Новая архитектура, новые технологии и тот же дух открытий.",
+      "image": "img/slides/slide3.png",
+      "route": "about",
+      "action": "О проекте",
+      "secondaryRoute": "",
+      "secondaryAction": ""
+    },
+    {
+      "id": "explore-worlds",
+      "enabled": true,
+      "title": "Исследуй игровые миры",
+      "description": "Следи за серверами, игроками и развитием проекта из единого интерфейса.",
+      "image": "img/slides/slide5.png",
+      "route": "players",
+      "action": "Игроки",
+      "secondaryRoute": "",
+      "secondaryAction": ""
+    },
+    {
+      "id": "foxescraft-continues",
+      "enabled": true,
+      "title": "FoxesCraft продолжается",
+      "description": "Мы не возвращаемся в прошлое — мы продолжаем начатую историю.",
+      "image": "img/slides/slide7.png",
+      "route": "about",
+      "action": "Узнать больше",
+      "secondaryRoute": "",
+      "secondaryAction": ""
+    }
+  ]
+}

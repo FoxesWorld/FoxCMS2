@@ -61,7 +61,7 @@ final class UserActions
     private function updateProfilePhoto(): never
     {
         require_once __DIR__ . '/actions/updateProfilePhoto.class.php';
-        (new UpdateProfilePhoto($this->db, $this->request, $this->session))->upload();
+        (new UpdateProfilePhoto($this->db, $this->request, $this->session, $this->logger))->upload();
     }
 
     private function lostPassword(): never

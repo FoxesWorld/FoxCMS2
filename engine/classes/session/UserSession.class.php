@@ -208,7 +208,7 @@ final class UserSession
         if ($uuid === '') {
             throw new RuntimeException('A guest has no private user directory.');
         }
-        return ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $uuid . DIRECTORY_SEPARATOR;
+        return ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . Uuid::canonical($uuid) . DIRECTORY_SEPARATOR;
     }
 
     public function publicUserFolder(): string
@@ -217,20 +217,46 @@ final class UserSession
         if ($uuid === '') {
             throw new RuntimeException('A guest has no public user directory.');
         }
-        return rtrim(UPLOADS_DIR, '/') . '/' . trim(USR_SUBFOLDER, '/') . '/' . rawurlencode($uuid) . '/';
+        return rtrim(UPLOADS_DIR, '/') . '/' . trim(USR_SUBFOLDER, '/') . '/' . rawurlencode(Uuid::canonical($uuid)) . '/';
     }
 
     public function gameFiles(): array
     {
-        $compact = $this->compactUuid();
-        if ($compact === '') {
+        $uuid = $this->uuid();
+        if ($uuid === '') {
             throw new RuntimeException('A guest has no game files.');
         }
-        $folder = $this->userFolder();
-        return [
-            'skin' => $folder . $compact . '-skin.png',
-            'cape' => $folder . $compact . '-cape.png',
+        $canonical = Uuid::canonical($uuid);
+        $compact = Uuid::compact($uuid);
+        $canonicalFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $canonical . DIRECTORY_SEPARATOR;
+        $compactFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $compact . DIRECTORY_SEPARATOR;
+        $skinCandidates = [
+            $canonicalFolder . $canonical . '-skin.png',
+            $canonicalFolder . $compact . '-skin.png',
+            $compactFolder . $canonical . '-skin.png',
+            $compactFolder . $compact . '-skin.png',
         ];
+        $capeCandidates = [
+            $canonicalFolder . $canonical . '-cape.png',
+            $canonicalFolder . $compact . '-cape.png',
+            $compactFolder . $canonical . '-cape.png',
+            $compactFolder . $compact . '-cape.png',
+        ];
+        return [
+            'skin' => $this->firstExistingGameFile($skinCandidates) ?? $skinCandidates[0],
+            'cape' => $this->firstExistingGameFile($capeCandidates) ?? $capeCandidates[0],
+        ];
+    }
+
+    /** @param list<string> $paths */
+    private function firstExistingGameFile(array $paths): ?string
+    {
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+        return null;
     }
 
     /**

@@ -6,6 +6,11 @@ if (!defined('ADMIN')) {
 
 final class AdminOptions {
     private const LOG_FILES = ['lastlog', 'error', 'access'];
+    private const BLOCKED_UPLOAD_EXTENSIONS = [
+        'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phar',
+        'cgi', 'pl', 'py', 'sh', 'bash', 'htaccess', 'htpasswd',
+        'html', 'htm', 'shtml', 'xhtml', 'svg', 'js', 'mjs', 'css', 'xml',
+    ];
     private const SERVER_FIELDS = [
         'serverName', 'host', 'port', 'ignoreDirs', 'enabled', 'checkLib',
         'serverGroups', 'serverDescription', 'serverVersion', 'jreVersion',
@@ -38,16 +43,44 @@ final class AdminOptions {
     private ?Logger $logger;
     private MaintenanceModeRepository $maintenanceRepository;
     private GroupRepository $groupRepository;
+    private UploadService $uploads;
+    private ThemeSlidesRepository $slidesRepository;
+    private ThemeContentRepository $contentRepository;
+    private ThemeBadgePageRepository $badgePageRepository;
 
-    public function __construct(array $request, $db, UserSession $session, ?Logger $logger = null) {
+    public function __construct(
+        array $request,
+        $db,
+        UserSession $session,
+        ?Logger $logger = null,
+        ?HttpRequest $httpRequest = null,
+        array $config = [],
+    ) {
         if (!$session->isAdmin()) {
             $this->respond(['message' => 'Недостаточно прав.', 'type' => 'error'], 403);
         }
 
         $this->db = $db;
         $this->session = $session;
-        $this->logger = $logger;
+        $this->logger = $logger ?? new Logger('lastlog');
         $this->request = $request;
+        if (!$httpRequest instanceof HttpRequest) {
+            throw new RuntimeException('Admin uploads require the original HTTP request.');
+        }
+        $this->uploads = new UploadService($db, $session, $this->logger, $httpRequest);
+        $site = is_array($config['siteSettings'] ?? null) ? $config['siteSettings'] : [];
+        $this->slidesRepository = new ThemeSlidesRepository(
+            TEMPLATE_DIR,
+            (string)($site['siteTpl'] ?? ''),
+        );
+        $this->contentRepository = new ThemeContentRepository(
+            TEMPLATE_DIR,
+            (string)($site['siteTpl'] ?? ''),
+        );
+        $this->badgePageRepository = new ThemeBadgePageRepository(
+            TEMPLATE_DIR,
+            (string)($site['siteTpl'] ?? ''),
+        );
         $this->maintenanceRepository = new MaintenanceModeRepository($db);
         $this->groupRepository = new GroupRepository($db);
         $action = (string)($this->request['admPanel'] ?? '');
@@ -86,6 +119,42 @@ final class AdminOptions {
                     break;
                 case 'clearLog':
                     $this->log(true);
+                    break;
+                case 'slides':
+                    $this->slides();
+                    break;
+                case 'saveSlides':
+                    $this->saveSlides();
+                    break;
+                case 'uploadSlideImage':
+                    $this->uploadSlideImage();
+                    break;
+                case 'content':
+                    $this->content();
+                    break;
+                case 'saveProjectPages':
+                    $this->saveProjectPages();
+                    break;
+                case 'saveBadgePage':
+                    $this->saveBadgePage();
+                    break;
+                case 'deleteBadgePage':
+                    $this->deleteBadgePage();
+                    break;
+                case 'fileList':
+                    $this->fileList();
+                    break;
+                case 'fileCreateDirectory':
+                    $this->fileCreateDirectory();
+                    break;
+                case 'fileUpload':
+                    $this->fileUpload();
+                    break;
+                case 'fileRename':
+                    $this->fileRename();
+                    break;
+                case 'fileDelete':
+                    $this->fileDelete();
                     break;
                 case 'catalog':
                     $this->catalog();
@@ -382,6 +451,453 @@ final class AdminOptions {
         ]);
     }
 
+    private function slides(): void {
+        $this->respond([
+            'settings' => $this->slidesRepository->read(),
+            'routes' => $this->slidesRepository->routes(),
+        ]);
+    }
+
+    private function saveSlides(): void {
+        $payload = $this->decodeObject('entry');
+        try {
+            $settings = $this->slidesRepository->save($payload);
+        } catch (InvalidArgumentException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        }
+        $this->logger?->logInfo('Theme slides saved.', [
+            'event' => 'theme.slides.saved',
+            'administratorUuid' => $this->session->uuid(),
+            'slidesCount' => count($settings['slides'] ?? []),
+            'enabledCount' => count(array_filter(
+                $settings['slides'] ?? [],
+                static fn (array $slide): bool => ($slide['enabled'] ?? false) === true,
+            )),
+        ]);
+        $this->respond([
+            'message' => 'Слайды сохранены в JSON.',
+            'type' => 'success',
+            'settings' => $settings,
+        ]);
+    }
+
+    private function uploadSlideImage(): void {
+        try {
+            $result = $this->uploads->store(
+                UploadPurpose::SLIDER_IMAGE,
+                is_array($this->request['_slideUpload'] ?? null) ? $this->request['_slideUpload'] : null,
+            );
+        } catch (UploadException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], $error->httpStatus());
+        }
+        $this->respond([
+            'message' => 'Изображение слайда загружено.',
+            'type' => 'success',
+            'image' => $result->publicPath(),
+            'upload' => $result,
+        ], 201);
+    }
+
+    private function content(): void {
+        $statement = $this->db->prepare(
+            'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`, `id`'
+        );
+        $statement->execute();
+        $badges = BadgeSlug::assign($statement->fetchAll(PDO::FETCH_ASSOC) ?: []);
+        $badgePages = [];
+
+        foreach ($badges as &$badge) {
+            $slug = (string)($badge['pageSlug'] ?? '');
+            $configured = $slug !== '' && $this->badgePageRepository->exists($slug);
+            $badge['pageConfigured'] = $configured;
+            if (!$configured) {
+                continue;
+            }
+            try {
+                $page = $this->badgePageRepository->read($slug);
+                if (is_array($page)) {
+                    $page['badgeName'] = (string)($badge['badgeName'] ?? '');
+                    $page['slug'] = $slug;
+                    $badgePages[] = $page;
+                }
+            } catch (Throwable $error) {
+                $badge['pageConfigured'] = false;
+                $this->logger?->logWarn('Invalid badge HTML page skipped in admin content.', [
+                    'event' => 'theme.content.badge_html.invalid',
+                    'badgeName' => (string)($badge['badgeName'] ?? ''),
+                    'slug' => $slug,
+                    'exception' => $error::class,
+                    'message' => $error->getMessage(),
+                ]);
+            }
+        }
+        unset($badge);
+
+        $this->respond([
+            'projectPages' => $this->contentRepository->readProjectPages(),
+            'badgePages' => ['pages' => $badgePages],
+            'badges' => array_values($badges),
+        ]);
+    }
+
+    private function saveProjectPages(): void {
+        $payload = $this->decodeObject('entry');
+        try {
+            $document = $this->contentRepository->saveProjectPages($payload);
+        } catch (InvalidArgumentException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        }
+        $this->logger?->logInfo('Theme project pages saved.', [
+            'event' => 'theme.content.project_pages.saved',
+            'administratorUuid' => $this->session->uuid(),
+            'pagesCount' => count($document['pages'] ?? []),
+        ]);
+        $this->respond([
+            'message' => 'Страницы проекта сохранены в runtime JSON.',
+            'type' => 'success',
+            'document' => $document,
+        ]);
+    }
+
+    private function saveBadgePage(): void {
+        $payload = $this->decodeObject('entry');
+        $requestedName = trim((string)($payload['badgeName'] ?? ''));
+        $statement = $this->db->prepare(
+            'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`, `id`'
+        );
+        $statement->execute();
+        $badges = BadgeSlug::assign($statement->fetchAll(PDO::FETCH_ASSOC) ?: []);
+        $badge = null;
+        foreach ($badges as $candidate) {
+            if (is_array($candidate) && hash_equals((string)($candidate['badgeName'] ?? ''), $requestedName)) {
+                $badge = $candidate;
+                break;
+            }
+        }
+        if (!is_array($badge)) {
+            $this->respond(['message' => 'Бейдж для HTML-страницы не найден в badgesList.', 'type' => 'error'], 404);
+        }
+
+        $slug = (string)($badge['pageSlug'] ?? '');
+        try {
+            $page = $this->badgePageRepository->save(
+                $payload,
+                (string)$badge['badgeName'],
+                $slug,
+            );
+        } catch (InvalidArgumentException $error) {
+            $this->logger?->logWarn('Badge HTML page validation rejected.', [
+                'event' => 'theme.content.badge_html.rejected',
+                'administratorUuid' => $this->session->uuid(),
+                'badgeName' => (string)$badge['badgeName'],
+                'slug' => $slug,
+                'message' => $error->getMessage(),
+            ]);
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        } catch (RuntimeException $error) {
+            $this->logger?->logError('Badge HTML page storage failed.', [
+                'event' => 'theme.content.badge_html.storage_failed',
+                'administratorUuid' => $this->session->uuid(),
+                'badgeName' => (string)$badge['badgeName'],
+                'slug' => $slug,
+                'exception' => $error::class,
+                'message' => $error->getMessage(),
+                'file' => $error->getFile(),
+                'line' => $error->getLine(),
+            ]);
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 500);
+        }
+        $this->logger?->logInfo('Individual theme badge HTML page saved.', [
+            'event' => 'theme.content.badge_html.saved',
+            'administratorUuid' => $this->session->uuid(),
+            'badgeName' => (string)$page['badgeName'],
+            'slug' => (string)$page['slug'],
+            'file' => 'data/badges/' . (string)$page['slug'] . '.html',
+        ]);
+        $this->respond([
+            'message' => 'HTML-страница бейджа сохранена.',
+            'type' => 'success',
+            'page' => $page,
+        ]);
+    }
+
+    private function deleteBadgePage(): void {
+        $slug = trim((string)($this->request['slug'] ?? ''));
+        try {
+            $this->badgePageRepository->delete($slug);
+        } catch (InvalidArgumentException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        }
+        $this->logger?->logInfo('Individual theme badge HTML page deleted.', [
+            'event' => 'theme.content.badge_html.deleted',
+            'administratorUuid' => $this->session->uuid(),
+            'slug' => $slug,
+            'file' => 'data/badges/' . $slug . '.html',
+        ]);
+        $this->respond([
+            'message' => 'HTML-файл страницы удалён. Запись бейджа в БД сохранена.',
+            'type' => 'success',
+            'slug' => $slug,
+        ]);
+    }
+
+    private function fileList(): void {
+        $directory = $this->resolveUploadPath($this->request['path'] ?? '', true);
+        if (!is_dir($directory)) {
+            $this->respond(['message' => 'Каталог не найден.', 'type' => 'error'], 404);
+        }
+
+        $root = $this->uploadsRoot();
+        $items = [];
+        foreach (new DirectoryIterator($directory) as $entry) {
+            if ($entry->isDot() || $entry->isLink()) {
+                continue;
+            }
+            $name = $entry->getFilename();
+            if ($name === '' || str_starts_with($name, '.')) {
+                continue;
+            }
+            $absolute = $entry->getPathname();
+            $relative = $this->relativeUploadPath($absolute);
+            $directoryEntry = $entry->isDir();
+            $items[] = [
+                'name' => $name,
+                'path' => $relative,
+                'type' => $directoryEntry ? 'directory' : 'file',
+                'size' => $directoryEntry ? 0 : max(0, (int)$entry->getSize()),
+                'modified' => max(0, (int)$entry->getMTime()),
+                'extension' => $directoryEntry ? '' : strtolower($entry->getExtension()),
+                'mime' => $directoryEntry ? 'inode/directory' : $this->fileMime($absolute),
+                'url' => $directoryEntry ? '' : $this->publicUploadUrl($relative),
+            ];
+        }
+        usort($items, static function (array $left, array $right): int {
+            if ($left['type'] !== $right['type']) {
+                return $left['type'] === 'directory' ? -1 : 1;
+            }
+            return strnatcasecmp((string)$left['name'], (string)$right['name']);
+        });
+
+        $relative = $this->relativeUploadPath($directory);
+        $parent = $relative === '' ? null : dirname(str_replace('/', DIRECTORY_SEPARATOR, $relative));
+        if ($parent === '.' || $parent === DIRECTORY_SEPARATOR) {
+            $parent = '';
+        }
+        $this->respond([
+            'root' => '/uploads',
+            'path' => $relative,
+            'parent' => is_string($parent) ? str_replace(DIRECTORY_SEPARATOR, '/', $parent) : null,
+            'items' => $items,
+            'writable' => is_writable($directory),
+            'totalBytes' => array_sum(array_column($items, 'size')),
+        ]);
+    }
+
+    private function fileCreateDirectory(): void {
+        $directory = $this->resolveUploadPath($this->request['path'] ?? '', true);
+        $name = $this->safeFileName($this->request['name'] ?? '');
+        $target = $directory . DIRECTORY_SEPARATOR . $name;
+        if (file_exists($target)) {
+            $this->respond(['message' => 'Файл или каталог с таким именем уже существует.', 'type' => 'error'], 409);
+        }
+        if (!mkdir($target, 0755)) {
+            $this->respond(['message' => 'Не удалось создать каталог.', 'type' => 'error'], 500);
+        }
+        $this->logger?->logInfo('Admin file directory created', [
+            'adminUuid' => $this->session->uuid(),
+            'path' => $this->relativeUploadPath($target),
+        ]);
+        $this->respond(['message' => 'Каталог создан.', 'type' => 'success']);
+    }
+
+    private function fileUpload(): void {
+        try {
+            $result = $this->uploads->store(
+                UploadPurpose::ADMIN_FILE,
+                is_array($this->request['_upload'] ?? null) ? $this->request['_upload'] : null,
+                ['directory' => (string)($this->request['path'] ?? '')],
+            );
+        } catch (UploadException $error) {
+            $this->respond([
+                'message' => $error->getMessage(),
+                'type' => 'error',
+            ], $error->httpStatus());
+        }
+
+        $this->respond([
+            'message' => 'Файл загружен без изменений.',
+            'type' => 'success',
+            'path' => $result->relativePath(),
+            'url' => $result->publicPath(),
+            'size' => $result->size(),
+            'sha256' => $result->sha256(),
+            'mime' => $result->mime(),
+            'upload' => $result,
+        ], 201);
+    }
+
+    private function fileRename(): void {
+        $source = $this->resolveUploadPath($this->request['path'] ?? '', false);
+        $root = $this->uploadsRoot();
+        if ($source === $root) {
+            $this->respond(['message' => 'Корневой каталог переименовать нельзя.', 'type' => 'error'], 409);
+        }
+        $name = $this->safeFileName($this->request['name'] ?? '');
+        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (is_file($source) && $extension !== '' && in_array($extension, self::BLOCKED_UPLOAD_EXTENSIONS, true)) {
+            $this->respond(['message' => 'Недопустимое расширение файла.', 'type' => 'error'], 415);
+        }
+        $target = dirname($source) . DIRECTORY_SEPARATOR . $name;
+        if (file_exists($target)) {
+            $this->respond(['message' => 'Файл или каталог с таким именем уже существует.', 'type' => 'error'], 409);
+        }
+        if (!rename($source, $target)) {
+            $this->respond(['message' => 'Не удалось переименовать объект.', 'type' => 'error'], 500);
+        }
+        $this->logger?->logInfo('Admin file renamed', [
+            'adminUuid' => $this->session->uuid(),
+            'from' => $this->relativeUploadPath($source),
+            'to' => $this->relativeUploadPath($target),
+        ]);
+        $this->respond(['message' => 'Объект переименован.', 'type' => 'success']);
+    }
+
+    private function fileDelete(): void {
+        $target = $this->resolveUploadPath($this->request['path'] ?? '', false);
+        if ($target === $this->uploadsRoot()) {
+            $this->respond(['message' => 'Корневой каталог удалить нельзя.', 'type' => 'error'], 409);
+        }
+        $relative = $this->relativeUploadPath($target);
+        $this->deleteUploadTree($target);
+        $this->logger?->logInfo('Admin file deleted', [
+            'adminUuid' => $this->session->uuid(),
+            'path' => $relative,
+        ]);
+        $this->respond(['message' => 'Объект удалён.', 'type' => 'success']);
+    }
+
+    private function uploadsRoot(): string {
+        $path = ROOT_DIR . UPLOADS_DIR;
+        if (!is_dir($path) && !mkdir($path, 0755, true) && !is_dir($path)) {
+            $this->respond(['message' => 'Каталог uploads недоступен.', 'type' => 'error'], 500);
+        }
+        $root = realpath($path);
+        if (!is_string($root) || !is_dir($root)) {
+            $this->respond(['message' => 'Каталог uploads недоступен.', 'type' => 'error'], 500);
+        }
+        return rtrim($root, '/\\');
+    }
+
+    private function resolveUploadPath(mixed $value, bool $directory): string {
+        $root = $this->uploadsRoot();
+        $relative = $this->safeRelativeUploadPath($value);
+        $candidate = $relative === ''
+            ? $root
+            : $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $this->rejectUploadSymlinkPath($relative, $root);
+        $resolved = realpath($candidate);
+        if (!is_string($resolved) || is_link($candidate) || !$this->insideUploadsRoot($resolved, $root)) {
+            $this->respond(['message' => 'Файл или каталог не найден.', 'type' => 'error'], 404);
+        }
+        if ($directory && !is_dir($resolved)) {
+            $this->respond(['message' => 'Каталог не найден.', 'type' => 'error'], 404);
+        }
+        return $resolved;
+    }
+
+    private function rejectUploadSymlinkPath(string $relative, string $root): void {
+        if ($relative === '') {
+            return;
+        }
+        $cursor = $root;
+        foreach (explode('/', $relative) as $segment) {
+            $cursor .= DIRECTORY_SEPARATOR . $segment;
+            if (is_link($cursor)) {
+                $this->respond(['message' => 'Переход через символическую ссылку запрещён.', 'type' => 'error'], 409);
+            }
+        }
+    }
+
+    private function safeRelativeUploadPath(mixed $value): string {
+        $value = trim(str_replace('\\', '/', (string)$value), '/');
+        if ($value === '') {
+            return '';
+        }
+        if (str_contains($value, "\0")) {
+            $this->respond(['message' => 'Недопустимый путь.', 'type' => 'error'], 400);
+        }
+        $segments = explode('/', $value);
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..' || str_starts_with($segment, '.')) {
+                $this->respond(['message' => 'Недопустимый путь.', 'type' => 'error'], 400);
+            }
+            $this->safeFileName($segment);
+        }
+        return implode('/', $segments);
+    }
+
+    private function safeFileName(mixed $value): string {
+        $name = trim((string)$value);
+        if ($name === '' || $name === '.' || $name === '..' || str_starts_with($name, '.')
+            || str_contains($name, '/') || str_contains($name, '\\') || str_contains($name, "\0")
+            || preg_match('/[\x00-\x1f\x7f]/u', $name) === 1 || mb_strlen($name) > 180) {
+            $this->respond(['message' => 'Недопустимое имя файла или каталога.', 'type' => 'error'], 400);
+        }
+        return $name;
+    }
+
+    private function insideUploadsRoot(string $path, string $root): bool {
+        return $path === $root || str_starts_with($path, $root . DIRECTORY_SEPARATOR);
+    }
+
+    private function relativeUploadPath(string $path): string {
+        $root = $this->uploadsRoot();
+        $relative = ltrim(substr($path, strlen($root)), '/\\');
+        return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+    }
+
+    private function publicUploadUrl(string $relative): string {
+        $segments = array_map('rawurlencode', explode('/', $relative));
+        return rtrim(UPLOADS_DIR, '/') . '/' . implode('/', $segments);
+    }
+
+    private function fileMime(string $path): string {
+        try {
+            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+            return is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream';
+        } catch (Throwable) {
+            return 'application/octet-stream';
+        }
+    }
+
+    private function deleteUploadTree(string $path): void {
+        if (is_link($path)) {
+            $this->respond(['message' => 'Символические ссылки удалять через File Manager запрещено.', 'type' => 'error'], 409);
+        }
+        if (is_file($path)) {
+            if (!unlink($path)) {
+                $this->respond(['message' => 'Не удалось удалить файл.', 'type' => 'error'], 500);
+            }
+            return;
+        }
+        if (!is_dir($path)) {
+            $this->respond(['message' => 'Файл или каталог не найден.', 'type' => 'error'], 404);
+        }
+        foreach (new DirectoryIterator($path) as $entry) {
+            if ($entry->isDot()) {
+                continue;
+            }
+            $child = $entry->getPathname();
+            if ($entry->isLink()) {
+                $this->respond(['message' => 'Каталог содержит символическую ссылку и не может быть удалён.', 'type' => 'error'], 409);
+            }
+            $this->deleteUploadTree($child);
+        }
+        if (!rmdir($path)) {
+            $this->respond(['message' => 'Не удалось удалить каталог.', 'type' => 'error'], 500);
+        }
+    }
+
     private function catalog(): void {
         [$spec] = $this->catalogSpec();
         $stmt = $this->db->prepare('SELECT ' . $this->quotedFields($spec['fields']) . ' FROM `' . $spec['table'] . '` ORDER BY `' . $spec['key'] . '`');
@@ -396,6 +912,9 @@ final class AdminOptions {
         [$spec, $catalog] = $this->catalogSpec();
         if ($catalog === 'groups') {
             $this->saveGroupCatalogEntry();
+        }
+        if ($catalog === 'badges') {
+            $this->saveBadgeCatalogEntry();
         }
 
         $payload = $this->decodeObject('entry');
@@ -438,6 +957,259 @@ final class AdminOptions {
         $stmt = $this->db->prepare('DELETE FROM `' . $spec['table'] . '` WHERE `' . $spec['key'] . '` = :key');
         $stmt->execute([':key' => $key]);
         $this->respond(['message' => 'Запись удалена.', 'type' => 'success']);
+    }
+
+    private function saveBadgeCatalogEntry(): never {
+        $payload = $this->decodeObject('entry');
+        $originalName = trim((string)($this->request['originalKey'] ?? ''));
+        $badgeName = trim((string)($payload['badgeName'] ?? ''));
+        $description = trim((string)($payload['description'] ?? ''));
+        $image = trim(str_replace('\\', '/', (string)($payload['img'] ?? '')));
+
+        if ($badgeName === '' || mb_strlen($badgeName) > 120
+            || preg_match('/[\x00-\x1F\x7F]/u', $badgeName) === 1) {
+            $this->respond([
+                'message' => 'Название бейджа должно содержать от 1 до 120 печатных Unicode-символов.',
+                'type' => 'error',
+            ], 400);
+        }
+        if (mb_strlen($description) > 4000 || str_contains($description, "\0")) {
+            $this->respond([
+                'message' => 'Краткое описание бейджа не должно превышать 4000 символов.',
+                'type' => 'error',
+            ], 400);
+        }
+        $this->validateBadgeImageReference($image);
+
+        $statement = $this->db->prepare(
+            'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`, `id`'
+        );
+        $statement->execute();
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $originalRow = null;
+        foreach ($rows as $row) {
+            if (is_array($row) && hash_equals((string)($row['badgeName'] ?? ''), $originalName)) {
+                $originalRow = $row;
+                break;
+            }
+        }
+        if ($originalName !== '' && !is_array($originalRow)) {
+            $this->respond(['message' => 'Бейдж для обновления не найден.', 'type' => 'error'], 404);
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $rowName = (string)($row['badgeName'] ?? '');
+            $sameRecord = is_array($originalRow)
+                && (int)($row['id'] ?? 0) === (int)($originalRow['id'] ?? 0);
+            if (!$sameRecord && mb_strtolower($rowName, 'UTF-8') === mb_strtolower($badgeName, 'UTF-8')) {
+                $this->respond(['message' => 'Бейдж с таким названием уже существует.', 'type' => 'error'], 409);
+            }
+        }
+
+        $oldSlug = null;
+        $newSlug = null;
+        if (is_array($originalRow)) {
+            foreach (BadgeSlug::assign($rows) as $assigned) {
+                if ((int)($assigned['id'] ?? 0) === (int)($originalRow['id'] ?? 0)) {
+                    $oldSlug = (string)($assigned['pageSlug'] ?? '');
+                    break;
+                }
+            }
+            $prospectiveRows = $rows;
+            foreach ($prospectiveRows as &$row) {
+                if (is_array($row) && (int)($row['id'] ?? 0) === (int)($originalRow['id'] ?? 0)) {
+                    $row['badgeName'] = $badgeName;
+                }
+            }
+            unset($row);
+            foreach (BadgeSlug::assign($prospectiveRows) as $assigned) {
+                if ((int)($assigned['id'] ?? 0) === (int)($originalRow['id'] ?? 0)) {
+                    $newSlug = (string)($assigned['pageSlug'] ?? '');
+                    break;
+                }
+            }
+        }
+
+        $pageMoved = false;
+        try {
+            $this->db->beginTransaction();
+            if (is_array($originalRow)) {
+                $update = $this->db->prepare(
+                    'UPDATE `badgesList` SET `badgeName` = :badgeName, `description` = :description, `img` = :image '
+                    . 'WHERE `id` = :id'
+                );
+                $update->execute([
+                    ':badgeName' => $badgeName,
+                    ':description' => $description,
+                    ':image' => $image,
+                    ':id' => (int)$originalRow['id'],
+                ]);
+                if ($originalName !== $badgeName) {
+                    $this->renameBadgeAssignments($originalName, $badgeName);
+                }
+                if (is_string($oldSlug) && is_string($newSlug) && $oldSlug !== $newSlug
+                    && $this->badgePageRepository->exists($oldSlug)) {
+                    $this->badgePageRepository->move($oldSlug, $newSlug, $badgeName);
+                    $pageMoved = true;
+                }
+            } else {
+                $insert = $this->db->prepare(
+                    'INSERT INTO `badgesList` (`badgeName`, `description`, `img`) '
+                    . 'VALUES (:badgeName, :description, :image)'
+                );
+                $insert->execute([
+                    ':badgeName' => $badgeName,
+                    ':description' => $description,
+                    ':image' => $image,
+                ]);
+                $newId = (int)$this->db->lastInsertId();
+                if ($newId <= 0) {
+                    $lookup = $this->db->prepare(
+                        'SELECT `id` FROM `badgesList` WHERE `badgeName` = :badgeName ORDER BY `id` DESC LIMIT 1'
+                    );
+                    $lookup->execute([':badgeName' => $badgeName]);
+                    $newId = max(0, (int)$lookup->fetchColumn());
+                }
+                $prospectiveRows = $rows;
+                $prospectiveRows[] = [
+                    'id' => $newId,
+                    'badgeName' => $badgeName,
+                    'description' => $description,
+                    'img' => $image,
+                ];
+                foreach (BadgeSlug::assign($prospectiveRows) as $assigned) {
+                    if ((int)($assigned['id'] ?? 0) === $newId) {
+                        $newSlug = (string)($assigned['pageSlug'] ?? '');
+                        break;
+                    }
+                }
+            }
+            $this->db->commit();
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            if ($pageMoved && is_string($oldSlug) && is_string($newSlug)) {
+                try {
+                    $this->badgePageRepository->move($newSlug, $oldSlug, $originalName);
+                } catch (Throwable $rollbackError) {
+                    $this->logger?->logError('Badge HTML page rename rollback failed.', [
+                        'from' => $newSlug,
+                        'to' => $oldSlug,
+                        'exception' => $rollbackError::class,
+                        'message' => $rollbackError->getMessage(),
+                    ]);
+                }
+            }
+            throw $error;
+        }
+
+        $this->logger?->logInfo('Badge catalog entry saved.', [
+            'event' => 'catalog.badges.saved',
+            'administratorUuid' => $this->session->uuid(),
+            'originalBadgeName' => $originalName,
+            'badgeName' => $badgeName,
+            'pageSlug' => $newSlug,
+            'created' => $originalName === '',
+        ]);
+        $this->respond([
+            'message' => 'Бейдж сохранён. URL страницы: /#/badges/' . (string)$newSlug,
+            'type' => 'success',
+            'pageSlug' => $newSlug,
+        ]);
+    }
+
+    private function validateBadgeImageReference(string $image): void {
+        if ($image === '') {
+            return;
+        }
+        if (strlen($image) > 1024 || str_contains($image, "\0")
+            || preg_match('/[\x00-\x1F\x7F]/u', $image) === 1) {
+            $this->respond(['message' => 'Некорректный путь к изображению бейджа.', 'type' => 'error'], 400);
+        }
+        $decodedPath = rawurldecode((string)(parse_url($image, PHP_URL_PATH) ?? $image));
+        foreach (explode('/', str_replace('\\', '/', $decodedPath)) as $segment) {
+            if ($segment === '..') {
+                $this->respond(['message' => 'Переходы .. в пути изображения запрещены.', 'type' => 'error'], 400);
+            }
+        }
+        $scheme = parse_url($image, PHP_URL_SCHEME);
+        if (is_string($scheme) && $scheme !== '' && !in_array(strtolower($scheme), ['http', 'https'], true)) {
+            $this->respond(['message' => 'Разрешены только локальные изображения и HTTP(S) URL.', 'type' => 'error'], 400);
+        }
+        if (is_string($scheme) && $scheme !== '' && filter_var($image, FILTER_VALIDATE_URL) === false) {
+            $this->respond(['message' => 'Некорректный URL изображения бейджа.', 'type' => 'error'], 400);
+        }
+        if (str_starts_with($image, '//')) {
+            $this->respond(['message' => 'Protocol-relative URL изображения запрещён.', 'type' => 'error'], 400);
+        }
+    }
+
+    private function renameBadgeAssignments(string $oldName, string $newName): void {
+        if ($oldName === $newName) {
+            return;
+        }
+        $statement = $this->db->prepare(
+            'SELECT `uuid`, `badges` FROM `users` WHERE `badges` IS NOT NULL AND `badges` <> :empty'
+        );
+        $statement->execute([':empty' => '']);
+        $update = $this->db->prepare('UPDATE `users` SET `badges` = :badges WHERE `uuid` = :uuid');
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $raw = (string)($row['badges'] ?? '');
+            $changed = false;
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $decoded = $this->replaceBadgeAssignmentValue($decoded, $oldName, $newName, $changed);
+                $encoded = json_encode(
+                    $decoded,
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+                );
+            } elseif (trim($raw) === $oldName) {
+                $encoded = $newName;
+                $changed = true;
+            } else {
+                continue;
+            }
+            if ($changed) {
+                $update->execute([
+                    ':badges' => $encoded,
+                    ':uuid' => (string)$row['uuid'],
+                ]);
+            }
+        }
+    }
+
+    private function replaceBadgeAssignmentValue(
+        mixed $value,
+        string $oldName,
+        string $newName,
+        bool &$changed,
+    ): mixed {
+        if (is_string($value)) {
+            if ($value === $oldName) {
+                $changed = true;
+                return $newName;
+            }
+            return $value;
+        }
+        if (!is_array($value)) {
+            return $value;
+        }
+        $result = [];
+        foreach ($value as $key => $entry) {
+            $newKey = is_string($key) && $key === $oldName ? $newName : $key;
+            if ($newKey !== $key) {
+                $changed = true;
+            }
+            $result[$newKey] = $this->replaceBadgeAssignmentValue($entry, $oldName, $newName, $changed);
+        }
+        return $result;
     }
 
     private function saveGroupCatalogEntry(): never {

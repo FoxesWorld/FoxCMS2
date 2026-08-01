@@ -10,6 +10,7 @@ final class SystemRequests
     private const REQUEST_HEADER = 'sysRequest';
 
     private LauncherSessionService $launcherSessions;
+    private UploadService $uploads;
 
     public function __construct(
         private db $db,
@@ -19,6 +20,7 @@ final class SystemRequests
         private array $config = [],
     ) {
         $this->launcherSessions = new LauncherSessionService($db);
+        $this->uploads = new UploadService($db, $userSession, $logger, $request);
     }
 
     public function requestListener(): void
@@ -202,9 +204,8 @@ final class SystemRequests
             $identity = LoadUserInfo::byLogin($login, $this->db)->userInfoArray();
         }
         $identityUuid = (string)($identity['uuid'] ?? '');
-        $identityLogin = (string)($identity['login'] ?? '');
         [$skin, $cape] = Uuid::isValid($identityUuid)
-            ? $this->skinFiles(Uuid::normalize($identityUuid), $identityLogin !== '' ? $identityLogin : null)
+            ? $this->skinFiles($identityUuid)
             : [ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . 'default_skin.png', ''];
         if (!is_file($skin) || !skinViewer2D::isValidSkin($skin)) {
             $skin = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . 'default_skin.png';
@@ -286,66 +287,28 @@ final class SystemRequests
 
     private function handleUploadFile(): never
     {
-        $this->requireBrowserMutation();
         $type = $this->request->string('type');
-        if (!in_array($type, ['skin', 'cloak'], true)) {
-            throw new InvalidArgumentException('Unknown file type.');
+        $purpose = match ($type) {
+            'skin' => UploadPurpose::MINECRAFT_SKIN,
+            'cloak' => UploadPurpose::MINECRAFT_CAPE,
+            default => throw new InvalidArgumentException('Unknown file type.'),
+        };
+        $targetUuid = $this->resolveMutationUserUuid(false);
+        try {
+            $result = $this->uploads->store(
+                $purpose,
+                $this->request->file('0') ?? $this->request->file('file'),
+                ['ownerUuid' => $targetUuid],
+            );
+        } catch (UploadException $error) {
+            $this->jsonError($error->getMessage(), $error->httpStatus());
         }
 
-        $targetUuid = $this->resolveMutationUserUuid();
-
-        $file = $this->request->file('0') ?? $this->request->file('file');
-        if (!is_array($file)) {
-            $this->jsonError('File is missing.', 400);
-        }
-        $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($error !== UPLOAD_ERR_OK) {
-            $this->jsonError('Upload failed with code ' . $error . '.', 400);
-        }
-        $temporary = (string)($file['tmp_name'] ?? '');
-        $size = (int)($file['size'] ?? 0);
-        if ($temporary === '' || !is_uploaded_file($temporary) || $size < 1 || $size > 2_097_152) {
-            $this->jsonError('Invalid or oversized upload.', 400);
-        }
-
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($temporary);
-        $dimensions = getimagesize($temporary);
-        if ($mime !== 'image/png' || !is_array($dimensions)) {
-            $this->jsonError('Only valid PNG images are accepted.', 415);
-        }
-        $width = (int)($dimensions[0] ?? 0);
-        $height = (int)($dimensions[1] ?? 0);
-        if (!$this->validMinecraftTextureDimensions($type, $width, $height)) {
-            $this->jsonError('Unsupported texture dimensions.', 422);
-        }
-        $probe = @imagecreatefrompng($temporary);
-        if (!$probe instanceof GdImage) {
-            $this->jsonError('PNG decoder rejected the image.', 422);
-        }
-        imagedestroy($probe);
-
-        $folder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $targetUuid . DIRECTORY_SEPARATOR;
-        if (!is_dir($folder) && !mkdir($folder, 0750, true) && !is_dir($folder)) {
-            $this->jsonError('Unable to create user directory.', 500);
-        }
-        $suffix = $type === 'skin' ? '-skin.png' : '-cape.png';
-        $destination = $folder . Uuid::compact($targetUuid) . $suffix;
-        $staging = $folder . '.upload-' . bin2hex(random_bytes(8)) . '.tmp';
-        if (!move_uploaded_file($temporary, $staging)) {
-            $this->jsonError('Unable to stage uploaded file.', 500);
-        }
-        @chmod($staging, 0640);
-        if (!rename($staging, $destination)) {
-            @unlink($staging);
-            $this->jsonError('Unable to publish uploaded file.', 500);
-        }
-
-        $this->logger->logInfo('User texture updated', [
-            'userUuid' => $targetUuid,
-            'type' => $type,
-            'size' => $size,
+        $this->json([
+            'message' => $type === 'skin' ? 'Скин загружен.' : 'Плащ загружен.',
+            'type' => 'success',
+            'upload' => $result,
         ]);
-        $this->json(['message' => 'Файл загружен.', 'type' => 'success']);
     }
 
     private function handleDeleteFile(): never
@@ -466,7 +429,7 @@ final class SystemRequests
         return $token;
     }
 
-    private function resolveMutationUserUuid(): string
+    private function resolveMutationUserUuid(bool $authorize = true): string
     {
         $requestedUuid = $this->request->string('userUuid');
         $targetIdentity = $requestedUuid !== '' ? $requestedUuid : $this->userSession->uuid();
@@ -474,7 +437,7 @@ final class SystemRequests
             throw new InvalidArgumentException('Некорректный UUID пользователя.');
         }
         $targetIdentity = Uuid::normalize($targetIdentity);
-        if (!$this->userSession->isAdmin() && !Uuid::equals($this->userSession->uuid(), $targetIdentity)) {
+        if ($authorize && !$this->userSession->isAdmin() && !Uuid::equals($this->userSession->uuid(), $targetIdentity)) {
             $this->jsonError('Insufficient rights.', 403);
         }
 
@@ -505,38 +468,39 @@ final class SystemRequests
     }
 
     /** @return array{0:string,1:string} */
-    private function skinFiles(string $userUuid, ?string $legacyLogin = null): array
+    private function skinFiles(string $userUuid): array
     {
-        $userUuid = Uuid::normalize($userUuid);
-        $folder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $userUuid . DIRECTORY_SEPARATOR;
-        $stem = Uuid::compact($userUuid);
-        $skin = $folder . $stem . '-skin.png';
-        $cape = $folder . $stem . '-cape.png';
-        if (is_file($skin) || $legacyLogin === null) {
-            return [$skin, $cape];
-        }
-
-        $legacyFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $legacyLogin . DIRECTORY_SEPARATOR;
-        $legacyStem = md5($legacyLogin);
-        return [$legacyFolder . $legacyStem . '-skin.png', $legacyFolder . $legacyStem . '-cape.png'];
+        $canonical = Uuid::canonical($userUuid);
+        $compact = Uuid::compact($userUuid);
+        $canonicalFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $canonical . DIRECTORY_SEPARATOR;
+        $compactFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $compact . DIRECTORY_SEPARATOR;
+        $skinCandidates = [
+            $canonicalFolder . $canonical . '-skin.png',
+            $canonicalFolder . $compact . '-skin.png',
+            $compactFolder . $canonical . '-skin.png',
+            $compactFolder . $compact . '-skin.png',
+        ];
+        $capeCandidates = [
+            $canonicalFolder . $canonical . '-cape.png',
+            $canonicalFolder . $compact . '-cape.png',
+            $compactFolder . $canonical . '-cape.png',
+            $compactFolder . $compact . '-cape.png',
+        ];
+        return [
+            $this->firstExistingFile($skinCandidates) ?? $skinCandidates[0],
+            $this->firstExistingFile($capeCandidates) ?? $capeCandidates[0],
+        ];
     }
 
-    private function validMinecraftTextureDimensions(string $type, int $width, int $height): bool
+    /** @param list<string> $paths */
+    private function firstExistingFile(array $paths): ?string
     {
-        if ($width < 16 || $height < 16 || $width > 1024 || $height > 1024) {
-            return false;
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
         }
-        if ($type === 'skin') {
-            return $this->isPowerOfTwo($width)
-                && ($height === $width || $height * 2 === $width);
-        }
-        return ($width === 22 && $height === 17)
-            || ($this->isPowerOfTwo($width) && $height * 2 === $width);
-    }
-
-    private function isPowerOfTwo(int $value): bool
-    {
-        return $value > 0 && ($value & ($value - 1)) === 0;
+        return null;
     }
 
     private function safePublicFile(string $relativePath, string $allowedRoot, int $maximumBytes): string

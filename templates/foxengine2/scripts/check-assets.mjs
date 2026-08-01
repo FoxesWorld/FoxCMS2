@@ -30,12 +30,13 @@ for (const kind of ['styles', 'scripts']) {
   }
 }
 for (const required of [
-  'engine/data/content/badges.json',
-  'engine/data/content/static-pages.json',
-  'api/content.php',
+  'data/pages.json',
+  'data/badges/earlyuser.html',
+  'data/slides.json',
 ]) {
-  if (!(await exists(join(repositoryRoot, required)))) failures.push(`engine registry is missing: ${required}`)
+  if (!(await exists(join(themeRoot, required)))) failures.push(`theme runtime data is missing: ${required}`)
 }
+if (!(await exists(join(repositoryRoot, 'api', 'content.php')))) failures.push('public content API is missing: api/content.php')
 if (await exists(join(repositoryRoot, 'engine', 'data', 'frontend.json'))) failures.push('engine/data/frontend.json must not exist')
 if (!(await exists(join(runtimeRoot, 'theme.js')))) failures.push('theme runtime entry is missing: assets/runtime/theme.js')
 if (!(await exists(join(runtimeRoot, 'theme.css')))) failures.push('theme stylesheet is missing: assets/runtime/theme.css')

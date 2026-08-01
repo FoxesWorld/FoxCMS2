@@ -15,7 +15,7 @@ final class AuthlibProfileService
     /** @return array<string, mixed> */
     public function profile(string $userUuid, string $username): array
     {
-        $userUuid = Uuid::normalize($userUuid);
+        $userUuid = Uuid::canonical($userUuid);
         $this->assertUsername($username);
         $profileId = Uuid::compact($userUuid);
         $property = [
@@ -43,31 +43,30 @@ final class AuthlibProfileService
     /** @return array<string, array{url:string}> */
     public function textures(string $userUuid, string $username): array
     {
-        $userUuid = Uuid::normalize($userUuid);
+        $userUuid = Uuid::canonical($userUuid);
         $this->assertUsername($username);
         $profileId = Uuid::compact($userUuid);
+        $textureId = $userUuid;
         $uuidDirectory = $this->rootDirectory . '/uploads/users/' . $userUuid . '/';
         $uuidPublic = $this->publicBaseUrl . '/uploads/users/' . rawurlencode($userUuid) . '/';
-        $legacyDirectory = $this->rootDirectory . '/uploads/users/' . $username . '/';
-        $legacyPublic = $this->publicBaseUrl . '/uploads/users/' . rawurlencode($username) . '/';
-        $legacyStem = md5($username);
-
-        $skin = $this->resolveTexture(
-            $uuidDirectory . $profileId . '-skin.png',
-            $uuidPublic . $profileId . '-skin.png',
-            $legacyDirectory . $legacyStem . '-skin.png',
-            $legacyPublic . $legacyStem . '-skin.png',
-        );
+        $compactDirectory = $this->rootDirectory . '/uploads/users/' . $profileId . '/';
+        $compactPublic = $this->publicBaseUrl . '/uploads/users/' . rawurlencode($profileId) . '/';
+        $skin = $this->resolveTexture([
+            [$uuidDirectory . $textureId . '-skin.png', $uuidPublic . $textureId . '-skin.png'],
+            [$uuidDirectory . $profileId . '-skin.png', $uuidPublic . $profileId . '-skin.png'],
+            [$compactDirectory . $textureId . '-skin.png', $compactPublic . $textureId . '-skin.png'],
+            [$compactDirectory . $profileId . '-skin.png', $compactPublic . $profileId . '-skin.png'],
+        ]);
         $textures = [
             'SKIN' => ['url' => $skin ?? $this->publicBaseUrl . '/uploads/users/default_skin.png'],
         ];
 
-        $cape = $this->resolveTexture(
-            $uuidDirectory . $profileId . '-cape.png',
-            $uuidPublic . $profileId . '-cape.png',
-            $legacyDirectory . $legacyStem . '-cape.png',
-            $legacyPublic . $legacyStem . '-cape.png',
-        );
+        $cape = $this->resolveTexture([
+            [$uuidDirectory . $textureId . '-cape.png', $uuidPublic . $textureId . '-cape.png'],
+            [$uuidDirectory . $profileId . '-cape.png', $uuidPublic . $profileId . '-cape.png'],
+            [$compactDirectory . $textureId . '-cape.png', $compactPublic . $textureId . '-cape.png'],
+            [$compactDirectory . $profileId . '-cape.png', $compactPublic . $profileId . '-cape.png'],
+        ]);
         if ($cape !== null) {
             $textures['CAPE'] = ['url' => $cape];
         }
@@ -75,16 +74,15 @@ final class AuthlibProfileService
         return $textures;
     }
 
-    private function resolveTexture(
-        string $uuidPath,
-        string $uuidUrl,
-        string $legacyPath,
-        string $legacyUrl,
-    ): ?string {
-        if (is_file($uuidPath)) {
-            return $uuidUrl;
+    /** @param list<array{0:string,1:string}> $candidates */
+    private function resolveTexture(array $candidates): ?string
+    {
+        foreach ($candidates as [$path, $url]) {
+            if (is_file($path)) {
+                return $url;
+            }
         }
-        return is_file($legacyPath) ? $legacyUrl : null;
+        return null;
     }
 
     private function assertUsername(string $username): void

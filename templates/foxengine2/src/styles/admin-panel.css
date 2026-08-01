@@ -1,0 +1,317 @@
+html:has(.admin-workspace) {
+  scrollbar-gutter: stable;
+}
+
+.legacy-main__inner--admin {
+  width: min(var(--page-width), calc(100% - (var(--page-gutter) * 2)));
+  max-width: var(--page-width);
+  margin-inline: auto;
+}
+
+.content-layout--admin {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-page.admin-workspace {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  min-width: 0;
+  min-height: calc(100dvh - var(--header-height) - 48px);
+  display: grid;
+  grid-template-columns: 276px minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.admin-workspace .admin-sidebar {
+  position: sticky;
+  top: calc(var(--header-height) + 16px);
+  z-index: 30;
+  align-self: start;
+  width: 100%;
+  min-width: 0;
+  height: calc(100dvh - var(--header-height) - 32px);
+  max-height: 760px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-small);
+  overflow: hidden;
+}
+
+.admin-workspace .admin-sidebar__header {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-workspace .admin-sidebar__mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
+  border-radius: 13px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  font-size: 1.2rem;
+}
+
+.admin-workspace .admin-sidebar__header > div {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.admin-workspace .admin-sidebar__header strong {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-workspace .admin-sidebar__header small {
+  color: var(--color-text-muted);
+  font-size: .73rem;
+}
+
+.admin-workspace .admin-tabs {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 3px 0 0;
+  border: 0;
+  background: transparent;
+}
+
+.admin-workspace .admin-tabs button {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.admin-workspace .admin-tabs button > i {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+}
+
+.admin-workspace .admin-tabs button > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.admin-workspace .admin-tabs button strong,
+.admin-workspace .admin-tabs button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-workspace .admin-tabs button strong {
+  color: inherit;
+  font-size: .86rem;
+  line-height: 1.2;
+}
+
+.admin-workspace .admin-tabs button small {
+  color: var(--color-text-muted);
+  font-size: .66rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.admin-workspace .admin-tabs button:hover {
+  border-color: var(--color-border);
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+}
+
+.admin-workspace .admin-tabs button.active {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  color: var(--color-text);
+  background: var(--color-accent-soft);
+}
+
+.admin-workspace .admin-tabs button.active > i {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+}
+
+.admin-workspace .admin-sidebar__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.admin-workspace .admin-sidebar__status {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.admin-workspace .admin-sidebar__status.is-loading {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warning) 14%, transparent);
+  animation: admin-status-pulse 1.2s ease-in-out infinite;
+}
+
+.admin-workspace .admin-workspace__main {
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100dvh - var(--header-height) - 48px);
+}
+
+.admin-workspace .admin-workspace__inner {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+  margin: 0;
+}
+
+.admin-workspace .admin-header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-small);
+}
+
+.admin-workspace .admin-header > div { min-width: 0; }
+.admin-workspace .admin-header h1 { margin: 4px 0 7px; font-size: clamp(2rem, 3.5vw, 3.35rem); line-height: 1; }
+.admin-workspace .admin-header .lead { max-width: 920px; margin: 0; color: var(--color-text-muted); font-size: .93rem; line-height: 1.5; }
+
+.admin-workspace .admin-state {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+.admin-workspace .admin-state > i { color: var(--color-accent); }
+.admin-workspace .admin-state .fa-spinner { animation: admin-spin .85s linear infinite; }
+
+.admin-workspace .admin-workspace__content {
+  width: 100%;
+  min-width: 0;
+  min-height: 440px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: clamp(16px, 2vw, 26px);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-small);
+}
+
+.admin-workspace .form-feedback { margin: 0; }
+
+@keyframes admin-spin { to { transform: rotate(360deg); } }
+@keyframes admin-status-pulse { 50% { opacity: .45; } }
+
+@media (max-width: 1100px) {
+  .admin-page.admin-workspace { grid-template-columns: 224px minmax(0, 1fr); gap: 16px; }
+  .admin-workspace .admin-sidebar { padding: 14px; }
+  .admin-workspace .admin-tabs button small { display: none; }
+}
+
+@media (max-width: 780px) {
+  .legacy-main__inner--admin { width: calc(100% - 18px); }
+  .admin-page.admin-workspace { grid-template-columns: minmax(0, 1fr); }
+  .admin-workspace .admin-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    gap: 12px;
+    padding: 12px;
+  }
+  .admin-workspace .admin-sidebar__header,
+  .admin-workspace .admin-sidebar__footer { display: none; }
+  .admin-workspace .admin-tabs {
+    flex: none;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: auto;
+    padding: 1px 1px 5px;
+  }
+  .admin-workspace .admin-tabs button {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 44px;
+    grid-template-columns: 28px auto;
+    padding: 6px 10px 6px 7px;
+  }
+  .admin-workspace .admin-tabs button > i { width: 28px; height: 28px; }
+  .admin-workspace .admin-tabs button strong { white-space: nowrap; }
+  .admin-workspace .admin-header { align-items: flex-start; padding: 17px; }
+  .admin-workspace .admin-workspace__content { padding: 14px; border-radius: 14px; }
+}
+
+@media (max-width: 560px) {
+  .admin-workspace .admin-header { flex-direction: column; }
+  .admin-workspace .admin-state { align-self: flex-start; }
+  .admin-workspace .admin-header h1 { font-size: 2rem; }
+}

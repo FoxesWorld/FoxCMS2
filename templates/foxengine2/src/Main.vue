@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
 import { useRoute } from 'vue-router'
 import Header from '@theme/Header.vue'
@@ -16,10 +16,13 @@ import { getSeasonBackground, getSiteSeason } from '@theme/domain/season'
 
 type ColorTheme = 'light' | 'dark'
 
+const NewsFeed = defineAsyncComponent(() => import('@theme/news/NewsFeed.vue'))
+
 const THEME_STORAGE_KEY = 'foxescraft.color-theme'
 const shell = useEngineShell()
 const route = useRoute()
 const isHome = computed(() => route.name === 'home')
+const isAdmin = computed(() => route.name === 'admin')
 const activeSeason = getSiteSeason()
 const seasonalStyle = {
   '--season-background-image': `url("${getSeasonBackground(shell.bootstrap, activeSeason)}")`,
@@ -101,11 +104,14 @@ onBeforeUnmount(() => systemThemeQuery.removeEventListener('change', handleSyste
     />
 
     <main id="main-content" class="legacy-main">
-      <div class="page-width legacy-main__inner">
+      <div class="page-width legacy-main__inner" :class="{ 'legacy-main__inner--admin': isAdmin }">
         <Slider v-if="isHome" />
-        <div class="content-layout">
-          <section class="content-column"><RouterView /></section>
-          <RightBlock />
+        <div class="content-layout" :class="{ 'content-layout--admin': isAdmin }">
+          <section class="content-column">
+            <RouterView />
+            <NewsFeed v-if="isHome" />
+          </section>
+          <RightBlock v-if="!isAdmin" />
         </div>
       </div>
     </main>

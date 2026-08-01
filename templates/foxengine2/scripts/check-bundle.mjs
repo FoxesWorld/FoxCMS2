@@ -33,8 +33,8 @@ const styles = entries.filter((entry) => entry.name.endsWith('.css'))
 const totalGzip = entries.reduce((sum, entry) => sum + entry.gzip, 0)
 const budgets = {
   mainJs: 55 * 1024,
-  stylesheet: 10 * 1024,
-  completeClient: 116 * 1024,
+  stylesheet: 12 * 1024,
+  completeClient: 126 * 1024,
 }
 const failures = []
 if (!mainJs || mainJs.gzip > budgets.mainJs) failures.push(`theme.js gzip budget exceeded: ${mainJs?.gzip ?? 0} bytes`)

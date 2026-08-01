@@ -7,7 +7,10 @@
 /templates/*/node_modules/
 /templates/*/.vite/
 /templates/*/npm-debug.log*
-/uploads/
+/uploads/*
+!/uploads/users/
+/uploads/users/*
+!/uploads/users/default_skin.png
 *.log
 engine/templates_c/
 engine/cache/logs/*.log

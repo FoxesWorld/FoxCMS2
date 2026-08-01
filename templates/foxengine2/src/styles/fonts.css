@@ -8,3 +8,10 @@
 .fa-solid{display:inline-block;font-family:"Font Awesome 6 Pro";font-style:normal;font-weight:900;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 .fa-fw{width:1.25em;text-align:center}
 .fa-user::before{content:"\f007"}.fa-circle::before{content:"\f111"}.fa-pen-to-square::before{content:"\f044"}.fa-user-plus::before{content:"\f234"}.fa-right-from-bracket::before{content:"\f2f5"}.fa-right-to-bracket::before{content:"\f2f6"}.fa-shield-halved::before{content:"\f3ed"}.fa-user-gear::before{content:"\f4fe"}
+.fa-newspaper::before{content:"\f1ea"}.fa-comments::before{content:"\f086"}.fa-heart::before{content:"\f004"}.fa-eye::before{content:"\f06e"}.fa-image::before{content:"\f03e"}.fa-upload::before{content:"\f093"}.fa-trash-can::before{content:"\f2ed"}.fa-arrow-right::before{content:"\f061"}.fa-plus::before{content:"\2b"}.fa-floppy-disk::before{content:"\f0c7"}.fa-xmark::before{content:"\f00d"}.fa-paper-plane::before{content:"\f1d8"}
+
+.fa-chevron-left::before{content:"\f053"}.fa-chevron-right::before{content:"\f054"}.fa-arrow-up::before{content:"\f062"}.fa-arrow-down::before{content:"\f063"}
+
+.fa-chart-line::before{content:"\f201"}.fa-images::before{content:"\f302"}.fa-screwdriver-wrench::before{content:"\f7d9"}.fa-users::before{content:"\f0c0"}.fa-server::before{content:"\f233"}.fa-folder-open::before{content:"\f07c"}.fa-rectangle-list::before{content:"\f022"}.fa-table-list::before{content:"\f00b"}.fa-spinner::before{content:"\f110"}.fa-circle-check::before{content:"\f058"}
+
+.fa-award::before{content:"\f559"}

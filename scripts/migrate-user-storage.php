@@ -45,27 +45,57 @@ if (!$statement instanceof PDOStatement) {
 $moved = 0;
 $profileUpdates = 0;
 foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $user) {
-    $userUuid = Uuid::normalize((string)$user['uuid']);
+    $storedUuid = Uuid::normalize((string)$user['uuid']);
+    $userUuid = Uuid::canonical($storedUuid);
     $profileId = Uuid::compact($userUuid);
+    $textureId = $userUuid;
     $login = (string)$user['login'];
     if (preg_match('/^[A-Za-z0-9_.-]{1,64}$/D', $login) !== 1) {
         fwrite(STDERR, '[skip] unsafe legacy login for ' . $userUuid . PHP_EOL);
         continue;
     }
 
-    $legacyDirectory = $rootDirectory . '/uploads/users/' . $login;
     $uuidDirectory = $rootDirectory . '/uploads/users/' . $userUuid;
     if (!$dryRun && !is_dir($uuidDirectory) && !mkdir($uuidDirectory, 0750, true) && !is_dir($uuidDirectory)) {
         throw new RuntimeException('Unable to create ' . $uuidDirectory);
     }
 
     $legacyStem = md5($login);
-    $renames = [
-        $legacyStem . '-skin.png' => $profileId . '-skin.png',
-        $legacyStem . '-cape.png' => $profileId . '-cape.png',
+    $sources = [
+        $rootDirectory . '/uploads/users/' . $login => [
+            $legacyStem . '-skin.png' => $textureId . '-skin.png',
+            $legacyStem . '-cape.png' => $textureId . '-cape.png',
+        ],
+        $rootDirectory . '/uploads/users/' . $profileId => [
+            $profileId . '-skin.png' => $textureId . '-skin.png',
+            $profileId . '-cape.png' => $textureId . '-cape.png',
+        ],
     ];
-    if (is_dir($legacyDirectory)) {
-        foreach (new DirectoryIterator($legacyDirectory) as $entry) {
+    $canonicalRenames = [
+        $profileId . '-skin.png' => $textureId . '-skin.png',
+        $profileId . '-cape.png' => $textureId . '-cape.png',
+    ];
+    foreach ($canonicalRenames as $sourceName => $targetName) {
+        if ($sourceName === $targetName) {
+            continue;
+        }
+        $source = $uuidDirectory . '/' . $sourceName;
+        $target = $uuidDirectory . '/' . $targetName;
+        if (!is_file($source) || is_file($target)) {
+            continue;
+        }
+        fwrite(STDOUT, sprintf('[rename] %s -> %s%s', $source, $target, PHP_EOL));
+        if (!$dryRun && !rename($source, $target)) {
+            throw new RuntimeException('Unable to rename ' . $source);
+        }
+        $moved++;
+    }
+
+    foreach ($sources as $sourceDirectory => $renames) {
+        if ($sourceDirectory === $uuidDirectory || !is_dir($sourceDirectory)) {
+            continue;
+        }
+        foreach (new DirectoryIterator($sourceDirectory) as $entry) {
             if (!$entry->isFile() || $entry->isLink()) {
                 continue;
             }
@@ -84,23 +114,25 @@ foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $user) {
             $moved++;
         }
         if (!$dryRun) {
-            @rmdir($legacyDirectory);
+            @rmdir($sourceDirectory);
         }
     }
 
     $profilePhoto = str_replace('\\', '/', (string)($user['profilePhoto'] ?? ''));
-    $legacyPrefix = '/uploads/users/' . $login . '/';
-    if (str_starts_with($profilePhoto, $legacyPrefix)) {
-        $profileName = basename($profilePhoto);
-        $legacyProfilePath = $legacyDirectory . '/' . $profileName;
-        $uuidProfilePath = $uuidDirectory . '/' . $profileName;
-        $canMigrateProfile = is_file($uuidProfilePath)
-            || ($dryRun && is_file($legacyProfilePath));
-        if (!$canMigrateProfile) {
-            fwrite(STDERR, '[skip] profile photo file is missing for ' . $userUuid . PHP_EOL);
-            continue;
+    $profileName = basename($profilePhoto);
+    $legacyPrefixes = [
+        '/uploads/users/' . $login . '/',
+        '/uploads/users/' . $profileId . '/',
+        '/uploads/users/' . $storedUuid . '/',
+    ];
+    $usesLegacyProfilePath = false;
+    foreach (array_unique($legacyPrefixes) as $legacyPrefix) {
+        if ($legacyPrefix !== '/uploads/users/' . $userUuid . '/' && str_starts_with($profilePhoto, $legacyPrefix)) {
+            $usesLegacyProfilePath = true;
+            break;
         }
-
+    }
+    if ($usesLegacyProfilePath && $profileName !== '' && is_file($uuidDirectory . '/' . $profileName)) {
         $newProfilePhoto = '/uploads/users/' . $userUuid . '/' . $profileName;
         fwrite(STDOUT, sprintf('[profile] %s -> %s%s', $profilePhoto, $newProfilePhoto, PHP_EOL));
         if (!$dryRun) {
@@ -109,7 +141,7 @@ foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $user) {
             );
             $update->execute([
                 ':profilePhoto' => $newProfilePhoto,
-                ':userUuid' => $userUuid,
+                ':userUuid' => $storedUuid,
             ]);
         }
         $profileUpdates++;

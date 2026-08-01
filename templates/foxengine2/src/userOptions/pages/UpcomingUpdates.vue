@@ -1,1 +1,0 @@
-<script setup lang="ts">import StaticPage from '../content/StaticPage.vue'; import type { StaticPageDefinition } from '@engine/content/contentData'; defineProps<{ page: StaticPageDefinition }>()</script><template><StaticPage :page="page" /></template>

@@ -1,0 +1,184 @@
+import { access, readFile, readdir } from 'node:fs/promises'
+import { extname, join, parse } from 'node:path'
+import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+
+const failures = []
+async function exists(path) { try { await access(path); return true } catch { return false } }
+
+const pagesPath = join(themeRoot, 'data', 'pages.json')
+const badgesDirectory = join(themeRoot, 'data', 'badges')
+const frontendPath = join(themeRoot, 'frontend.json')
+
+if (!(await exists(pagesPath))) failures.push('runtime project pages file is missing: data/pages.json')
+if (!(await exists(badgesDirectory))) failures.push('standalone badge HTML directory is missing: data/badges')
+
+const pagesDocument = JSON.parse(await readFile(pagesPath, 'utf8'))
+const frontend = JSON.parse(await readFile(frontendPath, 'utf8'))
+if (pagesDocument?.schema !== 1 || !Array.isArray(pagesDocument?.pages)) failures.push('pages.json must use schema 1 with a pages array')
+
+const pageIds = new Set()
+for (const [index, page] of (pagesDocument.pages ?? []).entries()) {
+  if (!page || typeof page !== 'object' || Array.isArray(page)) { failures.push(`project page ${index + 1} must be an object`); continue }
+  if (!/^[a-z][a-z0-9-]{1,63}$/.test(String(page.id ?? ''))) failures.push(`project page ${index + 1} has invalid id`)
+  if (pageIds.has(page.id)) failures.push(`duplicate project page id: ${page.id}`)
+  pageIds.add(page.id)
+  for (const field of ['title', 'summary', 'eyebrow']) if (typeof page[field] !== 'string') failures.push(`project page ${page.id} has invalid ${field}`)
+  if (!Array.isArray(page.sections)) failures.push(`project page ${page.id} must contain sections`)
+}
+
+const badgeFiles = (await readdir(badgesDirectory, { withFileTypes: true }))
+  .filter((entry) => entry.isFile())
+  .map((entry) => entry.name)
+const htmlFiles = badgeFiles.filter((name) => extname(name).toLowerCase() === '.html')
+for (const name of badgeFiles.filter((file) => extname(file).toLowerCase() === '.json')) {
+  failures.push(`badge page must be HTML, not JSON: data/badges/${name}`)
+}
+if (htmlFiles.length === 0) failures.push('data/badges must contain at least one standalone .html page')
+
+const badgeSlugs = new Set()
+const requiredMarkers = [
+  'data-badge-page',
+  'data-badge-name',
+  'data-badge-slug',
+  'data-badge-title',
+  'data-badge-description',
+  'data-badge-image',
+  'data-badge-history',
+]
+for (const name of htmlFiles) {
+  const slug = parse(name).name
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) failures.push(`badge HTML filename has invalid route slug: ${name}`)
+  if (badgeSlugs.has(slug)) failures.push(`duplicate badge HTML slug: ${slug}`)
+  badgeSlugs.add(slug)
+  const html = await readFile(join(badgesDirectory, name), 'utf8')
+  if (!/^\s*<article\b/i.test(html) || !/<\/article>\s*$/i.test(html)) failures.push(`${name} must be one complete root <article> page`)
+  for (const marker of requiredMarkers) {
+    const count = (html.match(new RegExp(`\\b${marker}(?:=|\\s|>)`, 'gi')) ?? []).length
+    if (count !== 1) failures.push(`${name} must contain exactly one ${marker} marker; found ${count}`)
+  }
+  const declaredSlug = html.match(/data-badge-slug\s*=\s*["']([^"']+)["']/i)?.[1]
+  if (declaredSlug !== slug) failures.push(`${name} data-badge-slug must equal filename slug ${slug}`)
+  if (!/data-badge-name\s*=\s*["'][^"']+["']/i.test(html)) failures.push(`${name} must bind to a badgesList.badgeName through data-badge-name`)
+  if (/<(?:script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta|base|svg|math)\b/i.test(html)) failures.push(`${name} contains a forbidden executable or document element`)
+  if (/\son[a-z]+\s*=/i.test(html) || /(?:javascript|vbscript|data\s*:\s*text\/html)\s*:/i.test(html)) failures.push(`${name} contains executable HTML`)
+}
+
+const badgesRouteIndex = (frontend.routes ?? []).findIndex((route) => route?.name === 'badges')
+const badgeRouteIndex = (frontend.routes ?? []).findIndex((route) => route?.name === 'badge')
+const badgesRoute = frontend.routes?.[badgesRouteIndex]
+const badgeRoute = frontend.routes?.[badgeRouteIndex]
+if (badgesRoute?.path !== '/badges' || badgesRoute?.view !== 'BadgesView') failures.push('/badges must use BadgesView')
+if (badgeRoute?.path !== '/badges/:id' || badgeRoute?.view !== 'BadgeView' || badgeRoute?.props !== true) failures.push('/badges/:id must use BadgeView with route props')
+if (badgesRouteIndex < 0 || badgeRouteIndex < 0 || badgesRouteIndex >= badgeRouteIndex) failures.push('static /badges route must precede /badges/:id')
+if (!(frontend.navigation ?? []).some((item) => item?.route === 'badges')) failures.push('badge catalog is missing from navigation')
+
+for (const route of frontend.routes ?? []) {
+  if (route?.view !== 'StaticContentView') continue
+  const pageId = route?.props?.pageId
+  if (typeof pageId !== 'string' || !pageIds.has(pageId)) failures.push(`StaticContentView route ${route?.name} references missing runtime page ${String(pageId)}`)
+}
+
+const api = await readFile(join(repositoryRoot, 'api', 'content.php'), 'utf8')
+for (const token of ['BadgeSlug::assign', 'ThemeBadgePageRepository', 'FROM `badgesList`', 'contentBadgeCatalog', 'contentBadgePage', "registry === 'badges'", "registry === 'badge'", '$repository->exists($slug)', "'pageConfigured' => $repository->exists($slug)"]) {
+  if (!api.includes(token)) failures.push(`content API is missing contract ${token}`)
+}
+for (const forbidden of ['imageKey', 'pageNameKey', 'badgeNameKey === $slugKey', 'WHERE `badgeName` = :badgeName LIMIT 1']) {
+  if (api.includes(forbidden)) failures.push(`badge page discovery still uses obsolete matching rule ${forbidden}`)
+}
+for (const forbidden of ['badge-pages.json', 'engine/data/content', 'readBadgePages']) {
+  if (api.includes(forbidden)) failures.push(`content API still references obsolete badge registry ${forbidden}`)
+}
+
+const badgeSlug = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'BadgeSlug.class.php'), 'utf8')
+for (const token of ['final class BadgeSlug', 'CYRILLIC_TRANSLITERATION', 'public static function fromName', 'public static function assign', "'ж' => 'zh'", "'я' => 'ya'", "preg_replace('/[^a-z0-9]+/'"]) {
+  if (!badgeSlug.includes(token)) failures.push(`BadgeSlug is missing ${token}`)
+}
+
+const transliteration = Object.fromEntries(
+  [...badgeSlug.matchAll(/'([^']+)'\s*=>\s*'([^']*)'/g)].map((match) => [match[1], match[2]]),
+)
+function expectedBadgeSlug(value) {
+  const transliterated = [...value.toLocaleLowerCase('ru').normalize('NFD')]
+    .map((character) => transliteration[character] ?? character)
+    .join('')
+    .replace(/\p{M}+/gu, '')
+  return transliterated.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+}
+for (const [name, expected] of [
+  ['EarlyUser', 'earlyuser'],
+  ['Раннее Возрождение', 'rannee-vozrozhdenie'],
+  ['Подсвинок', 'podsvinok'],
+  ['LGBTQ+', 'lgbtq'],
+]) {
+  const actual = expectedBadgeSlug(name)
+  if (actual !== expected) failures.push(`BadgeSlug transliteration mismatch: ${name} -> ${actual}, expected ${expected}`)
+}
+
+const projectRepository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeContentRepository.class.php'), 'utf8')
+for (const token of ['readProjectPages', 'saveProjectPages', 'rename($temporary, $path)']) {
+  if (!projectRepository.includes(token)) failures.push(`ThemeContentRepository is missing ${token}`)
+}
+for (const forbidden of ['readBadgePage', 'saveBadgePage', 'badgePagesDirectory']) {
+  if (projectRepository.includes(forbidden)) failures.push(`ThemeContentRepository still owns badge pages through ${forbidden}`)
+}
+
+const badgeRepository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeBadgePageRepository.class.php'), 'utf8')
+for (const token of ['final class ThemeBadgePageRepository', "'q'", 'public function exists(', 'public function read(', 'public function save(', 'public function move(', 'public function render(', 'private function sanitize(', "'.html'", 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
+  if (!badgeRepository.includes(token)) failures.push(`ThemeBadgePageRepository is missing ${token}`)
+}
+const application = await readFile(join(repositoryRoot, 'engine', 'Application.class.php'), 'utf8')
+for (const repository of ['ThemeContentRepository.class.php', 'BadgeSlug.class.php', 'ThemeBadgePageRepository.class.php']) {
+  if (!application.includes(repository)) failures.push(`Application does not load ${repository}`)
+}
+
+const adminBackend = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
+if (adminBackend.includes('logWarning(')) failures.push('Admin content uses unsupported Logger::logWarning; use logWarn')
+for (const method of ['logWarn(', 'logError(', 'logInfo(']) {
+  if (!adminBackend.includes(method)) failures.push(`Admin content logging is missing ${method}`)
+}
+for (const token of ["case 'content'", "case 'saveProjectPages'", "case 'saveBadgePage'", "case 'deleteBadgePage'", 'ThemeBadgePageRepository', 'BadgeSlug::assign', '$this->badgePageRepository->exists($slug)', "'.html'", 'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`']) {
+  if (!adminBackend.includes(token)) failures.push(`Admin content backend is missing ${token}`)
+}
+for (const token of ["mb_strlen($badgeName) > 120", "preg_match('/[\\x00-\\x1F\\x7F]/u', $badgeName)", 'renameBadgeAssignments', '$this->badgePageRepository->move($oldSlug, $newSlug, $badgeName)']) {
+  if (!adminBackend.includes(token)) failures.push(`Unicode badge settings contract is missing ${token}`)
+}
+const badgeSettingsStart = adminBackend.indexOf('private function saveBadgeCatalogEntry')
+const badgeSettingsEnd = adminBackend.indexOf('private function saveGroupCatalogEntry', badgeSettingsStart)
+const badgeSettingsMethod = adminBackend.slice(badgeSettingsStart, badgeSettingsEnd)
+if (/preg_match\('\/\^\[A-Za-z/.test(badgeSettingsMethod) || /preg_match\('\/\^\[a-z/.test(badgeSettingsMethod)) {
+  failures.push('badgeName must not be constrained to ASCII')
+}
+
+const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
+for (const token of ["'content'", "admPanel: 'content'", "admPanel: 'saveProjectPages'", "admPanel: 'saveBadgePage'", "admPanel: 'deleteBadgePage'", 'html: string']) {
+  if (!adminClient.includes(token)) failures.push(`Admin content client is missing ${token}`)
+}
+const editor = await readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'Content.vue'), 'utf8')
+for (const token of ['HTML-страницы бейджей', 'Полная HTML-разметка страницы', 'Sandbox-preview', 'data-badge-history', 'sandbox=""']) {
+  if (!editor.includes(token)) failures.push(`Admin badge HTML editor is missing ${token}`)
+}
+
+const catalogView = await readFile(join(repositoryRoot, 'engine', 'client', 'views', 'BadgesView.vue'), 'utf8')
+for (const token of ['loadBadges', "document.title = `Бейджи", '@theme/userOptions/pages/badges/Badges.vue']) {
+  if (!catalogView.includes(token)) failures.push(`BadgesView is missing ${token}`)
+}
+const catalogTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badges.vue'), 'utf8')
+for (const token of ['badges-table', 'badge.image', 'badge.title', 'badge.description', "name: 'badge'", 'badge.pageConfigured']) {
+  if (!catalogTemplate.includes(token)) failures.push(`Badge catalog presentation is missing ${token}`)
+}
+const badgeTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badge.vue'), 'utf8')
+if (!badgeTemplate.includes('v-html="badge.html"')) failures.push('Badge.vue must render the server-sanitized standalone HTML page')
+
+const obsoletePaths = [
+  'templates/foxengine2/data/badge-pages.json',
+  'engine/data/content/badges.json',
+  'engine/data/content/static-pages.json',
+]
+for (const relative of obsoletePaths) if (await exists(join(repositoryRoot, relative))) failures.push(`obsolete content source still exists: ${relative}`)
+
+if (failures.length) {
+  console.error('Runtime content contract failed:')
+  for (const failure of [...new Set(failures)]) console.error(`- ${failure}`)
+  process.exit(1)
+}
+console.log(`Runtime content passed: ${pageIds.size} project pages, ${badgeSlugs.size} standalone badge HTML pages, DB-backed /badges index.`)

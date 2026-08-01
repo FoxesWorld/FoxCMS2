@@ -1,12 +1,41 @@
 import { appBootstrap } from '@/app/context'
 import { bootstrapEndpoint } from '@/domain/bootstrap'
 
-export interface StaticPageSection { title: string; paragraphs?: string[]; items?: string[] }
-export interface StaticPageDefinition { eyebrow: string; title: string; summary: string; updated?: string; sections: StaticPageSection[] }
-export interface BadgeDefinition { id: string; title: string; description: string; image: string | null; paragraphs: string[] }
+export interface ContentCard { title: string; text: string }
+export interface ContentNotice { title: string; text: string }
+export interface StaticPageSection {
+  title: string
+  paragraphs: string[]
+  items: string[]
+  cards: ContentCard[]
+  notice: ContentNotice | null
+}
+export interface StaticPageDefinition {
+  id: string
+  layout: 'default' | 'rules'
+  eyebrow: string
+  title: string
+  summary: string
+  updated: string
+  image: string
+  imageAlt: string
+  imageCaption: string
+  sections: StaticPageSection[]
+}
+export interface BadgeDefinition {
+  id: string
+  databaseId: number
+  badgeName: string
+  title: string
+  description: string
+  image: string | null
+  html: string
+  pageConfigured: boolean
+}
 
 let staticPagesPromise: Promise<Record<string, StaticPageDefinition>> | null = null
 let badgesPromise: Promise<readonly BadgeDefinition[]> | null = null
+const badgePagePromises = new Map<string, Promise<BadgeDefinition>>()
 
 function registryUrl(registry: string): string {
   const endpoint = bootstrapEndpoint(appBootstrap, 'content')
@@ -17,16 +46,64 @@ function registryUrl(registry: string): string {
 }
 
 function loadRegistry<T>(registry: string): Promise<T> {
-  return fetch(registryUrl(registry), { credentials: 'same-origin' }).then((response) => {
-    if (!response.ok) throw new Error(`Content registry request failed: ${response.status}`)
+  return fetch(registryUrl(registry), {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  }).then(async (response) => {
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null) as { requestId?: unknown; error?: unknown } | null
+      const requestId = typeof payload?.requestId === 'string' ? `, request ${payload.requestId}` : ''
+      const code = typeof payload?.error === 'string' ? `, ${payload.error}` : ''
+      throw new Error(`Content registry request failed: ${response.status}${code}${requestId}`)
+    }
     return response.json() as Promise<T>
   })
 }
 
 export function loadStaticPages(): Promise<Record<string, StaticPageDefinition>> {
-  return staticPagesPromise ??= loadRegistry<Record<string, StaticPageDefinition>>('static-pages')
+  return staticPagesPromise ??= loadRegistry<Record<string, StaticPageDefinition>>('project-pages')
 }
 
 export function loadBadges(): Promise<readonly BadgeDefinition[]> {
   return badgesPromise ??= loadRegistry<readonly BadgeDefinition[]>('badges')
+}
+
+
+export function loadBadge(slug: string): Promise<BadgeDefinition> {
+  const normalized = slug.trim().toLowerCase()
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(normalized)) {
+    return Promise.reject(new Error('Invalid badge page slug'))
+  }
+  const existing = badgePagePromises.get(normalized)
+  if (existing) return existing
+  const endpoint = registryUrl('badge')
+  const url = new URL(endpoint)
+  url.searchParams.set('id', normalized)
+  const request = fetch(url.toString(), {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  }).then(async (response) => {
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null) as { requestId?: unknown; error?: unknown } | null
+      const requestId = typeof payload?.requestId === 'string' ? `, request ${payload.requestId}` : ''
+      const code = typeof payload?.error === 'string' ? `, ${payload.error}` : ''
+      throw new Error(`Badge page request failed: ${response.status}${code}${requestId}`)
+    }
+    return response.json() as Promise<BadgeDefinition>
+  }).catch((error: unknown) => {
+    badgePagePromises.delete(normalized)
+    throw error
+  })
+  badgePagePromises.set(normalized, request)
+  return request
+}
+
+export function invalidateContentRegistry(registry?: 'project-pages' | 'badges'): void {
+  if (!registry || registry === 'project-pages') staticPagesPromise = null
+  if (!registry || registry === 'badges') {
+    badgesPromise = null
+    badgePagePromises.clear()
+  }
 }

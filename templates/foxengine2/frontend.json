@@ -8,22 +8,39 @@
       "title": "FoxesCraft"
     },
     {
+      "path": "/news/:id",
+      "name": "news",
+      "view": "NewsView",
+      "title": "Новость",
+      "props": true,
+      "module": "News"
+    },
+    {
       "path": "/about",
       "name": "about",
-      "view": "AboutView",
-      "title": "О проекте"
+      "view": "StaticContentView",
+      "title": "О проекте",
+      "props": {
+        "pageId": "about"
+      }
     },
     {
       "path": "/rules",
       "name": "rules",
-      "view": "RulesView",
-      "title": "Правила"
+      "view": "StaticContentView",
+      "title": "Правила",
+      "props": {
+        "pageId": "rules"
+      }
     },
     {
       "path": "/funding",
       "name": "funding",
-      "view": "FundingView",
-      "title": "Поддержать проект"
+      "view": "StaticContentView",
+      "title": "Поддержать проект",
+      "props": {
+        "pageId": "funding"
+      }
     },
     {
       "path": "/guides/draft",
@@ -34,8 +51,17 @@
     {
       "path": "/guides/discord-access",
       "name": "discord-access",
-      "view": "DiscordAccessView",
-      "title": "Доступ к Discord"
+      "view": "StaticContentView",
+      "title": "Доступ к Discord",
+      "props": {
+        "pageId": "discord-access"
+      }
+    },
+    {
+      "path": "/badges",
+      "name": "badges",
+      "view": "BadgesView",
+      "title": "Бейджи"
     },
     {
       "path": "/badges/:id",
@@ -300,6 +326,12 @@
       "route": "players",
       "order": 50,
       "module": "UserTop"
+    },
+    {
+      "area": "header",
+      "label": "Бейджи",
+      "route": "badges",
+      "order": 60
     }
   ],
   "legacy": [
@@ -433,6 +465,10 @@
   "capabilities": [
     "content.static",
     "content.badges",
+    {
+      "name": "content.news",
+      "module": "News"
+    },
     {
       "name": "admin.panel",
       "module": "AdminPanel"

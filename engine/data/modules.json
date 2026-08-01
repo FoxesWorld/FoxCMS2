@@ -49,5 +49,12 @@
     "class": "User",
     "priority": "secondary",
     "groups": "*"
+  },
+  {
+    "name": "News",
+    "main": "News.class.php",
+    "class": "NewsModule",
+    "priority": "secondary",
+    "groups": "*"
   }
 ]

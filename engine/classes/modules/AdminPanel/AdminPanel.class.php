@@ -12,7 +12,10 @@ final class AdminPanel extends Module
             return;
         }
 
-        CsrfToken::requireValid($request->csrfToken());
+        $action = $request->string('admPanel');
+        if (!in_array($action, ['fileUpload', 'uploadSlideImage'], true)) {
+            CsrfToken::requireValid($request->csrfToken());
+        }
         if (!$session->isAdmin()) {
             http_response_code(403);
             header('Content-Type: application/json; charset=UTF-8');
@@ -20,11 +23,16 @@ final class AdminPanel extends Module
         }
 
         require_once __DIR__ . '/AdminOptions.class.php';
+        $payload = $request->all();
+        $payload['_upload'] = $request->file('file');
+        $payload['_slideUpload'] = $request->file('image');
         new AdminOptions(
-            $request->all(),
+            $payload,
             $db,
             $session,
             $logger instanceof Logger ? $logger : null,
+            $request,
+            $config,
         );
     }
 }

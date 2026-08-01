@@ -3,54 +3,98 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { appBootstrap } from '@engine/app/context'
 import { themeAsset } from '@engine/domain/bootstrap'
+import type { BootstrapValue } from '@engine/domain/bootstrap'
 
 interface Slide {
+  id: string
+  enabled: boolean
   title: string
   description: string
   image: string
   route: string
   action: string
+  secondaryRoute: string
+  secondaryAction: string
+}
+
+interface SliderSettings {
+  schema: number
+  eyebrow: string
+  autoplayMs: number
+  slides: Slide[]
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : fallback
+}
+
+function asBoolean(value: unknown, fallback = true): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function resolveImage(path: string): string {
+  if (path.startsWith('/')) return path
+  return themeAsset(appBootstrap, path.replace(/^assets\//, ''))
+}
+
+function normalizeSettings(value: unknown): SliderSettings {
+  const configured = asRecord(value)
+  const source = Array.isArray(configured?.slides) ? configured.slides : []
+  const slides = source.flatMap((raw): Slide[] => {
+    const entry = asRecord(raw)
+    if (!entry) return []
+
+    const id = asString(entry.id).trim()
+    const title = asString(entry.title).trim()
+    const image = asString(entry.image).trim()
+    const route = asString(entry.route).trim()
+    const enabled = asBoolean(entry.enabled)
+    if (!enabled || !id || !title || !image || !route) return []
+
+    return [{
+      id,
+      enabled,
+      title,
+      description: asString(entry.description).trim(),
+      image: resolveImage(image),
+      route,
+      action: asString(entry.action, 'Подробнее').trim() || 'Подробнее',
+      secondaryRoute: asString(entry.secondaryRoute).trim(),
+      secondaryAction: asString(entry.secondaryAction).trim(),
+    }]
+  })
+
+  const requestedInterval = Number(configured?.autoplayMs ?? 7000)
+  return {
+    schema: Number(configured?.schema ?? 1),
+    eyebrow: asString(configured?.eyebrow, 'FoxesCraft').trim(),
+    autoplayMs: Number.isFinite(requestedInterval) ? Math.max(0, requestedInterval) : 7000,
+    slides,
+  }
+}
+
+function runtimeDataUrl(): string {
+  const themeName = appBootstrap.theme.name || document.documentElement.dataset.theme || 'foxengine2'
+  return `/templates/${encodeURIComponent(themeName)}/data/slides.json`
 }
 
 const router = useRouter()
+const settings = ref<SliderSettings>(normalizeSettings(appBootstrap.theme.settings.slider as BootstrapValue | undefined))
 const activeIndex = ref(0)
 const paused = ref(false)
+const loading = ref(true)
 let timer: number | undefined
 
-const slides: Slide[] = [
-  {
-    title: 'Добро пожаловать в Лисий Мир',
-    description: 'Знакомая атмосфера FoxesCraft продолжается в новой, лёгкой и адаптивной версии 3.0.',
-    image: themeAsset(appBootstrap, 'img/slides/slide1.png'),
-    route: 'start',
-    action: 'Начать играть',
-  },
-  {
-    title: 'Лисий Мир 3.0',
-    description: 'Новая архитектура, новые технологии и тот же дух открытий.',
-    image: themeAsset(appBootstrap, 'img/slides/slide3.png'),
-    route: 'about',
-    action: 'О проекте',
-  },
-  {
-    title: 'Исследуй игровые миры',
-    description: 'Следи за серверами, игроками и развитием проекта из единого интерфейса.',
-    image: themeAsset(appBootstrap, 'img/slides/slide5.png'),
-    route: 'players',
-    action: 'Игроки',
-  },
-  {
-    title: 'FoxesCraft продолжается',
-    description: 'Мы не возвращаемся в прошлое — мы продолжаем начатую историю.',
-    image: themeAsset(appBootstrap, 'img/slides/slide7.png'),
-    route: 'about',
-    action: 'Узнать больше',
-  },
-]
-
-const activeSlide = computed(() => slides[activeIndex.value] ?? slides[0])
+const slides = computed(() => settings.value.slides)
+const activeSlide = computed(() => slides.value[activeIndex.value])
 const slideNumber = computed(() => String(activeIndex.value + 1).padStart(2, '0'))
-const slideTotal = String(slides.length).padStart(2, '0')
+const slideTotal = computed(() => String(slides.value.length).padStart(2, '0'))
 
 function stopTimer(): void {
   if (timer !== undefined) window.clearInterval(timer)
@@ -59,20 +103,25 @@ function stopTimer(): void {
 
 function startTimer(): void {
   stopTimer()
-  if (!paused.value) timer = window.setInterval(advance, 7_000)
+  if (!paused.value && slides.value.length > 1 && settings.value.autoplayMs >= 3000) {
+    timer = window.setInterval(advance, settings.value.autoplayMs)
+  }
 }
 
 function selectSlide(index: number): void {
+  if (index < 0 || index >= slides.value.length) return
   activeIndex.value = index
   startTimer()
 }
 
 function advance(): void {
-  activeIndex.value = (activeIndex.value + 1) % slides.length
+  if (slides.value.length < 2) return
+  activeIndex.value = (activeIndex.value + 1) % slides.value.length
 }
 
 function move(direction: number): void {
-  activeIndex.value = (activeIndex.value + direction + slides.length) % slides.length
+  if (slides.value.length < 2) return
+  activeIndex.value = (activeIndex.value + direction + slides.value.length) % slides.value.length
   startTimer()
 }
 
@@ -91,11 +140,35 @@ function handleVisibilityChange(): void {
 }
 
 function navigate(route: string): void {
-  void router.push({ name: route })
+  if (route) void router.push({ name: route })
+}
+
+async function loadRuntimeSettings(): Promise<void> {
+  try {
+    const response = await fetch(runtimeDataUrl(), {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+    if (!response.ok) throw new Error(`Slider data request failed: ${response.status}`)
+    const runtimeSettings = normalizeSettings(await response.json())
+    if (runtimeSettings.slides.length === 0) throw new Error('Slider data contains no enabled slides')
+    settings.value = runtimeSettings
+    activeIndex.value = 0
+  } catch (error) {
+    if (settings.value.slides.length === 0) {
+      console.error('[FoxesCraft] Slider runtime data is unavailable', error)
+    } else {
+      console.warn('[FoxesCraft] Slider uses bootstrap fallback', error)
+    }
+  } finally {
+    loading.value = false
+    startTimer()
+  }
 }
 
 onMounted(() => {
-  startTimer()
+  void loadRuntimeSettings()
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
@@ -107,9 +180,11 @@ onUnmounted(() => {
 
 <template>
   <section
+    v-if="activeSlide"
     class="hero legacy-slider"
     aria-labelledby="hero-title"
     aria-roledescription="carousel"
+    :aria-busy="loading"
     @mouseenter="pause"
     @mouseleave="resume"
     @focusin="pause"
@@ -131,28 +206,33 @@ onUnmounted(() => {
     </div>
 
     <div class="hero__content legacy-slider__content" aria-live="polite" aria-atomic="true">
-      <span class="eyebrow">FoxesCraft — новая глава</span>
+      <span v-if="settings.eyebrow" class="eyebrow">{{ settings.eyebrow }}</span>
       <h1 id="hero-title">{{ activeSlide.title }}</h1>
-      <p>{{ activeSlide.description }}</p>
+      <p v-if="activeSlide.description">{{ activeSlide.description }}</p>
       <div class="hero__actions">
         <button class="button button--primary button--large" type="button" @click="navigate(activeSlide.route)">
           {{ activeSlide.action }}
         </button>
-        <button class="button button--glass button--large" type="button" @click="navigate('about')">
-          История проекта
+        <button
+          v-if="activeSlide.secondaryRoute && activeSlide.secondaryAction"
+          class="button button--glass button--large"
+          type="button"
+          @click="navigate(activeSlide.secondaryRoute)"
+        >
+          {{ activeSlide.secondaryAction }}
         </button>
       </div>
     </div>
 
-    <div class="legacy-slider__controls" aria-label="Управление слайдером">
-      <button type="button" aria-label="Предыдущий слайд" @click="move(-1)">←</button>
-      <button type="button" aria-label="Следующий слайд" @click="move(1)">→</button>
+    <div v-if="slides.length > 1" class="legacy-slider__controls" aria-label="Управление слайдером">
+      <button type="button" aria-label="Предыдущий слайд" @click="move(-1)"><i class="fa-solid fa-chevron-left" aria-hidden="true" /></button>
+      <button type="button" aria-label="Следующий слайд" @click="move(1)"><i class="fa-solid fa-chevron-right" aria-hidden="true" /></button>
     </div>
 
-    <div class="legacy-slider__rail" aria-label="Слайды">
+    <div v-if="slides.length > 1" class="legacy-slider__rail" aria-label="Слайды">
       <button
         v-for="(slide, index) in slides"
-        :key="slide.title"
+        :key="slide.id"
         type="button"
         :class="{ 'is-active': index === activeIndex }"
         :aria-label="`Показать слайд ${index + 1}: ${slide.title}`"
@@ -161,6 +241,12 @@ onUnmounted(() => {
       ><span /></button>
     </div>
 
-    <div v-if="!paused" :key="activeIndex" class="legacy-slider__progress" aria-hidden="true" />
+    <div
+      v-if="!paused && slides.length > 1 && settings.autoplayMs >= 3000"
+      :key="activeIndex"
+      class="legacy-slider__progress"
+      aria-hidden="true"
+      :style="{ animationDuration: `${settings.autoplayMs}ms` }"
+    />
   </section>
 </template>

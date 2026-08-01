@@ -197,17 +197,28 @@
             }           
         }
 
-        if ($way_cloak and !$info = self::isValidCloak($way_cloak)) {
-            $way_cloak = null;
+        $cloak = false;
+        $mp_cloak = null;
+
+        if (is_string($way_cloak) && trim($way_cloak) !== '') {
+            $cloakInfo = self::isValidCloak($way_cloak);
+
+            if ($cloakInfo !== false) {
+                $cloak = @imagecreatefrompng($way_cloak);
+
+                if ($cloak) {
+                    $mp_cloak = $cloakInfo['scale'];
+                } else {
+                    $way_cloak = false;
+                }
+            } else {
+                $way_cloak = false;
+            }
         } else {
-            $mp_cloak = $info['scale'];
+            $way_cloak = false;
         }
 
-        $cloak = @imagecreatefrompng($way_cloak);
-        if (!$cloak)
-            $way_cloak = null;
-
-        if ($way_cloak) {
+        if ($cloak) {
 
             if ($mp_cloak > $mp) { // cloak bigger              
                 $mp_x_h = ($side) ? 0 : ($size_x * $mp_cloak) / 2;
@@ -267,7 +278,7 @@
 
         imagedestroy($preview);
         imagedestroy($skin);
-        if ($way_cloak)
+        if ($cloak)
             imagedestroy($cloak);
 
         return $fullsize;

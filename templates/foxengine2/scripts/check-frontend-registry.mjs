@@ -137,8 +137,15 @@ async function scanTheme(directory) {
     if (entry.isDirectory()) { await scanTheme(path); continue }
     if (!['.ts', '.vue'].includes(extname(entry.name))) continue
     const text = await readFile(path, 'utf8')
-    for (const signature of ['foxesApi', 'userAction:', 'sysRequest:', 'admPanel:', 'user_doaction:', 'fetch(']) {
+    for (const signature of ['foxesApi', 'userAction:', 'sysRequest:', 'admPanel:', 'user_doaction:']) {
       if (text.includes(signature)) failures.push(`theme contains business/runtime contract ${signature}: ${relative(repositoryRoot, path).replaceAll('\\', '/')}`)
+    }
+    if (text.includes('fetch(')) {
+      const relativePath = relative(themeRoot, path).replaceAll('\\', '/')
+      const sliderRuntimeFetch = relativePath === 'src/Slider.vue'
+        && text.includes('data/slides.json')
+        && text.includes("cache: 'no-store'")
+      if (!sliderRuntimeFetch) failures.push(`theme contains unapproved runtime fetch: ${relative(repositoryRoot, path).replaceAll('\\', '/')}`)
     }
   }
 }
@@ -156,22 +163,13 @@ const requiredLegacyTemplates = [
   'src/userOptions/Article.vue',
   'src/userOptions/PlayerTop.vue',
   'src/userOptions/content/Welcome.vue',
-  'src/userOptions/content/Rules.vue',
   'src/userOptions/content/StaticContent.vue',
   'src/userOptions/content/StaticPage.vue',
-  'src/userOptions/content/PrivacyPolicy.vue',
-  'src/userOptions/content/Cookies.vue',
-  'src/userOptions/content/VerifiedLibs.vue',
-  'src/userOptions/content/UnVerifiedLibs.vue',
-  'src/userOptions/content/NewAge.vue',
   'src/userOptions/content/guest/Auth.vue',
   'src/userOptions/content/guest/Reg.vue',
   'src/userOptions/content/guest/LostPassword.vue',
   'src/userOptions/content/guest/PassReset.vue',
-  'src/userOptions/pages/Info.vue',
-  'src/userOptions/pages/SaveDiscord.vue',
   'src/userOptions/pages/StartGame.vue',
-  'src/userOptions/pages/UpcomingUpdates.vue',
   'src/userOptions/pages/badges/Badge.vue',
   'src/userOptions/userOptions/Profile.vue',
   'src/userOptions/userOptions/ProfileSettings.vue',
@@ -197,8 +195,8 @@ const requiredLegacyTemplates = [
   'src/foxEngine/admin/servers/ServerEditor.vue',
   'src/foxEngine/admin/Logs.vue',
   'src/foxEngine/admin/Catalogs.vue',
+  'src/foxEngine/admin/Content.vue',
   'src/foxEngine/ArtworkShowcase.vue',
-  'src/foxEngine/Payment.vue',
   'src/foxEngine/LastUser.vue',
   'src/foxEngine/monitor/Monitoring.vue',
   'src/foxEngine/monitor/ServerEntry.vue',
@@ -209,6 +207,9 @@ const requiredLegacyTemplates = [
 ]
 for (const relativePath of requiredLegacyTemplates) {
   if (!(await exists(join(themeRoot, relativePath)))) failures.push(`legacy-style theme template is missing: ${relativePath}`)
+}
+for (const relativePath of ['data/pages.json', 'data/badges/earlyuser.html']) {
+  if (!(await exists(join(themeRoot, relativePath)))) failures.push(`runtime content data is missing: ${relativePath}`)
 }
 if (themeManifest?.configuration !== undefined) {
   failures.push('theme page content must not be stored in theme.json configuration files')
@@ -224,12 +225,8 @@ for (const forbiddenPath of ['src/pages', 'src/components']) {
 
 const delegatedControllers = new Map([
   [join(engineClientRoot, 'views', 'HomeView.vue'), "@theme/userOptions/content/Welcome.vue"],
-  [join(engineClientRoot, 'views', 'AboutView.vue'), "@theme/userOptions/pages/Info.vue"],
   [join(engineClientRoot, 'views', 'BadgeView.vue'), "@theme/userOptions/pages/badges/Badge.vue"],
-  [join(engineClientRoot, 'views', 'RulesView.vue'), "@theme/userOptions/content/Rules.vue"],
   [join(engineClientRoot, 'views', 'StaticContentView.vue'), "@theme/userOptions/content/StaticContent.vue"],
-  [join(engineClientRoot, 'views', 'DiscordAccessView.vue'), "@theme/userOptions/pages/SaveDiscord.vue"],
-  [join(engineClientRoot, 'views', 'FundingView.vue'), "@theme/foxEngine/Payment.vue"],
   [join(engineClientRoot, 'views', 'GuideDraftView.vue'), "@theme/userOptions/Article.vue"],
   [join(modulesRoot, 'AuthReg', 'client', 'views', 'AuthView.vue'), "@theme/userOptions/content/guest/Auth.vue"],
   [join(modulesRoot, 'AuthReg', 'client', 'views', 'RegisterView.vue'), "@theme/userOptions/content/guest/Reg.vue"],
@@ -247,6 +244,13 @@ for (const [controllerPath, templateImport] of delegatedControllers) {
   const controller = await readFile(controllerPath, 'utf8')
   if (!controller.includes(templateImport)) {
     failures.push(`engine controller does not delegate HTML to ${templateImport}: ${relative(repositoryRoot, controllerPath).replaceAll('\\', '/')}`)
+  }
+}
+
+for (const routeName of ['about', 'rules', 'funding', 'discord-access']) {
+  const route = frontendManifest.routes.find((entry) => entry?.name === routeName)
+  if (route?.view !== 'StaticContentView' || route?.props?.pageId !== routeName) {
+    failures.push(`runtime content route ${routeName} must use StaticContentView with pageId=${routeName}`)
   }
 }
 
