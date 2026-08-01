@@ -1,13 +1,24 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowReactive, watch } from 'vue'
 import { appBootstrap } from '@/app/context'
-import { foxesApi } from '@/api'
+import { FoxesApiError, foxesApi } from '@/api'
 import { invalidateContentRegistry } from '@/content/contentData'
 import { bootstrapString } from '@/domain/bootstrap'
 import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
 import type { JsonObject, JsonValue } from '@/forms/json-form'
 
 export type Tab = 'overview' | 'slides' | 'content' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
-export type Feedback = { type?: string; message?: string }
+export interface AdminErrorDetails {
+  action: string
+  exception: string
+  detail: string
+  requestId: string
+}
+export type Feedback = {
+  type?: string
+  message?: string
+  requestId?: string
+  error?: AdminErrorDetails
+}
 export type JsonRow = Record<string, unknown>
 export interface LogEntry { timestamp: string; time: string; level: string; message: string; tone: string }
 export interface FileEntry {
@@ -69,32 +80,10 @@ export interface SliderSettings {
   slides: SlideDraft[]
 }
 
-export interface ContentCardDraft {
-  title: string
-  text: string
-}
-export interface ContentNoticeDraft {
-  title: string
-  text: string
-}
-export interface ContentSectionDraft {
-  title: string
-  paragraphs: string[]
-  items: string[]
-  cards: ContentCardDraft[]
-  notice: ContentNoticeDraft | null
-}
 export interface ProjectPageDraft {
   id: string
-  layout: 'default' | 'rules'
-  eyebrow: string
   title: string
-  summary: string
-  updated: string
-  image: string
-  imageAlt: string
-  imageCaption: string
-  sections: ContentSectionDraft[]
+  html: string
 }
 export interface BadgePageDraft {
   badgeName: string
@@ -238,6 +227,7 @@ export function useAdminPanel() {
   const fileWritable = ref(false)
   const fileTotalBytes = ref(0)
   const selectedUpload = ref<File | null>(null)
+  const fileUploading = ref(false)
   const newDirectoryName = ref('')
   const logFile = ref<'lastlog' | 'error' | 'access'>('lastlog')
   const logEntries = ref<LogEntry[]>([])
@@ -276,7 +266,28 @@ export function useAdminPanel() {
     try { return await action() }
     catch (error) {
       console.error('[FoxesCraft] Admin request failed', error)
-      feedback.value = { type: 'error', message: 'Административная операция завершилась ошибкой.' }
+      const message = error instanceof Error && error.message.trim() !== ''
+        ? error.message.trim()
+        : 'Неизвестная ошибка административной операции.'
+      if (error instanceof FoxesApiError) {
+        const rawDetails = error.payload?.error
+        const details = rawDetails && typeof rawDetails === 'object' && !Array.isArray(rawDetails)
+          ? rawDetails as Record<string, unknown>
+          : null
+        feedback.value = {
+          type: 'error',
+          message,
+          requestId: error.requestId,
+          error: details ? {
+            action: typeof details.action === 'string' ? details.action : 'unknown',
+            exception: typeof details.exception === 'string' ? details.exception : 'UnknownException',
+            detail: typeof details.detail === 'string' ? details.detail : message,
+            requestId: typeof details.requestId === 'string' ? details.requestId : error.requestId,
+          } : undefined,
+        }
+      } else {
+        feedback.value = { type: 'error', message }
+      }
       return null
     } finally { loading.value = false }
   }
@@ -437,7 +448,7 @@ export function useAdminPanel() {
   async function saveProjectPages(): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback & { document: RuntimeContentDocument<ProjectPageDraft> }>({
       admPanel: 'saveProjectPages',
-      entry: JSON.stringify({ schema: 1, pages: projectPages.value }),
+      entry: JSON.stringify({ schema: 2, pages: projectPages.value }),
     }))
     if (!response) return
     feedback.value = response
@@ -465,12 +476,20 @@ export function useAdminPanel() {
     invalidateContentRegistry('badges')
   }
 
-  async function loadUsers(): Promise<void> {
+  async function loadUsers(options: { selectUuid?: string; autoSelect?: boolean } = {}): Promise<void> {
     const response = await run(() => foxesApi.post<{ items: UserRow[]; groups: GroupOption[]; badgeOptions: string[] }>({ admPanel: 'users', search: userSearch.value, limit: 100 }))
     if (!response) return
+    const preferredUuid = options.selectUuid ?? selectedUser.value?.uuid ?? ''
     users.value = response.items
     setGroups(response.groups)
     badgeOptions.value = response.badgeOptions
+
+    const preferred = preferredUuid
+      ? users.value.find((user) => user.uuid === preferredUuid) ?? null
+      : null
+    const next = preferred ?? (options.autoSelect === false ? null : users.value[0] ?? null)
+    if (next) editUser(next)
+    else selectedUser.value = null
   }
   function editUser(user: UserRow): void {
     selectedUser.value = user
@@ -485,6 +504,7 @@ export function useAdminPanel() {
   }
   async function saveUser(): Promise<void> {
     if (!selectedUser.value) return
+    const selectedUuid = selectedUser.value.uuid
     const entry = {
       login: userDraft.login,
       realname: userDraft.realname,
@@ -495,8 +515,11 @@ export function useAdminPanel() {
       badges: userDraft.badges,
       serversOnline: userDraft.serversOnline,
     }
-    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'updateUser', userUuid: selectedUser.value?.uuid, entry: JSON.stringify(entry) }))
-    if (response) { feedback.value = response; await loadUsers(); selectedUser.value = null }
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'updateUser', userUuid: selectedUuid, entry: JSON.stringify(entry) }))
+    if (response) {
+      feedback.value = response
+      await loadUsers({ selectUuid: selectedUuid })
+    }
   }
   async function loadServers(): Promise<void> {
     const response = await run(() => foxesApi.post<{ items: ServerRow[]; groups: GroupOption[] }>({ admPanel: 'servers' }))
@@ -547,21 +570,26 @@ export function useAdminPanel() {
     fileWritable.value = response.writable
     fileTotalBytes.value = response.totalBytes
   }
-  function selectUpload(event: Event): void {
-    selectedUpload.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  function selectUpload(file: File | null): void {
+    selectedUpload.value = file
   }
   async function uploadFile(): Promise<void> {
-    if (!selectedUpload.value) return
+    if (!selectedUpload.value || fileUploading.value) return
     const body = new FormData()
     body.set('admPanel', 'fileUpload')
     body.set('path', filePath.value)
     const file = selectedUpload.value
     body.set('file', file, file.name)
-    const response = await run(() => foxesApi.postFormData<Feedback>(body))
-    if (response) {
-      feedback.value = response
-      selectedUpload.value = null
-      await loadFiles()
+    fileUploading.value = true
+    try {
+      const response = await run(() => foxesApi.postFormData<Feedback>(body))
+      if (response) {
+        feedback.value = response
+        selectedUpload.value = null
+        await loadFiles()
+      }
+    } finally {
+      fileUploading.value = false
     }
   }
   async function createDirectory(): Promise<void> {
@@ -661,7 +689,7 @@ export function useAdminPanel() {
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, servers, selectedServer, serverDraft,
-    filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, newDirectoryName,
+    filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,

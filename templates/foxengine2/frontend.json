@@ -172,7 +172,10 @@
       "name": "start",
       "view": "StartGameView",
       "title": "Начать игру",
-      "module": "GameScanner"
+      "module": "GameScanner",
+      "props": {
+        "pageId": "start"
+      }
     },
     {
       "path": "/server/:value",
@@ -184,11 +187,8 @@
     },
     {
       "path": "/settings/skin",
-      "name": "skin-settings",
-      "view": "SkinSettingsView",
-      "title": "Скин и плащ",
-      "auth": "user",
-      "module": "UserSettings"
+      "name": "skin-settings-redirect",
+      "redirect": "/settings/profile?tab=appearance#minecraft-identity"
     },
     {
       "path": "/settings/profile/:value?",

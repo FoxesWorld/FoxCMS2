@@ -1,26 +1,10 @@
 import { appBootstrap } from '@/app/context'
 import { bootstrapEndpoint } from '@/domain/bootstrap'
 
-export interface ContentCard { title: string; text: string }
-export interface ContentNotice { title: string; text: string }
-export interface StaticPageSection {
-  title: string
-  paragraphs: string[]
-  items: string[]
-  cards: ContentCard[]
-  notice: ContentNotice | null
-}
 export interface StaticPageDefinition {
   id: string
-  layout: 'default' | 'rules'
-  eyebrow: string
   title: string
-  summary: string
-  updated: string
-  image: string
-  imageAlt: string
-  imageCaption: string
-  sections: StaticPageSection[]
+  html: string
 }
 export interface BadgeDefinition {
   id: string

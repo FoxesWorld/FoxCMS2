@@ -30,7 +30,7 @@ for (const kind of ['styles', 'scripts']) {
   }
 }
 for (const required of [
-  'data/pages.json',
+  'data/pages/about.html',
   'data/badges/earlyuser.html',
   'data/slides.json',
 ]) {

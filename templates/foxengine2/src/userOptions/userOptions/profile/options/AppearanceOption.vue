@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { FeedbackMessage, ProfileSettingsFormModel } from '@engine/contracts/user-pages'
+import type { FeedbackMessage, ProfileSettingsFormModel, SkinResource } from '@engine/contracts/user-pages'
+import MinecraftIdentityOption from './MinecraftIdentityOption.vue'
 
 const props = defineProps<{
   form: ProfileSettingsFormModel
@@ -10,11 +11,27 @@ const props = defineProps<{
   photoFeedback: FeedbackMessage | null
   accent: string
   showSkinSettings: boolean
+  viewerGroupTag: string
+  minecraftUuid: string
+  minecraftFrontPreview: string
+  minecraftBackPreview: string
+  minecraftPreviewLoading: boolean
+  minecraftSelectedSkinName: string
+  minecraftSelectedSkinSize: number
+  minecraftSelectedCloakName: string
+  minecraftSelectedCloakSize: number
+  minecraftSkinInputVersion: number
+  minecraftCloakInputVersion: number
+  minecraftBusy: SkinResource | null
+  minecraftFeedback: FeedbackMessage | null
 }>()
 const emit = defineEmits<{
   selectAvatar: [event: Event]
   uploadAvatar: []
-  openSkin: []
+  selectMinecraft: [type: SkinResource, event: Event]
+  uploadMinecraft: [type: SkinResource]
+  removeMinecraft: [type: SkinResource]
+  refreshMinecraft: []
   'update:accent': [value: string]
 }>()
 const previewFailed = ref(false)
@@ -39,11 +56,26 @@ function updateAccent(event: Event): void { emit('update:accent', (event.target 
       </div>
     </div>
     <p v-if="photoFeedback" class="form-feedback" :class="{ 'form-feedback--success': photoFeedback.type === 'success' }">{{ photoFeedback.message }}</p>
-    <div v-if="showSkinSettings" class="notice-panel settings-skin-link">
-      <strong>Minecraft-образ</strong>
-      <p>Скин и плащ управляются отдельно, с серверной проверкой размеров и предпросмотром.</p>
-      <button class="button button--ghost" type="button" @click="emit('openSkin')">Открыть настройки скина</button>
-    </div>
+    <MinecraftIdentityOption
+      v-if="showSkinSettings"
+      :uuid="minecraftUuid"
+      :viewer-group-tag="viewerGroupTag"
+      :front-preview="minecraftFrontPreview"
+      :back-preview="minecraftBackPreview"
+      :preview-loading="minecraftPreviewLoading"
+      :selected-skin-name="minecraftSelectedSkinName"
+      :selected-skin-size="minecraftSelectedSkinSize"
+      :selected-cloak-name="minecraftSelectedCloakName"
+      :selected-cloak-size="minecraftSelectedCloakSize"
+      :skin-input-version="minecraftSkinInputVersion"
+      :cloak-input-version="minecraftCloakInputVersion"
+      :busy="minecraftBusy"
+      :feedback="minecraftFeedback"
+      @select="(type, event) => emit('selectMinecraft', type, event)"
+      @upload="emit('uploadMinecraft', $event)"
+      @remove="emit('removeMinecraft', $event)"
+      @refresh="emit('refreshMinecraft')"
+    />
     <label class="accent-picker">
       <span>Акцент профиля</span>
       <div><input :value="accent" type="color" @input="updateAccent"><code>{{ accent }}</code></div>

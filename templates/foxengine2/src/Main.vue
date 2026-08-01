@@ -87,7 +87,6 @@ onBeforeUnmount(() => systemThemeQuery.removeEventListener('change', handleSyste
     :data-theme="colorTheme"
     :style="seasonalStyle"
   >
-    <a class="skip-link" href="#main-content">Перейти к содержимому</a>
     <Header
       :display-name="shell.displayName.value"
       :profile-photo="shell.profilePhoto.value"

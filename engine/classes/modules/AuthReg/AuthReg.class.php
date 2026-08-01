@@ -47,7 +47,7 @@ final class AuthManager extends Module
         }
 
         match ($action) {
-            'auth' => $this->authenticate(),
+            'auth' => $this->authenticate($maintenance),
             'register' => (new Register(
                 $this->request,
                 $this->db,
@@ -64,7 +64,7 @@ final class AuthManager extends Module
         };
     }
 
-    private function authenticate(): never
+    private function authenticate(array $maintenance): never
     {
         global $lang;
 
@@ -96,19 +96,23 @@ final class AuthManager extends Module
             }
         }
 
-        $maintenanceAdmin = $this->request->boolean('maintenanceAdmin');
-        if ($maintenanceAdmin && !$this->session->isAdmin()) {
+        $maintenanceAccess = $this->request->boolean('maintenanceAccess')
+            || $this->request->boolean('maintenanceAdmin');
+        if (MaintenanceModePolicy::isEnabled($maintenance)
+            && !MaintenanceModePolicy::allows($maintenance, $this->session)) {
             $rejectedLogin = $this->session->login();
+            $rejectedGroup = $this->session->group();
             $this->logger->logError(
-                'Maintenance administrator access rejected for ' . $rejectedLogin
+                'Maintenance access rejected for ' . $rejectedLogin
+                . ' in group ' . $rejectedGroup
                 . ' from ' . $this->request->clientIp()
             );
             $this->session->clear();
             $this->clearRememberCookie();
             $this->json([
                 'type' => 'error',
-                'code' => 'administrator_required',
-                'message' => 'Эта форма предназначена только для администраторов.',
+                'code' => 'maintenance_group_required',
+                'message' => 'Группа этой учётной записи не допущена во время технических работ.',
             ], 403);
         }
 
@@ -128,8 +132,8 @@ final class AuthManager extends Module
 
         $this->json([
             'type' => 'success',
-            'message' => $maintenanceAdmin
-                ? 'Администратор авторизован. Открываем сайт…'
+            'message' => $maintenanceAccess
+                ? 'Доступ подтверждён. Открываем сайт…'
                 : ($lang['authSuccess'] ?? 'Вход выполнен.'),
             'balance' => json_decode((string)($user['balance'] ?? '[]'), true) ?? [],
             'login' => (string)($user['login'] ?? ''),

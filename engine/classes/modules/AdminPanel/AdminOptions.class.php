@@ -6,11 +6,6 @@ if (!defined('ADMIN')) {
 
 final class AdminOptions {
     private const LOG_FILES = ['lastlog', 'error', 'access'];
-    private const BLOCKED_UPLOAD_EXTENSIONS = [
-        'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phar',
-        'cgi', 'pl', 'py', 'sh', 'bash', 'htaccess', 'htpasswd',
-        'html', 'htm', 'shtml', 'xhtml', 'svg', 'js', 'mjs', 'css', 'xml',
-    ];
     private const SERVER_FIELDS = [
         'serverName', 'host', 'port', 'ignoreDirs', 'enabled', 'checkLib',
         'serverGroups', 'serverDescription', 'serverVersion', 'jreVersion',
@@ -169,14 +164,35 @@ final class AdminOptions {
                     $this->respond(['message' => 'Неизвестная административная операция.', 'type' => 'error'], 400);
             }
         } catch (Throwable $error) {
-            $this->logger?->logError('Admin operation failed.', [
-                'action' => $action,
-                'exception' => $error::class,
-                'message' => $error->getMessage(),
-                'file' => $error->getFile(),
-                'line' => $error->getLine(),
-            ]);
-            $this->respond(['message' => 'Административная операция завершилась ошибкой.', 'type' => 'error'], 500);
+            $requestId = $this->errorRequestId();
+            $exception = $error::class;
+            $detail = $this->exceptionDetail($error);
+            try {
+                $this->logger?->logError('Admin operation failed.', [
+                    'requestId' => $requestId,
+                    'action' => $action,
+                    'exception' => $exception,
+                    'message' => $detail,
+                    'file' => $error->getFile(),
+                    'line' => $error->getLine(),
+                    'trace' => $error->getTraceAsString(),
+                ]);
+            } catch (Throwable $loggingError) {
+                error_log('[FoxesCraft admin][' . $requestId . '] Logger failed: '
+                    . $loggingError::class . ': ' . $loggingError->getMessage());
+            }
+            $this->respond([
+                'message' => 'Ошибка операции «' . ($action !== '' ? $action : 'unknown') . '»: '
+                    . $exception . ' — ' . $detail . ' Код события: ' . $requestId . '.',
+                'type' => 'error',
+                'requestId' => $requestId,
+                'error' => [
+                    'action' => $action !== '' ? $action : 'unknown',
+                    'exception' => $exception,
+                    'detail' => $detail,
+                    'requestId' => $requestId,
+                ],
+            ], 500);
         }
     }
 
@@ -553,7 +569,7 @@ final class AdminOptions {
             'pagesCount' => count($document['pages'] ?? []),
         ]);
         $this->respond([
-            'message' => 'Страницы проекта сохранены в runtime JSON.',
+            'message' => 'HTML-страницы проекта сохранены в data/pages.',
             'type' => 'success',
             'document' => $document,
         ]);
@@ -743,10 +759,6 @@ final class AdminOptions {
             $this->respond(['message' => 'Корневой каталог переименовать нельзя.', 'type' => 'error'], 409);
         }
         $name = $this->safeFileName($this->request['name'] ?? '');
-        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (is_file($source) && $extension !== '' && in_array($extension, self::BLOCKED_UPLOAD_EXTENSIONS, true)) {
-            $this->respond(['message' => 'Недопустимое расширение файла.', 'type' => 'error'], 415);
-        }
         $target = dirname($source) . DIRECTORY_SEPARATOR . $name;
         if (file_exists($target)) {
             $this->respond(['message' => 'Файл или каталог с таким именем уже существует.', 'type' => 'error'], 409);
@@ -1412,9 +1424,34 @@ final class AdminOptions {
         return array_slice($lines, -$count);
     }
 
+    private function errorRequestId(): string {
+        try {
+            return bin2hex(random_bytes(8));
+        } catch (Throwable) {
+            return substr(hash('sha256', uniqid('admin-error-', true)), 0, 16);
+        }
+    }
+
+    private function exceptionDetail(Throwable $error): string {
+        $detail = trim(str_replace(["\r", "\n", "\t"], ' ', $error->getMessage()));
+        $detail = preg_replace('/\s+/u', ' ', $detail) ?? $detail;
+        if ($detail === '') {
+            $detail = 'Исключение не содержит текстового описания.';
+        }
+        return mb_substr($detail, 0, 3000, 'UTF-8');
+    }
+
     private function respond(array $payload, int $status = 200): never {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
-        die(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        header('Cache-Control: no-store');
+        header('X-Content-Type-Options: nosniff');
+        if (isset($payload['requestId']) && is_string($payload['requestId'])) {
+            header('X-Request-ID: ' . $payload['requestId']);
+        }
+        die(json_encode(
+            $payload,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
+        ));
     }
 }

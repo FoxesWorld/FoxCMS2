@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import type { GroupOption, MaintenanceSettings } from '@modules/AdminPanel/client/useAdminPanel'
 import { appBootstrap } from '@engine/app/context'
 import { themeAsset } from '@engine/domain/bootstrap'
@@ -23,7 +24,7 @@ function toggleGroup(groupTag: string, checked: boolean): void {
       <div>
         <span class="eyebrow">Access control</span>
         <h2>Режим технических работ</h2>
-        <p>Серверная заглушка блокирует сайт и API для групп без доступа. Администраторы допускаются всегда.</p>
+        <p>Серверная заглушка блокирует сайт и API для групп без доступа. Администраторы и отмеченные ниже группы могут войти через форму на заглушке.</p>
       </div>
       <span class="maintenance-admin__status" :class="{ active: settings.enabled }">
         {{ settings.enabled ? 'Режим активен' : 'Сайт открыт' }}
@@ -32,10 +33,13 @@ function toggleGroup(groupTag: string, checked: boolean): void {
 
     <div class="maintenance-admin__grid">
       <section class="maintenance-admin__panel">
-        <label class="maintenance-switch">
-          <input v-model="settings.enabled" type="checkbox">
-          <span><strong>Включить заглушку</strong><small>Изменение применяется сразу после сохранения.</small></span>
-        </label>
+        <UiCheckbox
+          v-model="settings.enabled"
+          class="maintenance-switch"
+          variant="switch"
+          label="Включить заглушку"
+          description="Изменение применяется сразу после сохранения."
+        />
         <label class="maintenance-field">
           <span>Заголовок</span>
           <input v-model="settings.title" maxlength="160" placeholder="Ведутся технические работы">
@@ -50,19 +54,20 @@ function toggleGroup(groupTag: string, checked: boolean): void {
       <section class="maintenance-admin__panel">
         <div class="maintenance-admin__panel-heading">
           <strong>Группы с доступом</strong>
-          <span>Гостевой доступ определяется тегом guest.</span>
+          <span>Отмеченные группы смогут авторизоваться прямо на странице технических работ. Гостевой доступ определяется тегом guest.</span>
         </div>
         <div class="maintenance-groups">
-          <label v-for="group in groups" :key="group.groupTag" class="maintenance-group">
-            <input
-              type="checkbox"
-              :checked="group.groupTag === 'admin' || settings.allowedGroups.includes(group.groupTag)"
-              :disabled="group.groupTag === 'admin'"
-              @change="toggleGroup(group.groupTag, ($event.target as HTMLInputElement).checked)"
-            >
-            <i :style="{ background: group.groupColor || '#888' }" />
-            <span><strong>{{ group.groupName }}</strong><small>{{ group.groupTag }}</small></span>
-          </label>
+          <UiCheckbox
+            v-for="group in groups"
+            :key="group.groupTag"
+            class="maintenance-group"
+            :model-value="group.groupTag === 'admin' || settings.allowedGroups.includes(group.groupTag)"
+            :disabled="group.groupTag === 'admin'"
+            @update:model-value="toggleGroup(group.groupTag, $event)"
+          >
+            <i class="maintenance-group__dot" :style="{ background: group.groupColor || '#888' }" />
+            <span class="maintenance-group__copy"><strong>{{ group.groupName }}</strong><small>{{ group.groupTag }}</small></span>
+          </UiCheckbox>
         </div>
       </section>
     </div>

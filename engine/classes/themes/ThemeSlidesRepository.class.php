@@ -15,12 +15,12 @@ final class ThemeSlidesRepository
         }
         $templatesRoot = realpath($templatesDirectory);
         if (!is_string($templatesRoot) || !is_dir($templatesRoot)) {
-            throw new RuntimeException('Каталог тем недоступен.');
+            throw new RuntimeException('Каталог тем недоступен: ' . $templatesDirectory);
         }
         $themeDirectory = realpath($templatesRoot . DIRECTORY_SEPARATOR . $themeName);
         if (!is_string($themeDirectory) || !is_dir($themeDirectory)
             || !str_starts_with($themeDirectory, rtrim($templatesRoot, '/\\') . DIRECTORY_SEPARATOR)) {
-            throw new RuntimeException('Активная тема недоступна.');
+            throw new RuntimeException('Активная тема недоступна: ' . $templatesRoot . DIRECTORY_SEPARATOR . $themeName);
         }
         $this->themeDirectory = rtrim($themeDirectory, '/\\');
         $this->dataPath = $this->themeDirectory . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'slides.json';
@@ -32,9 +32,10 @@ final class ThemeSlidesRepository
         if (!is_file($this->dataPath)) {
             return ['schema' => 1, 'eyebrow' => '', 'autoplayMs' => 7000, 'slides' => []];
         }
-        $json = file_get_contents($this->dataPath);
+        error_clear_last();
+        $json = @file_get_contents($this->dataPath);
         if (!is_string($json)) {
-            throw new RuntimeException('Не удалось прочитать JSON слайдов.');
+            throw new RuntimeException('Не удалось прочитать JSON слайдов: ' . $this->dataPath . '. ' . $this->lastFilesystemError());
         }
         $decoded = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($decoded) || array_is_list($decoded)) {
@@ -47,9 +48,25 @@ final class ThemeSlidesRepository
     {
         $normalized = $this->normalize($payload);
         $directory = dirname($this->dataPath);
-        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
-            throw new RuntimeException('Не удалось создать каталог данных темы.');
+        if (!is_dir($directory)) {
+            error_clear_last();
+            if (!mkdir($directory, 0755, true) && !is_dir($directory)) {
+                throw new RuntimeException(
+                    'Не удалось создать каталог данных темы: ' . $directory . '. '
+                    . $this->lastFilesystemError()
+                );
+            }
         }
+
+        clearstatcache(true, $directory);
+        if (!is_writable($directory)) {
+            throw new RuntimeException(
+                'Каталог данных темы недоступен для записи: ' . $directory
+                . '. Целевой файл: ' . $this->dataPath
+                . '. Права каталога: ' . $this->permissions($directory) . '.'
+            );
+        }
+
         $encoded = json_encode(
             $normalized,
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
@@ -57,22 +74,54 @@ final class ThemeSlidesRepository
         $temporary = $directory . DIRECTORY_SEPARATOR . '.slides-' . bin2hex(random_bytes(12)) . '.tmp';
         $backup = null;
         try {
-            if (file_put_contents($temporary, $encoded, LOCK_EX) !== strlen($encoded)) {
-                throw new RuntimeException('Не удалось записать временный JSON слайдов.');
+            error_clear_last();
+            $written = @file_put_contents($temporary, $encoded, LOCK_EX);
+            if ($written !== strlen($encoded)) {
+                $writtenDescription = $written === false ? 'запись не началась' : 'записано ' . $written . ' из ' . strlen($encoded) . ' байт';
+                throw new RuntimeException(
+                    'Не удалось записать временный JSON слайдов: ' . $temporary
+                    . '. Целевой файл: ' . $this->dataPath
+                    . '. Каталог: ' . $directory
+                    . '. Результат: ' . $writtenDescription
+                    . '. Права каталога: ' . $this->permissions($directory)
+                    . '. ' . $this->lastFilesystemError()
+                );
             }
             @chmod($temporary, 0640);
+
             if (is_file($this->dataPath)) {
                 $backup = $directory . DIRECTORY_SEPARATOR . '.slides-backup-' . bin2hex(random_bytes(12)) . '.tmp';
-                if (!rename($this->dataPath, $backup)) {
-                    throw new RuntimeException('Не удалось подготовить замену JSON слайдов.');
+                error_clear_last();
+                if (!@rename($this->dataPath, $backup)) {
+                    throw new RuntimeException(
+                        'Не удалось переместить текущий JSON слайдов в резервный файл. Исходный файл: '
+                        . $this->dataPath . '. Резервный файл: ' . $backup
+                        . '. Каталог: ' . $directory
+                        . '. ' . $this->lastFilesystemError()
+                    );
                 }
             }
-            if (!rename($temporary, $this->dataPath)) {
+
+            error_clear_last();
+            if (!@rename($temporary, $this->dataPath)) {
+                $replaceError = $this->lastFilesystemError();
+                $restoreResult = 'резервная копия отсутствует';
                 if (is_string($backup) && is_file($backup)) {
-                    @rename($backup, $this->dataPath);
+                    error_clear_last();
+                    $restored = @rename($backup, $this->dataPath);
+                    $restoreResult = $restored
+                        ? 'предыдущий файл восстановлен из ' . $backup
+                        : 'не удалось восстановить предыдущий файл из ' . $backup . ': ' . $this->lastFilesystemError();
                 }
-                throw new RuntimeException('Не удалось атомарно сохранить JSON слайдов.');
+                throw new RuntimeException(
+                    'Не удалось атомарно заменить JSON слайдов. Временный файл: ' . $temporary
+                    . '. Целевой файл: ' . $this->dataPath
+                    . '. Каталог: ' . $directory
+                    . '. Ошибка замены: ' . $replaceError
+                    . ' Результат восстановления: ' . $restoreResult . '.'
+                );
             }
+
             @chmod($this->dataPath, 0644);
             if (is_string($backup) && is_file($backup)) {
                 @unlink($backup);
@@ -94,8 +143,15 @@ final class ThemeSlidesRepository
         if (!is_file($this->frontendPath)) {
             return [];
         }
-        $json = file_get_contents($this->frontendPath);
-        $manifest = is_string($json) ? json_decode($json, true, 64, JSON_THROW_ON_ERROR) : null;
+        error_clear_last();
+        $json = @file_get_contents($this->frontendPath);
+        if (!is_string($json)) {
+            throw new RuntimeException(
+                'Не удалось прочитать маршруты темы: ' . $this->frontendPath . '. '
+                . $this->lastFilesystemError()
+            );
+        }
+        $manifest = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
         $routes = is_array($manifest['routes'] ?? null) ? $manifest['routes'] : [];
         $result = [];
         foreach ($routes as $route) {
@@ -110,6 +166,23 @@ final class ThemeSlidesRepository
             ];
         }
         return $result;
+    }
+
+    private function lastFilesystemError(): string
+    {
+        $error = error_get_last();
+        if (!is_array($error) || !is_string($error['message'] ?? null) || trim($error['message']) === '') {
+            return 'Системное предупреждение PHP отсутствует.';
+        }
+        $message = trim(str_replace(["\r", "\n", "\t"], ' ', $error['message']));
+        $message = preg_replace('/\s+/u', ' ', $message) ?? $message;
+        return 'Системная ошибка: ' . mb_substr($message, 0, 1000, 'UTF-8') . '.';
+    }
+
+    private function permissions(string $path): string
+    {
+        $permissions = @fileperms($path);
+        return is_int($permissions) ? substr(sprintf('%o', $permissions), -4) : 'не определены';
     }
 
     private function normalize(array $payload): array

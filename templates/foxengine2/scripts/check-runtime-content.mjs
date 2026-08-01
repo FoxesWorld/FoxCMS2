@@ -5,25 +5,38 @@ import { repositoryRoot, themeRoot } from './theme-paths.mjs'
 const failures = []
 async function exists(path) { try { await access(path); return true } catch { return false } }
 
-const pagesPath = join(themeRoot, 'data', 'pages.json')
+const pagesDirectory = join(themeRoot, 'data', 'pages')
 const badgesDirectory = join(themeRoot, 'data', 'badges')
 const frontendPath = join(themeRoot, 'frontend.json')
 
-if (!(await exists(pagesPath))) failures.push('runtime project pages file is missing: data/pages.json')
+if (!(await exists(pagesDirectory))) failures.push('standalone project HTML directory is missing: data/pages')
 if (!(await exists(badgesDirectory))) failures.push('standalone badge HTML directory is missing: data/badges')
 
-const pagesDocument = JSON.parse(await readFile(pagesPath, 'utf8'))
 const frontend = JSON.parse(await readFile(frontendPath, 'utf8'))
-if (pagesDocument?.schema !== 1 || !Array.isArray(pagesDocument?.pages)) failures.push('pages.json must use schema 1 with a pages array')
+const pageEntries = (await readdir(pagesDirectory, { withFileTypes: true }))
+const projectFiles = pageEntries.filter((entry) => entry.isFile() && extname(entry.name).toLowerCase() === '.html').map((entry) => entry.name)
+for (const entry of pageEntries.filter((candidate) => candidate.isFile() && extname(candidate.name).toLowerCase() === '.json')) {
+  failures.push(`project page must be HTML, not JSON: data/pages/${entry.name}`)
+}
+if (projectFiles.length === 0) failures.push('data/pages must contain standalone .html pages')
+if (!projectFiles.includes('start.html')) failures.push('/start runtime page is missing: data/pages/start.html')
 
 const pageIds = new Set()
-for (const [index, page] of (pagesDocument.pages ?? []).entries()) {
-  if (!page || typeof page !== 'object' || Array.isArray(page)) { failures.push(`project page ${index + 1} must be an object`); continue }
-  if (!/^[a-z][a-z0-9-]{1,63}$/.test(String(page.id ?? ''))) failures.push(`project page ${index + 1} has invalid id`)
-  if (pageIds.has(page.id)) failures.push(`duplicate project page id: ${page.id}`)
-  pageIds.add(page.id)
-  for (const field of ['title', 'summary', 'eyebrow']) if (typeof page[field] !== 'string') failures.push(`project page ${page.id} has invalid ${field}`)
-  if (!Array.isArray(page.sections)) failures.push(`project page ${page.id} must contain sections`)
+for (const name of projectFiles) {
+  const id = parse(name).name
+  if (!/^[a-z][a-z0-9-]{1,63}$/.test(id)) failures.push(`project HTML filename has invalid route id: ${name}`)
+  if (pageIds.has(id)) failures.push(`duplicate project HTML id: ${id}`)
+  pageIds.add(id)
+  const html = await readFile(join(pagesDirectory, name), 'utf8')
+  if (!/^\s*<article\b/i.test(html) || !/<\/article>\s*$/i.test(html)) failures.push(`${name} must be one complete root <article> page`)
+  const projectMarkerCount = (html.match(/\bdata-project-page(?:=|\s|>)/gi) ?? []).length
+  if (projectMarkerCount !== 1) failures.push(`${name} must contain exactly one data-project-page marker; found ${projectMarkerCount}`)
+  const declaredId = html.match(/data-page-id\s*=\s*["']([^"']+)["']/i)?.[1]
+  if (declaredId !== id) failures.push(`${name} data-page-id must equal filename id ${id}`)
+  const h1Matches = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) ?? []
+  if (h1Matches.length !== 1 || !/<h1\b[^>]*>\s*[^<\s]/i.test(h1Matches[0] ?? '')) failures.push(`${name} must contain exactly one non-empty h1`)
+  if (/<(?:script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta|base|svg|math)\b/i.test(html)) failures.push(`${name} contains a forbidden executable or document element`)
+  if (/\son[a-z]+\s*=/i.test(html) || /(?:javascript|vbscript|data\s*:\s*text\/html)\s*:/i.test(html)) failures.push(`${name} contains executable HTML`)
 }
 
 const badgeFiles = (await readdir(badgesDirectory, { withFileTypes: true }))
@@ -72,6 +85,41 @@ if (badgeRoute?.path !== '/badges/:id' || badgeRoute?.view !== 'BadgeView' || ba
 if (badgesRouteIndex < 0 || badgeRouteIndex < 0 || badgesRouteIndex >= badgeRouteIndex) failures.push('static /badges route must precede /badges/:id')
 if (!(frontend.navigation ?? []).some((item) => item?.route === 'badges')) failures.push('badge catalog is missing from navigation')
 
+const startRoute = (frontend.routes ?? []).find((route) => route?.name === 'start')
+if (startRoute?.path !== '/start' || startRoute?.view !== 'StartGameView'
+  || startRoute?.module !== 'GameScanner' || startRoute?.props?.pageId !== 'start') {
+  failures.push('/start must use StartGameView with module GameScanner and pageId=start')
+}
+const startHtml = await readFile(join(pagesDirectory, 'start.html'), 'utf8').catch(() => '')
+for (const marker of [
+  'data-project-page="1"',
+  'data-page-id="start"',
+  'data-start-account-title',
+  'data-start-account-description',
+  'data-start-action="register"',
+  'data-start-action="download"',
+  'data-start-action="vk"',
+  'data-start-action="discord"',
+  'data-start-windows-icon',
+  'data-start-download-label',
+  'data-start-download-error',
+]) {
+  if (!startHtml.includes(marker)) failures.push(`start.html is missing runtime marker ${marker}`)
+}
+if (/<button/i.test(startHtml)) failures.push('start.html must use safe action anchors, not executable button elements')
+
+const startController = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'GameScanner', 'client', 'views', 'StartGameView.vue'), 'utf8')
+for (const token of ['loadStaticPages', "pageId: 'start'", 'StartGamePage', 'downloadBootstrapper', 'openExternal']) {
+  if (!startController.includes(token)) failures.push(`StartGameView is missing runtime page contract ${token}`)
+}
+const startTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'StartGame.vue'), 'utf8')
+for (const token of ['StaticPageDefinition', 'hydratedHtml', 'DOMParser', 'data-start-action', 'v-html="hydratedHtml"']) {
+  if (!startTemplate.includes(token)) failures.push(`StartGame.vue is missing runtime hydration contract ${token}`)
+}
+for (const forbidden of ['<h1>Начать игру</h1>', '<ol class="journey-steps">']) {
+  if (startTemplate.includes(forbidden)) failures.push(`StartGame.vue still hardcodes page content: ${forbidden}`)
+}
+
 for (const route of frontend.routes ?? []) {
   if (route?.view !== 'StaticContentView') continue
   const pageId = route?.props?.pageId
@@ -115,7 +163,7 @@ for (const [name, expected] of [
 }
 
 const projectRepository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeContentRepository.class.php'), 'utf8')
-for (const token of ['readProjectPages', 'saveProjectPages', 'rename($temporary, $path)']) {
+for (const token of ['readProjectPages', 'saveProjectPages', "DIRECTORY_SEPARATOR . 'data'", "DIRECTORY_SEPARATOR . 'pages'", "'.html'", 'private function sanitize(', 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
   if (!projectRepository.includes(token)) failures.push(`ThemeContentRepository is missing ${token}`)
 }
 for (const forbidden of ['readBadgePage', 'saveBadgePage', 'badgePagesDirectory']) {
@@ -150,12 +198,15 @@ if (/preg_match\('\/\^\[A-Za-z/.test(badgeSettingsMethod) || /preg_match\('\/\^\
 }
 
 const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
-for (const token of ["'content'", "admPanel: 'content'", "admPanel: 'saveProjectPages'", "admPanel: 'saveBadgePage'", "admPanel: 'deleteBadgePage'", 'html: string']) {
+for (const token of ["'content'", "admPanel: 'content'", "admPanel: 'saveProjectPages'", "admPanel: 'saveBadgePage'", "admPanel: 'deleteBadgePage'", 'html: string', 'schema: 2']) {
   if (!adminClient.includes(token)) failures.push(`Admin content client is missing ${token}`)
 }
 const editor = await readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'Content.vue'), 'utf8')
-for (const token of ['HTML-страницы бейджей', 'Полная HTML-разметка страницы', 'Sandbox-preview', 'data-badge-history', 'sandbox=""']) {
-  if (!editor.includes(token)) failures.push(`Admin badge HTML editor is missing ${token}`)
+for (const token of ['HTML-страницы бейджей', 'Полная HTML-разметка страницы проекта', 'data/pages/', 'CodeEditor', 'projectWorkspaceTab', 'badgeWorkspaceTab', 'StaticPage', 'BadgePage', 'Прямое превью', 'sanitizePreviewHtml', 'data-badge-history']) {
+  if (!editor.includes(token)) failures.push(`Admin HTML editor is missing ${token}`)
+}
+for (const forbidden of ['projectPreviewDocument', 'badgePreviewDocument', 'srcdoc=', 'sandbox=""', '<iframe']) {
+  if (editor.includes(forbidden)) failures.push(`Admin HTML preview must be direct, not standalone: ${forbidden}`)
 }
 
 const catalogView = await readFile(join(repositoryRoot, 'engine', 'client', 'views', 'BadgesView.vue'), 'utf8')
@@ -168,8 +219,12 @@ for (const token of ['badges-table', 'badge.image', 'badge.title', 'badge.descri
 }
 const badgeTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badge.vue'), 'utf8')
 if (!badgeTemplate.includes('v-html="badge.html"')) failures.push('Badge.vue must render the server-sanitized standalone HTML page')
+const staticTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'content', 'StaticPage.vue'), 'utf8')
+if (!staticTemplate.includes('v-html="page.html"')) failures.push('StaticPage.vue must render the server-sanitized standalone project HTML page')
 
 const obsoletePaths = [
+  'templates/foxengine2/datas',
+  'templates/foxengine2/data/pages.json',
   'templates/foxengine2/data/badge-pages.json',
   'engine/data/content/badges.json',
   'engine/data/content/static-pages.json',
@@ -181,4 +236,4 @@ if (failures.length) {
   for (const failure of [...new Set(failures)]) console.error(`- ${failure}`)
   process.exit(1)
 }
-console.log(`Runtime content passed: ${pageIds.size} project pages, ${badgeSlugs.size} standalone badge HTML pages, DB-backed /badges index.`)
+console.log(`Runtime content passed: ${pageIds.size} standalone project HTML pages, ${badgeSlugs.size} standalone badge HTML pages, DB-backed /badges index.`)

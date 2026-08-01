@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import type { LogEntry } from '@modules/AdminPanel/client/useAdminPanel'
 
 type LogFile = 'lastlog' | 'error' | 'access'
@@ -11,7 +12,7 @@ const emit = defineEmits<{
 }>()
 
 function updateFile(event: Event): void { emit('update:file', (event.target as HTMLSelectElement).value as LogFile) }
-function updateAuto(event: Event): void { emit('update:autoRefresh', (event.target as HTMLInputElement).checked) }
+function updateAuto(value: boolean): void { emit('update:autoRefresh', value) }
 </script>
 
 <template>
@@ -22,7 +23,15 @@ function updateAuto(event: Event): void { emit('update:autoRefresh', (event.targ
         <option value="error">error.log</option>
         <option value="access">access.log</option>
       </select>
-      <label class="admin-auto-refresh"><input :checked="autoRefresh" type="checkbox" @change="updateAuto"><span>Обновлять каждые 10 секунд</span></label>
+      <UiCheckbox
+        :model-value="autoRefresh"
+        class="admin-auto-refresh"
+        variant="switch"
+        compact
+        label="Автообновление"
+        description="Каждые 10 секунд"
+        @update:model-value="updateAuto"
+      />
       <button class="button button--ghost" type="button" @click="emit('reload')">Обновить</button>
       <button class="button button--ghost" type="button" @click="emit('clear')">Очистить</button>
     </div>

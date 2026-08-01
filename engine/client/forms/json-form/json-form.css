@@ -104,18 +104,12 @@
 }
 
 .json-boolean-input {
-  display: flex !important;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 9px !important;
   min-height: 42px;
-  color: var(--color-text);
-}
-
-.json-boolean-input input {
-  width: 18px;
-  height: 18px;
-  min-height: 0 !important;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface-soft) 72%, transparent);
 }
 
 

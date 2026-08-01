@@ -1,0 +1,46 @@
+<article class="content-surface prose-page static-content-page static-content-page--default" data-project-page="1" data-page-id="technology">
+  <header class="prose-page__header">
+    <div>
+      <span class="eyebrow">Architecture</span>
+      <h1>FoxesCraft 3.0</h1>
+      <p class="lead">Интерфейс и серверное ядро построены вокруг Vue 3, типизированных контрактов, явного application bootstrap и ограниченных JSON API.</p>
+      <small class="page-updated">Обновлено: 30 июля 2026 года</small>
+    </div>
+  </header>
+  <section>
+    <h2>Клиентский runtime</h2>
+    <ul>
+      <li>Vue 3 и Composition API.</li>
+      <li>TypeScript strict mode.</li>
+      <li>Vite production build с lazy routes.</li>
+      <li>Vue Router и адаптивная дизайн-система.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Backend core</h2>
+    <ul>
+      <li>Явный Application bootstrap вместо глобального service locator.</li>
+      <li>HttpRequest и UserSession передаются через конструкторы.</li>
+      <li>Детерминированный JSON-manifest модулей.</li>
+      <li>Prepared PDO-запросы и session-bound CSRF.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Данные и безопасность</h2>
+    <ul>
+      <li>Whitelist JSON bootstrap без password hash и серверных секретов.</li>
+      <li>Credentials загружаются только из environment variables.</li>
+      <li>Единый same-origin API client.</li>
+      <li>Автоматический secret scan и запрет удалённых runtime-сигнатур.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Контроль качества</h2>
+    <ul>
+      <li>Typecheck и production build.</li>
+      <li>PHP parser и проверка архитектурных контрактов.</li>
+      <li>Asset/API/removed-runtime gates.</li>
+      <li>Нулевой legacy audit и bundle budget.</li>
+    </ul>
+  </section>
+</article>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import type { NewsDraft } from '@modules/News/client/types'
 import { newsDraft, uploadNewsCover } from '@modules/News/client/newsApi'
 
@@ -89,10 +90,13 @@ async function selectCover(event: Event): Promise<void> {
       <span>Полный текст</span>
       <textarea v-model.trim="draft.content" rows="12" maxlength="100000" required />
     </label>
-    <label class="news-editor__field news-editor__publish">
-      <input v-model="draft.isPublished" type="checkbox">
-      <span>Опубликовать и показывать на главной</span>
-    </label>
+    <UiCheckbox
+      v-model="draft.isPublished"
+      class="news-editor__publish"
+      variant="switch"
+      label="Опубликовать новость"
+      description="Показывать материал в ленте новостей и на главной странице"
+    />
     <div class="news-editor__actions">
       <button class="button button--primary" type="submit" :disabled="saving || uploadingCover">
         <i class="fa-solid fa-floppy-disk" aria-hidden="true" />

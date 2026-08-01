@@ -173,7 +173,7 @@ const requiredLegacyTemplates = [
   'src/userOptions/pages/badges/Badge.vue',
   'src/userOptions/userOptions/Profile.vue',
   'src/userOptions/userOptions/ProfileSettings.vue',
-  'src/userOptions/userOptions/SkinSettings.vue',
+  'src/userOptions/userOptions/profile/options/MinecraftIdentityOption.vue',
   'src/userOptions/userOptions/AdminPanel.vue',
   'src/userOptions/userOptions/profile/ProfileHeader.vue',
   'src/userOptions/userOptions/profile/ProfileFacts.vue',
@@ -208,14 +208,17 @@ const requiredLegacyTemplates = [
 for (const relativePath of requiredLegacyTemplates) {
   if (!(await exists(join(themeRoot, relativePath)))) failures.push(`legacy-style theme template is missing: ${relativePath}`)
 }
-for (const relativePath of ['data/pages.json', 'data/badges/earlyuser.html']) {
+for (const relativePath of ['data/pages/about.html', 'data/pages/start.html', 'data/badges/earlyuser.html']) {
   if (!(await exists(join(themeRoot, relativePath)))) failures.push(`runtime content data is missing: ${relativePath}`)
 }
 if (themeManifest?.configuration !== undefined) {
   failures.push('theme page content must not be stored in theme.json configuration files')
 }
-if (await exists(join(themeRoot, 'data', 'pages'))) {
-  failures.push('theme page content JSON directory must not exist: data/pages')
+if (!(await exists(join(themeRoot, 'data', 'pages')))) {
+  failures.push('standalone project HTML directory is missing: data/pages')
+}
+if (await exists(join(themeRoot, 'datas')) || await exists(join(themeRoot, 'data', 'pages.json'))) {
+  failures.push('obsolete project page storage exists; use one HTML file per page in data/pages')
 }
 for (const forbiddenPath of ['src/pages', 'src/components']) {
   if (await exists(join(themeRoot, forbiddenPath))) {
@@ -237,7 +240,6 @@ const delegatedControllers = new Map([
   [join(modulesRoot, 'UserTop', 'client', 'views', 'PlayersView.vue'), "@theme/userOptions/PlayerTop.vue"],
   [join(modulesRoot, 'UserSettings', 'client', 'views', 'ProfileView.vue'), "@theme/userOptions/userOptions/Profile.vue"],
   [join(modulesRoot, 'UserSettings', 'client', 'views', 'ProfileSettingsView.vue'), "@theme/userOptions/userOptions/ProfileSettings.vue"],
-  [join(modulesRoot, 'UserSettings', 'client', 'views', 'SkinSettingsView.vue'), "@theme/userOptions/userOptions/SkinSettings.vue"],
   [join(modulesRoot, 'AdminPanel', 'client', 'views', 'AdminView.vue'), "@theme/userOptions/userOptions/AdminPanel.vue"],
 ])
 for (const [controllerPath, templateImport] of delegatedControllers) {
@@ -252,6 +254,15 @@ for (const routeName of ['about', 'rules', 'funding', 'discord-access']) {
   if (route?.view !== 'StaticContentView' || route?.props?.pageId !== routeName) {
     failures.push(`runtime content route ${routeName} must use StaticContentView with pageId=${routeName}`)
   }
+}
+
+const startRoute = frontendManifest.routes.find((entry) => entry?.name === 'start')
+if (startRoute?.view !== 'StartGameView' || startRoute?.module !== 'GameScanner' || startRoute?.props?.pageId !== 'start') {
+  failures.push('runtime content route start must use StartGameView with GameScanner and pageId=start')
+}
+const startController = await readFile(join(modulesRoot, 'GameScanner', 'client', 'views', 'StartGameView.vue'), 'utf8')
+for (const token of ['loadStaticPages', "pageId: 'start'", "@theme/userOptions/pages/StartGame.vue"]) {
+  if (!startController.includes(token)) failures.push(`StartGameView runtime data contract is missing ${token}`)
 }
 
 for (const removedPresentation of [
@@ -269,6 +280,39 @@ for (const removedPresentation of [
 
 const routerText = await readFile(join(engineClientRoot, 'router', 'index.ts'), 'utf8')
 if (!routerText.includes('import.meta.glob')) failures.push('engine router does not discover views dynamically')
+
+const frontendManifestText = await readFile(join(themeRoot, 'frontend.json'), 'utf8')
+for (const token of [
+  '"path": "/settings/skin"',
+  '"redirect": "/settings/profile?tab=appearance#minecraft-identity"',
+]) {
+  if (!frontendManifestText.includes(token)) failures.push(`Minecraft identity compatibility redirect missing ${token}`)
+}
+for (const forbidden of ['"view": "SkinSettingsView"', '"name": "skin-settings"']) {
+  if (frontendManifestText.includes(forbidden)) failures.push(`standalone Minecraft identity route remains in frontend manifest: ${forbidden}`)
+}
+const profileSettingsController = await readFile(join(modulesRoot, 'UserSettings', 'client', 'views', 'ProfileSettingsView.vue'), 'utf8')
+for (const token of [
+  'refreshMinecraftPreview',
+  'uploadMinecraftFile',
+  'removeMinecraftFile',
+  '@theme/userOptions/userOptions/ProfileSettings.vue',
+]) {
+  if (!profileSettingsController.includes(token)) failures.push(`embedded Minecraft identity controller missing ${token}`)
+}
+const appearanceOption = await readFile(join(themeRoot, 'src', 'userOptions', 'userOptions', 'profile', 'options', 'AppearanceOption.vue'), 'utf8')
+if (!appearanceOption.includes("import MinecraftIdentityOption from './MinecraftIdentityOption.vue'")) {
+  failures.push('AppearanceOption does not embed MinecraftIdentityOption')
+}
+for (const obsolete of [
+  join(modulesRoot, 'UserSettings', 'client', 'views', 'SkinSettingsView.vue'),
+  join(themeRoot, 'src', 'userOptions', 'userOptions', 'SkinSettings.vue'),
+]) {
+  try {
+    await readFile(obsolete, 'utf8')
+    failures.push(`obsolete standalone Minecraft identity page still exists: ${relative(repositoryRoot, obsolete).replaceAll('\\', '/')}`)
+  } catch {}
+}
 
 if (failures.length) {
   console.error('Frontend registry architecture failed:')

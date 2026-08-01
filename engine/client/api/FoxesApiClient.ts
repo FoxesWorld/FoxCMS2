@@ -2,14 +2,34 @@ import type { FoxesCraftBootstrap } from '@/domain/bootstrap'
 import { bootstrapEndpoint, bootstrapString } from '@/domain/bootstrap'
 import { notifyPayload, showToast } from '@/notifications/toasts'
 
+export interface FoxesApiErrorPayload {
+  message?: unknown
+  type?: unknown
+  requestId?: unknown
+  error?: unknown
+  [key: string]: unknown
+}
+
+function errorMessage(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const message = (payload as FoxesApiErrorPayload).message
+    if (typeof message === 'string' && message.trim() !== '') return message.trim()
+  }
+  return fallback
+}
+
 export class FoxesApiError extends Error {
+  readonly requestId: string
+
   constructor(
     message: string,
     readonly status: number,
     readonly responseBody: string,
+    readonly payload: FoxesApiErrorPayload | null = null,
   ) {
     super(message)
     this.name = 'FoxesApiError'
+    this.requestId = typeof payload?.requestId === 'string' ? payload.requestId : ''
   }
 }
 
@@ -44,21 +64,22 @@ export class FoxesApiClient {
       })
     } catch {
       showToast('Не удалось связаться с сервером.', 'error')
-      throw new FoxesApiError('Network request failed', 0, '')
+      throw new FoxesApiError('Не удалось связаться с сервером.', 0, '')
     }
     const text = await response.text()
     if (!response.ok) {
-      let payload: unknown
-      try { payload = JSON.parse(text) } catch { payload = null }
-      if (!notifyPayload(payload)) showToast(`Ошибка сервера: ${response.status}`, 'error')
-      throw new FoxesApiError(`Request failed with status ${response.status}`, response.status, text)
+      let payload: FoxesApiErrorPayload | null
+      try { payload = JSON.parse(text) as FoxesApiErrorPayload } catch { payload = null }
+      const message = errorMessage(payload, `Ошибка сервера: HTTP ${response.status}.`)
+      if (!notifyPayload(payload)) showToast(message, 'error')
+      throw new FoxesApiError(message, response.status, text, payload)
     }
     return text
   }
 
   private actionEndpoint(): string {
     const endpoint = bootstrapEndpoint(this.bootstrap, 'actions')
-    if (!endpoint) throw new FoxesApiError('Engine action endpoint is unavailable', 0, '')
+    if (!endpoint) throw new FoxesApiError('Endpoint административных операций недоступен.', 0, '')
     return endpoint
   }
 
@@ -75,18 +96,22 @@ export class FoxesApiClient {
       response = await fetch(this.actionEndpoint(), { method: 'POST', credentials: 'same-origin', headers, body })
     } catch {
       showToast('Не удалось связаться с сервером.', 'error')
-      throw new FoxesApiError('Network request failed', 0, '')
+      throw new FoxesApiError('Не удалось связаться с сервером.', 0, '')
     }
     const text = await response.text()
     let payload: unknown
     try { payload = JSON.parse(text) }
     catch {
       showToast('Сервер вернул некорректный ответ.', 'error')
-      throw new FoxesApiError('Server returned invalid JSON', response.status, text)
+      throw new FoxesApiError(`Сервер вернул некорректный JSON (HTTP ${response.status}).`, response.status, text)
     }
     if (!response.ok) {
-      if (!notifyPayload(payload)) showToast(`Ошибка запроса: ${response.status}`, 'error')
-      throw new FoxesApiError(`Request failed with status ${response.status}`, response.status, text)
+      const errorPayload = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload as FoxesApiErrorPayload
+        : null
+      const message = errorMessage(errorPayload, `Ошибка запроса: HTTP ${response.status}.`)
+      if (!notifyPayload(errorPayload)) showToast(message, 'error')
+      throw new FoxesApiError(message, response.status, text, errorPayload)
     }
     notifyPayload(payload)
     return payload as T

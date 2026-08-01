@@ -10,10 +10,20 @@
 .admin-badge-html-editor__source textarea:focus{border-color:var(--color-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-accent) 22%,transparent);outline:none}
 .admin-badge-html-editor__source small{color:var(--color-text-muted);font-size:.75rem;line-height:1.55}
 .admin-badge-html-editor__source code,.admin-content-form__grid code{color:var(--color-accent)}
-.admin-badge-html-preview{display:grid;gap:10px;padding:12px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}
-.admin-badge-html-preview>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.admin-badge-html-preview>header small{color:var(--color-text-muted);font-size:.7rem;text-align:right}
-.admin-badge-html-preview iframe{width:100%;min-height:620px;border:1px solid var(--color-border);border-radius:10px;background:#0b100d}
+.admin-html-workbench__tabs{display:flex;gap:5px;padding:5px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+.admin-html-workbench__tabs button{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 14px;border:0;border-radius:8px;color:var(--color-text-muted);background:transparent;cursor:pointer;font:800 .78rem/1 var(--font-body)}
+.admin-html-workbench__tabs button:hover{color:var(--color-text);background:var(--color-surface-hover)}
+.admin-html-workbench__tabs button.active{color:var(--color-accent-contrast);background:var(--color-accent);box-shadow:0 8px 20px color-mix(in srgb,var(--color-accent) 22%,transparent)}
+.admin-html-preview{min-width:0;display:grid;gap:10px}
+.admin-html-preview__header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+.admin-html-preview__header>div{display:grid;gap:2px}
+.admin-html-preview__header strong{font-size:.83rem}
+.admin-html-preview__header small{color:var(--color-text-muted);font-size:.71rem;line-height:1.4}
+.admin-html-preview__status{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid color-mix(in srgb,var(--color-success) 38%,var(--color-border));border-radius:999px;color:var(--color-success);background:color-mix(in srgb,var(--color-success) 10%,transparent);font-size:.68rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.admin-html-preview__stage{min-width:0;min-height:620px;padding:clamp(18px,3vw,34px);border:1px solid var(--color-border);border-radius:14px;background:var(--color-background);overflow:auto;isolation:isolate}
+.admin-html-preview__stage>.static-page-html,.admin-html-preview__stage>.badge-runtime-page{width:min(100%,1180px);margin-inline:auto}
+.admin-html-preview__stage .content-surface{width:100%}
+.admin-html-preview__stage a{cursor:not-allowed}
 .badge-runtime-page{min-width:0}
 .badge-runtime-page>.badge-page{width:100%}
-@media(max-width:760px){.admin-badge-html-editor__actions{justify-content:stretch}.admin-badge-html-editor__actions .button{width:100%}.admin-badge-html-preview>header{align-items:flex-start;flex-direction:column}.admin-badge-html-preview>header small{text-align:left}.admin-badge-html-preview iframe{min-height:520px}.admin-badge-html-editor__source textarea{min-height:440px}}
+@media(max-width:760px){.admin-badge-html-editor__actions{justify-content:stretch}.admin-badge-html-editor__actions .button{width:100%}.admin-html-workbench__tabs button{flex:1}.admin-html-preview__header{align-items:flex-start;flex-direction:column}.admin-html-preview__stage{min-height:520px;padding:14px}.admin-badge-html-editor__source textarea{min-height:440px}}

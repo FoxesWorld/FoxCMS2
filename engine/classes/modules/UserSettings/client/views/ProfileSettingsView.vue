@@ -5,7 +5,7 @@ import ProfileSettingsPage from '@theme/userOptions/userOptions/ProfileSettings.
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
 import { bootstrapString } from '@/domain/bootstrap'
-import type { FeedbackMessage, ProfileRecord, ProfileSettingsFormModel, SettingsTab } from '@/contracts/user-pages'
+import type { FeedbackMessage, ProfileRecord, ProfileSettingsFormModel, SettingsTab, SkinResource } from '@/contracts/user-pages'
 
 interface SettingsRecord extends ProfileRecord { email?: string; message?: string }
 type Response = FeedbackMessage & { url?: string }
@@ -15,6 +15,7 @@ const route = router.currentRoute
 const viewerLogin = bootstrapString(appBootstrap, 'login')
 const viewerUuid = bootstrapString(appBootstrap, 'uuid')
 const canManageUsers = appBootstrap.frontend.capabilities.includes('admin.panel')
+const viewerGroupTag = bootstrapString(appBootstrap, 'groupTag', 'guest')
 const activeTab = ref<SettingsTab>('profile')
 const loading = ref(true)
 const error = ref('')
@@ -29,6 +30,14 @@ const accent = ref('#5bd08b')
 let objectUrl = ''
 const form = reactive<ProfileSettingsFormModel>({ login: '', realname: '', userStatus: '', land: '', email: '', currentPassword: '', newPassword: '', repeatPassword: '' })
 const showSkinSettings = ref(true)
+const minecraftFrontPreview = ref('')
+const minecraftBackPreview = ref('')
+const minecraftPreviewLoading = ref(false)
+const minecraftBusy = ref<SkinResource | null>(null)
+const minecraftFeedback = ref<Response | null>(null)
+const minecraftSelected = ref<Record<SkinResource, File | null>>({ skin: null, cloak: null })
+const minecraftInputVersion = ref<Record<SkinResource, number>>({ skin: 0, cloak: 0 })
+let minecraftLoadedUuid = ''
 
 function revoke(): void { if (objectUrl) URL.revokeObjectURL(objectUrl); objectUrl = '' }
 function fail(message: string, tab?: SettingsTab): void {
@@ -46,9 +55,15 @@ async function load(value?: string): Promise<void> {
     if (!user.uuid || !user.login) { error.value = user.message || 'Пользователь не найден.'; return }
     targetUuid.value = user.uuid
     showSkinSettings.value = viewerUuid !== '' && user.uuid.replaceAll('-', '').toLowerCase() === viewerUuid.replaceAll('-', '').toLowerCase()
+    minecraftFrontPreview.value = ''
+    minecraftBackPreview.value = ''
+    minecraftFeedback.value = null
+    minecraftSelected.value = { skin: null, cloak: null }
+    minecraftLoadedUuid = ''
     Object.assign(form, { login: user.login, realname: user.realname || '', userStatus: user.userStatus || '', land: user.land || '', email: user.email || '', currentPassword: '', newPassword: '', repeatPassword: '' })
     avatarPreview.value = user.profilePhoto || ''
     accent.value = /^#[0-9a-f]{6}$/i.test(user.colorScheme || '') ? user.colorScheme! : '#5bd08b'
+    if (activeTab.value === 'appearance' && showSkinSettings.value) await refreshMinecraftPreview()
   } catch { error.value = 'Не удалось загрузить настройки профиля.' }
   finally { loading.value = false }
 }
@@ -89,6 +104,89 @@ async function uploadAvatar(): Promise<void> {
   finally { uploading.value = false }
 }
 
+async function refreshMinecraftPreview(force = false): Promise<void> {
+  const userUuid = targetUuid.value || viewerUuid
+  if (!showSkinSettings.value || userUuid === '') return
+  const normalizedUuid = userUuid.replaceAll('-', '').toLowerCase()
+  if (!force && minecraftLoadedUuid === normalizedUuid && minecraftFrontPreview.value && minecraftBackPreview.value) return
+  minecraftPreviewLoading.value = true
+  try {
+    const [front, back] = await Promise.all([
+      foxesApi.postText({ sysRequest: 'skinPreview', userUuid, side: 'front' }),
+      foxesApi.postText({ sysRequest: 'skinPreview', userUuid, side: 'back' }),
+    ])
+    minecraftFrontPreview.value = `data:image/png;base64,${front.trim()}`
+    minecraftBackPreview.value = `data:image/png;base64,${back.trim()}`
+    minecraftLoadedUuid = normalizedUuid
+  } catch (minecraftError) {
+    console.error('[FoxesCraft] Minecraft identity preview failed', minecraftError)
+    minecraftFeedback.value = { type: 'error', message: 'Не удалось построить предпросмотр Minecraft-образа.' }
+  } finally {
+    minecraftPreviewLoading.value = false
+  }
+}
+
+function selectMinecraftFile(type: SkinResource, event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  minecraftFeedback.value = null
+  if (file && file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
+    minecraftFeedback.value = { type: 'error', message: 'Для скина и плаща требуется PNG-файл.' }
+    input.value = ''
+    minecraftSelected.value[type] = null
+    return
+  }
+  minecraftSelected.value[type] = file
+}
+
+async function uploadMinecraftFile(type: SkinResource): Promise<void> {
+  const file = minecraftSelected.value[type]
+  const userUuid = targetUuid.value || viewerUuid
+  if (!file || !showSkinSettings.value || userUuid === '') return
+  minecraftBusy.value = type
+  minecraftFeedback.value = null
+  try {
+    const data = new FormData()
+    data.set('0', file)
+    data.set('sysRequest', 'uploadFile')
+    data.set('type', type)
+    data.set('userUuid', userUuid)
+    const response = await foxesApi.postFormData<Response>(data)
+    minecraftFeedback.value = response
+    if (response.type === 'success') {
+      minecraftSelected.value[type] = null
+      minecraftInputVersion.value[type]++
+      await refreshMinecraftPreview(true)
+    }
+  } catch (minecraftError) {
+    console.error('[FoxesCraft] Minecraft identity upload failed', minecraftError)
+    minecraftFeedback.value = { type: 'error', message: 'Не удалось загрузить Minecraft-ресурс.' }
+  } finally {
+    minecraftBusy.value = null
+  }
+}
+
+async function removeMinecraftFile(type: SkinResource): Promise<void> {
+  const userUuid = targetUuid.value || viewerUuid
+  if (!showSkinSettings.value || userUuid === '') return
+  minecraftBusy.value = type
+  minecraftFeedback.value = null
+  try {
+    const response = await foxesApi.post<Response>({ sysRequest: 'deleteFile', type, userUuid })
+    minecraftFeedback.value = response
+    if (response.type === 'success') {
+      minecraftSelected.value[type] = null
+      minecraftInputVersion.value[type]++
+      await refreshMinecraftPreview(true)
+    }
+  } catch (minecraftError) {
+    console.error('[FoxesCraft] Minecraft identity removal failed', minecraftError)
+    minecraftFeedback.value = { type: 'error', message: 'Не удалось удалить Minecraft-ресурс.' }
+  } finally {
+    minecraftBusy.value = null
+  }
+}
+
 async function saveProfile(): Promise<void> {
   feedback.value = null
   if (!canManageUsers && !form.currentPassword) return fail('Для сохранения нужен текущий пароль.')
@@ -114,7 +212,13 @@ function navigate(route: string): void {
   void router.push(route === 'profile' ? { name: route, params: { value: form.login } } : { name: route })
 }
 
+watch(() => route.value.query.tab, (value) => {
+  if (value === 'profile' || value === 'appearance' || value === 'security') activeTab.value = value
+}, { immediate: true })
 watch(() => route.value.params.value as string | undefined, load, { immediate: true })
+watch(activeTab, (tab) => {
+  if (tab === 'appearance' && showSkinSettings.value) void refreshMinecraftPreview()
+})
 onUnmounted(revoke)
 </script>
 
@@ -125,6 +229,19 @@ onUnmounted(revoke)
     v-else
     :can-manage-users="canManageUsers"
     :show-skin-settings="showSkinSettings"
+    :viewer-group-tag="viewerGroupTag"
+    :minecraft-uuid="targetUuid"
+    :minecraft-front-preview="minecraftFrontPreview"
+    :minecraft-back-preview="minecraftBackPreview"
+    :minecraft-preview-loading="minecraftPreviewLoading"
+    :minecraft-selected-skin-name="minecraftSelected.skin?.name ?? ''"
+    :minecraft-selected-skin-size="minecraftSelected.skin?.size ?? 0"
+    :minecraft-selected-cloak-name="minecraftSelected.cloak?.name ?? ''"
+    :minecraft-selected-cloak-size="minecraftSelected.cloak?.size ?? 0"
+    :minecraft-skin-input-version="minecraftInputVersion.skin"
+    :minecraft-cloak-input-version="minecraftInputVersion.cloak"
+    :minecraft-busy="minecraftBusy"
+    :minecraft-feedback="minecraftFeedback"
     :active-tab="activeTab"
     :form="form"
     :avatar-preview="avatarPreview"
@@ -139,6 +256,10 @@ onUnmounted(revoke)
     @submit="saveProfile"
     @select-avatar="selectAvatar"
     @upload-avatar="uploadAvatar"
+    @select-minecraft="selectMinecraftFile"
+    @upload-minecraft="uploadMinecraftFile"
+    @remove-minecraft="removeMinecraftFile"
+    @refresh-minecraft="refreshMinecraftPreview(true)"
     @navigate="navigate"
   />
 </template>

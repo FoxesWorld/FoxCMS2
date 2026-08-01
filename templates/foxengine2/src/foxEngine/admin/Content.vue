@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import type { BadgeDefinition, StaticPageDefinition } from '@engine/content/contentData'
 import type {
-  BadgeCatalogRow, BadgePageDraft, ContentSectionDraft, ProjectPageDraft,
+  BadgeCatalogRow, BadgePageDraft, ProjectPageDraft,
 } from '@modules/AdminPanel/client/useAdminPanel'
+import StaticPage from '@theme/userOptions/content/StaticPage.vue'
+import BadgePage from '@theme/userOptions/pages/badges/Badge.vue'
+
+const CodeEditor = defineAsyncComponent(() => import('@theme/foxEngine/editor/CodeEditor.vue'))
 
 const props = defineProps<{
   projectPages: ProjectPageDraft[]
@@ -18,6 +23,8 @@ const emit = defineEmits<{
 }>()
 
 const mode = ref<'project' | 'badges'>('project')
+const projectWorkspaceTab = ref<'editor' | 'preview'>('editor')
+const badgeWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const selectedProjectId = ref('')
 const selectedBadgeName = ref('')
 
@@ -28,38 +35,71 @@ const selectedBadgePage = computed(() => {
   return badge ? props.badgePages.find((page) => page.slug === badge.pageSlug) ?? null : null
 })
 
-const badgePreviewDocument = computed(() => {
-  const page = selectedBadgePage.value
-  const badge = selectedBadge.value
-  if (!page || !badge) return ''
+const forbiddenPreviewElements = 'script,style,iframe,object,embed,form,input,button,textarea,select,option,link,meta,base,svg,math'
+const previewUrlAttributes = new Set(['href', 'src', 'xlink:href', 'formaction'])
 
-  const parsed = new DOMParser().parseFromString(page.html, 'text/html')
+function isUnsafePreviewUrl(value: string): boolean {
+  const normalized = value.trim().replace(/[\u0000-\u0020]+/g, '')
+  return /^(?:javascript|vbscript|data:text\/html)/i.test(normalized)
+}
+
+function sanitizePreviewHtml(html: string): string {
+  const parsed = new DOMParser().parseFromString(html, 'text/html')
+  parsed.body.querySelectorAll(forbiddenPreviewElements).forEach((element) => element.remove())
+  parsed.body.querySelectorAll('*').forEach((element) => {
+    for (const attribute of [...element.attributes]) {
+      const name = attribute.name.toLowerCase()
+      if (name.startsWith('on') || name === 'style' || name === 'srcdoc'
+        || (previewUrlAttributes.has(name) && isUnsafePreviewUrl(attribute.value))) {
+        element.removeAttribute(attribute.name)
+      }
+    }
+  })
+  return parsed.body.innerHTML
+}
+
+function hydrateBadgePreviewHtml(page: BadgePageDraft, badge: BadgeCatalogRow): string {
+  const parsed = new DOMParser().parseFromString(sanitizePreviewHtml(page.html), 'text/html')
   parsed.querySelectorAll('[data-badge-title]').forEach((element) => { element.textContent = badge.badgeName })
   parsed.querySelectorAll('[data-badge-description]').forEach((element) => { element.textContent = badge.description })
   parsed.querySelectorAll<HTMLImageElement>('[data-badge-image]').forEach((element) => {
-    if (badge.img) {
+    if (badge.img && !isUnsafePreviewUrl(badge.img)) {
       element.src = badge.img
       element.alt = badge.badgeName
+      element.hidden = false
     } else {
       element.removeAttribute('src')
       element.hidden = true
     }
   })
+  return sanitizePreviewHtml(parsed.body.innerHTML)
+}
 
-  return `<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data:; style-src 'unsafe-inline'; font-src 'none';">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b100d;color:#eef4f0}
-*{box-sizing:border-box}body{margin:0;padding:22px;background:#0b100d}article{display:grid;gap:24px;max-width:980px;margin:auto;padding:26px;border:1px solid #2b3930;border-radius:20px;background:#121a15}header{display:grid;grid-template-columns:132px minmax(0,1fr);align-items:center;gap:24px;padding-bottom:22px;border-bottom:1px solid #2b3930}header img{width:108px;height:108px;object-fit:contain}h1{margin:6px 0 10px;font-size:clamp(2rem,6vw,4rem);line-height:1}.eyebrow{color:#78d59a;font-size:.75rem;font-weight:900;text-transform:uppercase;letter-spacing:.14em}.lead,p,li{color:#aebdb4;line-height:1.7}h2{margin:0 0 12px}.badge-story{max-width:850px}.manifest-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.manifest-grid>div,.notice-panel{padding:16px;border:1px solid #2b3930;border-radius:14px;background:#172119}@media(max-width:620px){header{grid-template-columns:1fr}}
-</style>
-</head>
-<body>${parsed.body.innerHTML}</body>
-</html>`
+const projectPreviewPage = computed<StaticPageDefinition | null>(() => {
+  const page = selectedProject.value
+  return page ? { id: page.id, title: page.title, html: sanitizePreviewHtml(page.html) } : null
 })
+
+const badgePreviewPage = computed<BadgeDefinition | null>(() => {
+  const page = selectedBadgePage.value
+  const badge = selectedBadge.value
+  if (!page || !badge) return null
+  return {
+    id: page.slug,
+    databaseId: badge.id,
+    badgeName: badge.badgeName,
+    title: badge.badgeName,
+    description: badge.description,
+    image: badge.img || null,
+    html: hydrateBadgePreviewHtml(page, badge),
+    pageConfigured: true,
+  }
+})
+
+function preventPreviewNavigation(event: Event): void {
+  const target = event.target instanceof Element ? event.target : null
+  if (target?.closest('a')) event.preventDefault()
+}
 
 watch(() => props.projectPages, (pages) => {
   if (!pages.some((page) => page.id === selectedProjectId.value)) selectedProjectId.value = pages[0]?.id ?? ''
@@ -69,49 +109,8 @@ watch(() => props.badges, (badges) => {
   if (!badges.some((badge) => badge.badgeName === selectedBadgeName.value)) selectedBadgeName.value = badges[0]?.badgeName ?? ''
 }, { immediate: true, deep: true })
 
-function emptySection(): ContentSectionDraft {
-  return { title: '', paragraphs: [], items: [], cards: [], notice: null }
-}
-
-function paragraphsText(values: string[]): string {
-  return values.join('\n\n')
-}
-
-function linesText(values: string[]): string {
-  return values.join('\n')
-}
-
-function splitParagraphs(value: string): string[] {
-  return value.split(/\n\s*\n/g).map((entry) => entry.trim()).filter(Boolean)
-}
-
-function splitLines(value: string): string[] {
-  return value.split(/\r?\n/g).map((entry) => entry.trim()).filter(Boolean)
-}
-
-function updateParagraphs(section: ContentSectionDraft, event: Event): void {
-  section.paragraphs = splitParagraphs((event.target as HTMLTextAreaElement).value)
-}
-
-function updateItems(section: ContentSectionDraft, event: Event): void {
-  section.items = splitLines((event.target as HTMLTextAreaElement).value)
-}
-
-function addSection(sections: ContentSectionDraft[]): void {
-  sections.push(emptySection())
-}
-
-function removeSection(sections: ContentSectionDraft[], index: number): void {
-  sections.splice(index, 1)
-}
-
-function addCard(section: ContentSectionDraft): void {
-  section.cards.push({ title: 'Новая карточка', text: '' })
-}
-
-function toggleNotice(section: ContentSectionDraft): void {
-  section.notice = section.notice ? null : { title: 'Важно', text: '' }
-}
+watch(selectedProjectId, () => { projectWorkspaceTab.value = 'editor' })
+watch(selectedBadgeName, () => { badgeWorkspaceTab.value = 'editor' })
 
 function escapeHtml(value: string): string {
   return value
@@ -150,6 +149,7 @@ function createBadgePage(): void {
     slug: badge.pageSlug,
     html: badgeTemplate(badge, badge.pageSlug),
   })
+  badgeWorkspaceTab.value = 'editor'
 }
 
 function deleteBadgePage(): void {
@@ -165,7 +165,7 @@ function deleteBadgePage(): void {
       <div>
         <span class="eyebrow">Runtime content</span>
         <h2>Страницы проекта</h2>
-        <p>Страницы проекта хранятся в JSON, а полные представления бейджей — отдельными HTML-файлами.</p>
+        <p>Страницы проекта и представления бейджей хранятся отдельными HTML-файлами и редактируются через CodeMirror 5.</p>
       </div>
       <div class="admin-content-editor__modes">
         <button type="button" :class="{ active: mode === 'project' }" @click="mode = 'project'">
@@ -191,41 +191,51 @@ function deleteBadgePage(): void {
         </button>
       </aside>
 
-      <form v-if="selectedProject" class="admin-content-form" @submit.prevent="emit('saveProjectPages')">
+      <form v-if="selectedProject" class="admin-badge-html-editor admin-project-html-editor" @submit.prevent="emit('saveProjectPages')">
         <header class="admin-content-form__title">
-          <div><span class="eyebrow">{{ selectedProject.id }}</span><h3>{{ selectedProject.title }}</h3></div>
-          <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>Сохранить страницы</span></button>
+          <div><span class="eyebrow">HTML-страница проекта</span><h3>{{ selectedProject.title }}</h3><p><code>data/pages/{{ selectedProject.id }}.html</code></p></div>
+          <a class="button button--ghost" :href="`/#/${selectedProject.id}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>Открыть страницу</span></a>
         </header>
 
         <div class="admin-content-form__grid">
-          <label><span>ID маршрута</span><input v-model="selectedProject.id" type="text" readonly></label>
-          <label><span>Макет</span><select v-model="selectedProject.layout"><option value="default">Обычная страница</option><option value="rules">Нумерованные правила</option></select></label>
-          <label><span>Надпись</span><input v-model.trim="selectedProject.eyebrow" type="text" maxlength="120"></label>
-          <label><span>Дата обновления</span><input v-model.trim="selectedProject.updated" type="text" maxlength="80"></label>
-          <label class="wide"><span>Заголовок</span><input v-model.trim="selectedProject.title" type="text" maxlength="180" required></label>
-          <label class="wide"><span>Краткое описание</span><textarea v-model.trim="selectedProject.summary" rows="4" maxlength="1200" /></label>
-          <label class="wide"><span>Изображение</span><input v-model.trim="selectedProject.image" type="text" maxlength="512" placeholder="img/... или /uploads/..."></label>
-          <label><span>Alt изображения</span><input v-model.trim="selectedProject.imageAlt" type="text" maxlength="240"></label>
-          <label><span>Подпись изображения</span><input v-model.trim="selectedProject.imageCaption" type="text" maxlength="240"></label>
+          <label><span>ID маршрута</span><input :value="selectedProject.id" type="text" readonly></label>
+          <label><span>HTML-файл</span><input :value="`data/pages/${selectedProject.id}.html`" type="text" readonly></label>
         </div>
 
-        <div class="admin-content-sections">
-          <header><h3>Секции</h3><button class="button button--ghost" type="button" @click="addSection(selectedProject.sections)"><i class="fa-solid fa-plus" aria-hidden="true" /><span>Добавить секцию</span></button></header>
-          <article v-for="(section, sectionIndex) in selectedProject.sections" :key="sectionIndex" class="admin-content-section">
-            <header><strong>Секция {{ sectionIndex + 1 }}</strong><button type="button" class="danger" @click="removeSection(selectedProject.sections, sectionIndex)"><i class="fa-solid fa-trash-can" aria-hidden="true" /></button></header>
-            <label><span>Заголовок секции</span><input v-model.trim="section.title" type="text" maxlength="180"></label>
-            <label><span>Абзацы — разделяются пустой строкой</span><textarea :value="paragraphsText(section.paragraphs)" rows="7" @input="updateParagraphs(section, $event)" /></label>
-            <label><span>Элементы списка — по одному на строку</span><textarea :value="linesText(section.items)" rows="5" @input="updateItems(section, $event)" /></label>
-            <div class="admin-content-cards">
-              <header><strong>Карточки</strong><button type="button" @click="addCard(section)"><i class="fa-solid fa-plus" aria-hidden="true" /> Добавить</button></header>
-              <div v-for="(card, cardIndex) in section.cards" :key="cardIndex" class="admin-content-card-row"><input v-model.trim="card.title" maxlength="160" placeholder="Заголовок"><textarea v-model.trim="card.text" rows="3" maxlength="3000" placeholder="Текст карточки" /><button type="button" class="danger" @click="section.cards.splice(cardIndex, 1)"><i class="fa-solid fa-trash-can" aria-hidden="true" /></button></div>
-            </div>
-            <button class="admin-content-notice-toggle" type="button" @click="toggleNotice(section)">{{ section.notice ? 'Удалить notice-блок' : 'Добавить notice-блок' }}</button>
-            <div v-if="section.notice" class="admin-content-notice-fields"><input v-model.trim="section.notice.title" maxlength="180" placeholder="Заголовок notice"><textarea v-model.trim="section.notice.text" rows="4" maxlength="5000" placeholder="Текст notice" /></div>
-          </article>
+        <div class="admin-html-workbench__tabs" role="tablist" aria-label="Режим страницы проекта">
+          <button type="button" role="tab" :aria-selected="projectWorkspaceTab === 'editor'" :class="{ active: projectWorkspaceTab === 'editor' }" @click="projectWorkspaceTab = 'editor'">
+            <i class="fa-solid fa-code" aria-hidden="true" /><span>Редактор</span>
+          </button>
+          <button type="button" role="tab" :aria-selected="projectWorkspaceTab === 'preview'" :class="{ active: projectWorkspaceTab === 'preview' }" @click="projectWorkspaceTab = 'preview'">
+            <i class="fa-solid fa-eye" aria-hidden="true" /><span>Превью</span>
+          </button>
         </div>
 
-        <footer class="admin-content-form__footer"><button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>Сохранить страницы проекта</span></button></footer>
+        <div v-if="projectWorkspaceTab === 'editor'" class="admin-badge-html-editor__source" role="tabpanel">
+          <span>Полная HTML-разметка страницы проекта</span>
+          <CodeEditor
+            :key="`project-${selectedProject.id}`"
+            v-model="selectedProject.html"
+            language="html"
+            :aria-label="`HTML-разметка страницы проекта ${selectedProject.id}`"
+            min-height="620px"
+          />
+          <small>Обязательны один корневой <code>&lt;article data-project-page&gt;</code> и непустой <code>&lt;h1&gt;</code>. Скрипты, style, iframe, формы и inline-события запрещены серверной политикой.</small>
+        </div>
+
+        <section v-else class="admin-html-preview" role="tabpanel" @click.capture="preventPreviewNavigation">
+          <header class="admin-html-preview__header">
+            <div><strong>Прямое превью</strong><small>Используются реальные компоненты и CSS активной темы.</small></div>
+            <span class="admin-html-preview__status"><i class="fa-solid fa-bolt" aria-hidden="true" /> Live</span>
+          </header>
+          <div class="admin-html-preview__stage admin-html-preview__stage--project">
+            <StaticPage v-if="projectPreviewPage" :page="projectPreviewPage" />
+          </div>
+        </section>
+
+        <footer class="admin-content-form__footer">
+          <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>Сохранить {{ selectedProject.id }}.html</span></button>
+        </footer>
       </form>
     </div>
 
@@ -267,15 +277,35 @@ function deleteBadgePage(): void {
             <a class="button button--ghost" :href="`/#/badges/${selectedBadgePage.slug}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>Открыть страницу</span></a>
           </div>
 
-          <label class="admin-badge-html-editor__source">
-            <span>Полная HTML-разметка страницы</span>
-            <textarea v-model="selectedBadgePage.html" rows="30" spellcheck="false" />
-            <small>Обязательны: <code>data-badge-page</code>, <code>data-badge-title</code>, <code>data-badge-description</code>, <code>data-badge-image</code> и <code>data-badge-history</code>. Данные из БД подставляются сервером. Скрипты, style, iframe, формы и inline-события запрещены.</small>
-          </label>
+          <div class="admin-html-workbench__tabs" role="tablist" aria-label="Режим страницы бейджа">
+            <button type="button" role="tab" :aria-selected="badgeWorkspaceTab === 'editor'" :class="{ active: badgeWorkspaceTab === 'editor' }" @click="badgeWorkspaceTab = 'editor'">
+              <i class="fa-solid fa-code" aria-hidden="true" /><span>Редактор</span>
+            </button>
+            <button type="button" role="tab" :aria-selected="badgeWorkspaceTab === 'preview'" :class="{ active: badgeWorkspaceTab === 'preview' }" @click="badgeWorkspaceTab = 'preview'">
+              <i class="fa-solid fa-eye" aria-hidden="true" /><span>Превью</span>
+            </button>
+          </div>
 
-          <section class="admin-badge-html-preview">
-            <header><strong>Sandbox-preview</strong><small>Vue обновляет preview, но HTML не получает права выполнять JavaScript.</small></header>
-            <iframe title="Предпросмотр HTML-страницы бейджа" sandbox="" :srcdoc="badgePreviewDocument" />
+          <div v-if="badgeWorkspaceTab === 'editor'" class="admin-badge-html-editor__source" role="tabpanel">
+            <span>Полная HTML-разметка страницы</span>
+            <CodeEditor
+              :key="`badge-${selectedBadgePage.slug}`"
+              v-model="selectedBadgePage.html"
+              language="html"
+              aria-label="HTML-разметка страницы бейджа"
+              min-height="560px"
+            />
+            <small>Обязательны: <code>data-badge-page</code>, <code>data-badge-title</code>, <code>data-badge-description</code>, <code>data-badge-image</code> и <code>data-badge-history</code>. Данные из БД подставляются сервером. Скрипты, style, iframe, формы и inline-события запрещены.</small>
+          </div>
+
+          <section v-else class="admin-html-preview" role="tabpanel" @click.capture="preventPreviewNavigation">
+            <header class="admin-html-preview__header">
+              <div><strong>Прямое превью</strong><small>Используются реальные компоненты, данные бейджа и CSS активной темы.</small></div>
+              <span class="admin-html-preview__status"><i class="fa-solid fa-bolt" aria-hidden="true" /> Live</span>
+            </header>
+            <div class="admin-html-preview__stage admin-html-preview__stage--badge">
+              <BadgePage :loading="false" :error="false" :badge="badgePreviewPage" />
+            </div>
           </section>
 
           <footer class="admin-content-form__footer admin-content-form__footer--split">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import { JsonFormEditor, collectJsonSamples } from '@/forms/json-form'
 import type { JsonValue } from '@/forms/json-form'
 import type { GroupOption, ServerDraft, ServerRow } from '@modules/AdminPanel/client/useAdminPanel'
@@ -26,8 +27,18 @@ function samplesFor(field: StructuredServerField): JsonValue[] {
     <label><span>Host</span><input v-model="draft.host" type="text"></label>
     <label><span>Port</span><input v-model.number="draft.port" type="number" min="1" max="65535"></label>
     <div class="admin-checks">
-      <label><input v-model="draft.enabled" type="checkbox"><span>Enabled</span></label>
-      <label><input v-model="draft.checkLib" type="checkbox"><span>Check libraries</span></label>
+      <UiCheckbox
+        v-model="draft.enabled"
+        variant="switch"
+        label="Сервер включён"
+        description="Разрешить отображение и подключение"
+      />
+      <UiCheckbox
+        v-model="draft.checkLib"
+        variant="switch"
+        label="Проверять библиотеки"
+        description="Проверять клиентские зависимости перед запуском"
+      />
     </div>
     <label><span>Версия сервера</span><input v-model="draft.serverVersion" type="text"></label>
     <label><span>Java runtime</span><input v-model="draft.jreVersion" type="text"></label>

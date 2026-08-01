@@ -55,6 +55,10 @@ for (const file of ['UploadException.class.php', 'UploadPermission.class.php', '
 }
 
 const service = await readFile(uploadService, 'utf8')
+const adminOptions = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
+const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
+const fileManager = await readFile(join(repositoryRoot, 'templates', 'foxengine2', 'src', 'foxEngine', 'admin', 'FileManager.vue'), 'utf8')
+
 for (const token of [
   "logInfo('Upload accepted.'",
   "logWarn('Upload rejected.'",
@@ -67,8 +71,36 @@ for (const token of [
   'UploadPermission::SLIDER_IMAGE',
   'UploadPermission::MINECRAFT_ANY',
   'UploadPermission::PROFILE_ANY',
+  "'allowAnyType' => true",
 ]) {
   if (!service.includes(token)) violations.push(`UploadService: missing contract ${token}`)
+}
+
+for (const forbidden of ['ADMIN_BLOCKED_EXTENSIONS', 'ADMIN_BLOCKED_MIME', "'blockedExtensions' =>", "'blockedMime' =>"]) {
+  if (service.includes(forbidden)) violations.push(`UploadService: admin arbitrary-file upload is still restricted by ${forbidden}`)
+}
+if (adminOptions.includes('BLOCKED_UPLOAD_EXTENSIONS')) {
+  violations.push('AdminOptions: File Manager rename still restricts file extensions')
+}
+for (const token of ['function selectUpload(file: File | null)', "body.set('file', file, file.name)"]) {
+  if (!adminClient.includes(token)) violations.push(`Admin File Manager client is missing ${token}`)
+}
+for (const token of [
+  'selectUpload: [file: File | null]',
+  '@drop.prevent="onDrop"',
+  'admin-upload-dropzone',
+  'admin-upload-selection',
+  'Любой тип и расширение',
+  'type="file"',
+  'Найти файл или каталог',
+  'uploadBlockedReason',
+  'admin-upload-disabled-reason',
+  'Текущий каталог недоступен для записи процессу PHP',
+]) {
+  if (!fileManager.includes(token)) violations.push(`Admin File Manager UI is missing ${token}`)
+}
+if (/\baccept\s*=/.test(fileManager)) {
+  violations.push('Admin File Manager file input must not restrict selectable file types through accept')
 }
 
 if (violations.length > 0) {

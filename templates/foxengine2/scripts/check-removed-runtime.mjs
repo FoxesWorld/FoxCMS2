@@ -59,7 +59,9 @@ async function walk(directory) {
 
     const text = await readFile(path, 'utf8').catch(() => '')
     for (const signature of forbiddenSignatures) {
-      if (text.includes(signature)) failures.push(`forbidden signature ${signature} in ${rel}`)
+      const codeMirrorFiveModeName = signature === 'Smarty'
+        && new RegExp(`^templates/${themeName}/assets/runtime/chunks/CodeEditor-[^/]+\\.js$`).test(rel)
+      if (!codeMirrorFiveModeName && text.includes(signature)) failures.push(`forbidden signature ${signature} in ${rel}`)
     }
   }
 }

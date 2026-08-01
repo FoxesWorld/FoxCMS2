@@ -12,27 +12,6 @@ final class UploadService
         'image/avif' => 'avif',
     ];
 
-    private const ADMIN_BLOCKED_EXTENSIONS = [
-        'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phar',
-        'cgi', 'pl', 'py', 'sh', 'bash', 'htaccess', 'htpasswd',
-        'html', 'htm', 'shtml', 'xhtml', 'svg', 'js', 'mjs', 'css', 'xml',
-    ];
-
-    private const ADMIN_BLOCKED_MIME = [
-        'application/x-httpd-php',
-        'application/x-php',
-        'text/x-php',
-        'text/html',
-        'application/xhtml+xml',
-        'image/svg+xml',
-        'application/javascript',
-        'text/javascript',
-        'application/xml',
-        'text/xml',
-        'application/x-sh',
-        'text/x-shellscript',
-    ];
-
     public function __construct(
         private db $db,
         private UserSession $session,
@@ -108,7 +87,7 @@ final class UploadService
         if (!is_string($resolved) || !is_file($resolved) || !$this->insideRoot($resolved, $root)) {
             throw new UploadException('Файл загрузки не найден.', 404, ['purpose' => $purpose, 'path' => $relative]);
         }
-        $mime = $this->detectMime($resolved);
+        $mime = $this->detectMime($resolved, ($policy['allowAnyType'] ?? false) === true);
         $this->assertMimeForPolicy($mime, $policy, pathinfo($resolved, PATHINFO_EXTENSION));
         return $this->publicPath($relative);
     }
@@ -237,8 +216,7 @@ final class UploadService
             'directory' => null,
             'createDirectory' => false,
             'maximumBytes' => 67_108_864,
-            'blockedExtensions' => self::ADMIN_BLOCKED_EXTENSIONS,
-            'blockedMime' => self::ADMIN_BLOCKED_MIME,
+            'allowAnyType' => true,
             'overwrite' => false,
             'image' => false,
         ];
@@ -325,7 +303,7 @@ final class UploadService
         }
 
         $originalName = $this->safeFileName(basename(str_replace('\\', '/', (string)($file['name'] ?? 'upload.bin'))));
-        $mime = $this->detectMime($temporary);
+        $mime = $this->detectMime($temporary, ($policy['allowAnyType'] ?? false) === true);
         $originalExtension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $extension = $this->assertMimeForPolicy($mime, $policy, $originalExtension);
 
@@ -629,14 +607,20 @@ final class UploadService
         return $path === $root || str_starts_with($path, $root . DIRECTORY_SEPARATOR);
     }
 
-    private function detectMime(string $path): string
+    private function detectMime(string $path, bool $fallbackToBinary = false): string
     {
         try {
             $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
         } catch (Throwable $error) {
+            if ($fallbackToBinary) {
+                return 'application/octet-stream';
+            }
             throw new UploadException('Не удалось определить MIME-тип файла.', 415, [], $error);
         }
-        if (!is_string($mime) || $mime === '') {
+        if (!is_string($mime) || trim($mime) === '') {
+            if ($fallbackToBinary) {
+                return 'application/octet-stream';
+            }
             throw new UploadException('Не удалось определить MIME-тип файла.', 415);
         }
         return strtolower(trim($mime));

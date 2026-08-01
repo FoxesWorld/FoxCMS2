@@ -9,7 +9,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "audit:legacy": "node scripts/audit-legacy.mjs",
     "audit:legacy:baseline": "node scripts/audit-legacy.mjs --write-baseline",
-    "check": "npm run typecheck && npm run build && npm run check:assets && npm run check:boundary && npm run check:frontend-registry && npm run check:contracts && npm run check:php && npm run check:php-architecture && npm run check:uploads && npm run check:slides && npm run check:content && npm run check:groups && npm run check:identity && npm run check:maintenance && npm run check:secrets && npm run check:removed-runtime && npm run audit:legacy && npm run check:bundle",
+    "check": "npm run typecheck && npm run build && npm run check:assets && npm run check:ui && npm run check:boundary && npm run check:frontend-registry && npm run check:contracts && npm run check:php && npm run check:php-architecture && npm run check:uploads && npm run check:slides && npm run check:mail && npm run check:content && npm run check:groups && npm run check:identity && npm run check:maintenance && npm run check:secrets && npm run check:removed-runtime && npm run audit:legacy && npm run check:bundle",
     "check:assets": "node scripts/check-assets.mjs",
     "check:boundary": "node scripts/check-modern-boundary.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
@@ -24,13 +24,17 @@
     "check:maintenance": "node scripts/check-maintenance-mode.mjs",
     "check:uploads": "node scripts/check-upload-contract.mjs",
     "check:slides": "node scripts/check-slider-config.mjs",
-    "check:content": "node scripts/check-runtime-content.mjs"
+    "check:content": "node scripts/check-runtime-content.mjs",
+    "check:ui": "node scripts/check-ui-controls.mjs",
+    "check:mail": "node scripts/check-mail-templates.mjs"
   },
   "dependencies": {
+    "codemirror": "^5.65.21",
     "vue": "3.5.40",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@types/codemirror": "^5.60.18",
     "@types/node": "latest",
     "@vitejs/plugin-vue": "6.0.8",
     "php-parser": "^3.7.0",

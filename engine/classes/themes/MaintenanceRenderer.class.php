@@ -63,18 +63,18 @@ final class MaintenanceRenderer
     private function loginForm(string $csrf): string
     {
         return '<details class="maintenance-admin-access">'
-            . '<summary><span><strong>Вы администратор?</strong>'
-            . '<small>Войдите, чтобы продолжить работу с сайтом и панелью управления.</small></span>'
+            . '<summary><span><strong>У вас есть доступ во время техработ?</strong>'
+            . '<small>Войти могут администраторы и участники групп, разрешённых в настройках режима технических работ.</small></span>'
             . '<i aria-hidden="true">+</i></summary>'
             . '<form class="maintenance-access" data-maintenance-form>'
             . '<input type="hidden" name="userAction" value="auth">'
-            . '<input type="hidden" name="maintenanceAdmin" value="1">'
+            . '<input type="hidden" name="maintenanceAccess" value="1">'
             . '<input type="hidden" name="csrf_token" value="' . $csrf . '">'
-            . '<div class="maintenance-access__heading"><strong>Вход администратора</strong>'
-            . '<span>Доступ будет предоставлен только учётной записи с административными правами.</span></div>'
+            . '<div class="maintenance-access__heading"><strong>Вход с разрешённой группой</strong>'
+            . '<span>После авторизации сервер проверит группу учётной записи по текущему списку доступа.</span></div>'
             . '<label><span>Логин</span><input name="login" autocomplete="username" required maxlength="64"></label>'
             . '<label><span>Пароль</span><input type="password" name="password" autocomplete="current-password" required></label>'
-            . '<button type="submit">Войти как администратор</button>'
+            . '<button type="submit">Проверить доступ и войти</button>'
             . '<p class="maintenance-feedback" data-maintenance-feedback role="status" aria-live="polite"></p>'
             . '</form></details>';
     }

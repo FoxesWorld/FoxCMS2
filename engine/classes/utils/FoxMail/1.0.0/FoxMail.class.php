@@ -103,18 +103,35 @@ final class FoxMail
 
     private function getTemplate(string $name): string
     {
-        global $config;
+        if (!preg_match('/^[A-Za-z0-9_-]+\.html$/D', $name)) {
+            throw new InvalidArgumentException('Invalid mail template name: ' . $name);
+        }
 
-        if (!preg_match('/^[A-Za-z0-9_-]+\.html$/', $name)) {
-            throw new InvalidArgumentException('Invalid mail template name.');
+        $directory = CURRENT_TEMPLATE . 'data' . DIRECTORY_SEPARATOR . 'mail';
+        $path = $directory . DIRECTORY_SEPARATOR . $name;
+        if (!is_dir($directory)) {
+            throw new RuntimeException('Mail template directory not found: ' . $directory);
         }
-        $path = CURRENT_TEMPLATE . 'mail' . DIRECTORY_SEPARATOR . $name;
-        if (!is_file($path) || !is_readable($path)) {
-            throw new RuntimeException('Mail template not found: ' . $name);
+        if (!is_readable($directory)) {
+            throw new RuntimeException('Mail template directory is not readable: ' . $directory);
         }
-        $content = file_get_contents($path);
-        if ($content === false) {
-            throw new RuntimeException('Mail template could not be read: ' . $name);
+        if (!is_file($path)) {
+            throw new RuntimeException('Mail template not found: ' . $path);
+        }
+        if (!is_readable($path)) {
+            throw new RuntimeException('Mail template is not readable: ' . $path);
+        }
+
+        error_clear_last();
+        $content = @file_get_contents($path);
+        if (!is_string($content)) {
+            $error = error_get_last();
+            $detail = is_array($error) && is_string($error['message'] ?? null)
+                ? trim((string)$error['message'])
+                : 'PHP did not provide a filesystem warning.';
+            throw new RuntimeException(
+                'Mail template could not be read: ' . $path . '. System error: ' . $detail
+            );
         }
         return $content;
     }

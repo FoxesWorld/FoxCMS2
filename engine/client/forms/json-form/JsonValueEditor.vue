@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import {
   createJsonTemplate,
   inferJsonKind,
@@ -8,6 +9,9 @@ import {
 import type { JsonFieldOptions, JsonKind, JsonObject, JsonValue } from './types'
 
 defineOptions({ name: 'JsonValueEditor' })
+
+const CodeEditor = defineAsyncComponent(() => import('@theme/foxEngine/editor/CodeEditor.vue'))
+type CodeLanguage = 'html' | 'xml' | 'json' | 'css' | 'javascript' | 'typescript' | 'sql' | 'markdown' | 'plaintext'
 
 const props = withDefaults(defineProps<{
   modelValue: JsonValue
@@ -48,6 +52,29 @@ const stringValue = computed(() => typeof props.modelValue === 'string' ? props.
 const numberValue = computed(() => typeof props.modelValue === 'number' ? props.modelValue : Number(props.modelValue) || 0)
 const booleanValue = computed(() => typeof props.modelValue === 'boolean' ? props.modelValue : false)
 const isMultiline = computed(() => stringValue.value.includes('\n') || stringValue.value.length > 120 || /(?:text|description|message|content|body|info)$/i.test(props.fieldName))
+const codeLanguage = computed<CodeLanguage | null>(() => {
+  const field = props.fieldName.trim().toLowerCase().replaceAll('-', '_')
+  if (/(?:^|_)(?:html|markup|template)(?:$|_)/.test(field)) return 'html'
+  if (/(?:^|_)xml(?:$|_)/.test(field)) return 'xml'
+  if (/(?:^|_)(?:json|manifest|schema)(?:$|_)/.test(field)) return 'json'
+  if (/(?:^|_)(?:css|stylesheet|style_source)(?:$|_)/.test(field)) return 'css'
+  if (/(?:^|_)(?:typescript|ts_source)(?:$|_)/.test(field)) return 'typescript'
+  if (/(?:^|_)(?:javascript|js_source|script)(?:$|_)/.test(field)) return 'javascript'
+  if (/(?:^|_)(?:sql|query)(?:$|_)/.test(field)) return 'sql'
+  if (/(?:^|_)(?:markdown|md)(?:$|_)/.test(field)) return 'markdown'
+
+  const value = stringValue.value.trim()
+  if (/^(?:<!doctype\s+html\b|<html\b|<[a-z][\w:-]*(?:\s[^<>]*)?>)/i.test(value)) return 'html'
+  if (/^<\?xml\b/i.test(value)) return 'xml'
+  if (/^[{[]/.test(value)) {
+    try { JSON.parse(value); return 'json' } catch { /* Not JSON. */ }
+  }
+  if (/^(?:const|let|var|function|class|import|export)\b/m.test(value) || /=>/.test(value)) return 'javascript'
+  if (/^(?:select|insert|update|delete|create|alter|drop)\b/i.test(value)) return 'sql'
+  if (/^(?:```|#{1,6}\s|>\s|[-*+]\s)/m.test(value)) return 'markdown'
+  if (/(?:^|_)(?:code|source)(?:$|_)/.test(field)) return 'plaintext'
+  return null
+})
 const fieldOptionList = computed(() => props.fieldName ? props.fieldOptions[props.fieldName] ?? [] : [])
 
 
@@ -94,13 +121,17 @@ function updateString(event: Event): void {
   emit('update:modelValue', (event.target as HTMLInputElement | HTMLTextAreaElement).value)
 }
 
+function updateCodeString(value: string): void {
+  emit('update:modelValue', value)
+}
+
 function updateNumber(event: Event): void {
   const raw = (event.target as HTMLInputElement).value
   emit('update:modelValue', raw === '' ? 0 : Number(raw))
 }
 
-function updateBoolean(event: Event): void {
-  emit('update:modelValue', (event.target as HTMLInputElement).checked)
+function updateBoolean(value: boolean): void {
+  emit('update:modelValue', value)
 }
 </script>
 
@@ -161,6 +192,15 @@ function updateBoolean(event: Event): void {
         <option value="" disabled>Выберите значение</option>
         <option v-for="option in fieldOptionList" :key="option" :value="option">{{ option }}</option>
       </select>
+      <CodeEditor
+        v-else-if="codeLanguage"
+        :model-value="stringValue"
+        :language="codeLanguage"
+        :disabled="disabled"
+        :aria-label="label || fieldName || 'Редактор кода'"
+        min-height="180px"
+        @update:model-value="updateCodeString"
+      />
       <textarea v-else-if="isMultiline" :value="stringValue" rows="4" :disabled="disabled" @input="updateString" />
       <input v-else type="text" :value="stringValue" :disabled="disabled" @input="updateString">
     </template>
@@ -170,9 +210,13 @@ function updateBoolean(event: Event): void {
       <input type="number" step="any" :value="numberValue" :disabled="disabled" @input="updateNumber">
     </template>
 
-    <label v-else class="json-boolean-input">
-      <input type="checkbox" :checked="booleanValue" :disabled="disabled" @change="updateBoolean">
-      <span>{{ label || (booleanValue ? 'Да' : 'Нет') }}</span>
-    </label>
+    <UiCheckbox
+      v-else
+      class="json-boolean-input"
+      :model-value="booleanValue"
+      :disabled="disabled"
+      :label="label || (booleanValue ? 'Да' : 'Нет')"
+      @update:model-value="updateBoolean"
+    />
   </div>
 </template>

@@ -56,7 +56,7 @@ const requiredContracts = new Map([
   ['authlib/AuthlibProfileService.class.php', ['$profileId = Uuid::compact($userUuid)', '$textureId = $userUuid', "$uuidDirectory . $textureId . '-skin.png'", "$uuidDirectory . $textureId . '-cape.png'"]],
   ['engine/classes/modules/AuthReg/AuthReg.class.php', ['function updateUserTokenByUuid', 'Uuid::databaseCandidates($userUuid)']],
   ['engine/classes/services/PlayTimeService.php', ['Uuid::databaseCandidates($userUuid)', "WHERE `uuid` IN ("]],
-  ['engine/classes/modules/UserSettings/client/views/SkinSettingsView.vue', ["bootstrapString(appBootstrap, 'uuid')", "data.set('userUuid', userUuid)", "deleteFile', type, userUuid"]],
+  ['engine/classes/modules/UserSettings/client/views/ProfileSettingsView.vue', ["bootstrapString(appBootstrap, 'uuid')", "data.set('userUuid', userUuid)", "deleteFile', type, userUuid"]],
   ['engine/classes/modules/UserSettings/client/views/ProfileView.vue', ['const viewerUuid', 'profile.value?.uuid']],
   ['engine/classes/modules/AdminPanel/client/useAdminPanel.ts', ["admPanel: 'updateUser', userUuid:"]],
   ['templates/foxengine2/src/foxEngine/admin/users/UserTable.vue', [':key="user.uuid"', 'selected?.uuid===user.uuid']],
@@ -71,11 +71,11 @@ for (const [relativePath, signatures] of requiredContracts) {
 }
 
 const skinSettingsSource = await readFile(
-  join(repositoryRoot, 'engine/classes/modules/UserSettings/client/views/SkinSettingsView.vue'),
+  join(repositoryRoot, 'engine/classes/modules/UserSettings/client/views/ProfileSettingsView.vue'),
   'utf8',
 )
 for (const forbidden of ["data.set('login'", "deleteFile', type, login", "skinPreview', login"]) {
-  if (skinSettingsSource.includes(forbidden)) failures.push(`mutable login identity remains in skin settings: ${forbidden}`)
+  if (skinSettingsSource.includes(forbidden)) failures.push(`mutable login identity remains in embedded Minecraft identity: ${forbidden}`)
 }
 const profileViewSource = await readFile(
   join(repositoryRoot, 'engine/classes/modules/UserSettings/client/views/ProfileView.vue'),

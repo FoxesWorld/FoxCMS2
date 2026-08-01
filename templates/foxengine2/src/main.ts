@@ -7,6 +7,7 @@ import './styles/app.css'
 import './styles/news.css'
 import './styles/badges.css'
 import './styles/admin-slides.css'
+import './styles/admin-users.css'
 import './styles/admin-panel.css'
 import './styles/admin-content.css'
 

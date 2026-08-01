@@ -13,7 +13,7 @@ import AdminCatalogs from '@theme/foxEngine/admin/Catalogs.vue'
 
 const {
   isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
-  servers, selectedServer, serverDraft, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, newDirectoryName,
+  servers, selectedServer, serverDraft, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
   logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, catalogKey, hardwareMax,
   formatTimestamp, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, loadUsers, editUser, saveUser, newServer, editServer, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
@@ -79,9 +79,38 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
           </span>
         </header>
 
-        <p v-if="feedback" class="form-feedback" :class="{ 'form-feedback--success': feedback.type === 'success' }">
-          {{ feedback.message }}
-        </p>
+        <section
+          v-if="feedback"
+          class="form-feedback admin-feedback"
+          :class="{
+            'form-feedback--success': feedback.type === 'success',
+            'admin-feedback--error': feedback.type === 'error',
+          }"
+          role="status"
+        >
+          <div class="admin-feedback__message">
+            <i
+              class="fa-solid"
+              :class="feedback.type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark'"
+              aria-hidden="true"
+            />
+            <span>{{ feedback.message }}</span>
+          </div>
+          <dl v-if="feedback.error" class="admin-feedback__details">
+            <div>
+              <dt>Операция</dt>
+              <dd><code>{{ feedback.error.action }}</code></dd>
+            </div>
+            <div>
+              <dt>Исключение</dt>
+              <dd><code>{{ feedback.error.exception }}</code></dd>
+            </div>
+            <div>
+              <dt>Код события</dt>
+              <dd><code>{{ feedback.error.requestId || feedback.requestId || '—' }}</code></dd>
+            </div>
+          </dl>
+        </section>
 
         <section class="admin-workspace__content">
           <AdminOverview v-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" :hardware-max="hardwareMax" />
@@ -122,6 +151,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             :selected="selectedUser"
             :draft="userDraft"
             :format-timestamp="formatTimestamp"
+            :loading="loading"
             @search="loadUsers"
             @edit="editUser"
             @save="saveUser"
@@ -145,6 +175,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             :writable="fileWritable"
             :total-bytes="fileTotalBytes"
             :selected-upload="selectedUpload"
+            :uploading="fileUploading"
             v-model:new-directory-name="newDirectoryName"
             :loading="loading"
             @navigate="loadFiles"

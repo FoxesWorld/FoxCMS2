@@ -37,7 +37,21 @@ for (const required of ["case 'slides'", "case 'saveSlides'", "case 'uploadSlide
   if (!admin.includes(required)) failures.push(`AdminOptions missing ${required}`)
 }
 const repository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeSlidesRepository.class.php'), 'utf8')
-for (const required of ['function read()', 'function save(', 'function routes()', 'JSON_PRETTY_PRINT', 'rename($temporary, $this->dataPath)']) {
+for (const required of [
+  'function read()',
+  'function save(',
+  'function routes()',
+  'JSON_PRETTY_PRINT',
+  '@file_put_contents($temporary, $encoded, LOCK_EX)',
+  '@rename($temporary, $this->dataPath)',
+  'Временный файл: ',
+  'Целевой файл: ',
+  'Каталог: ',
+  'Права каталога: ',
+  'Системная ошибка: ',
+  'private function lastFilesystemError()',
+  'private function permissions(',
+]) {
   if (!repository.includes(required)) failures.push(`ThemeSlidesRepository missing ${required}`)
 }
 const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
