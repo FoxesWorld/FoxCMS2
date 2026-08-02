@@ -14,7 +14,7 @@ final class AdminPanel extends Module
 
         $action = $request->string('admPanel');
         try {
-            if (!in_array($action, ['fileUpload', 'uploadSlideImage'], true)) {
+            if (!in_array($action, ['fileUpload', 'uploadSlideImage', 'uploadServerImage'], true)) {
                 CsrfToken::requireValid($request->csrfToken());
             }
             if (!$session->isAdmin()) {
@@ -33,6 +33,7 @@ final class AdminPanel extends Module
             $payload = $request->all();
             $payload['_upload'] = $request->file('file');
             $payload['_slideUpload'] = $request->file('image');
+            $payload['_serverImageUpload'] = $request->file('image');
             new AdminOptions(
                 $payload,
                 $db,

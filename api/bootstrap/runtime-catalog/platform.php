@@ -19,11 +19,18 @@ function runtimeCatalogBranchesForPlatform(string $platform): array
             array('win', 'arm64'), array('win', 'aarch64'),
             array('windows', 'arm64'), array('windows', 'aarch64'),
         ),
-        'linux-x86' => array(array('linux', 'x32'), array('linux', 'x86')),
+        'linux-x86' => array(
+            array('linux', 'x32'), array('linux', 'x86'),
+            array('unix', 'x32'), array('unix', 'x86'),
+        ),
         'linux-x86_64' => array(
             array('linux', 'x64'), array('linux', 'amd64'), array('linux', 'x86_64'),
+            array('unix', 'x64'), array('unix', 'amd64'), array('unix', 'x86_64'),
         ),
-        'linux-aarch64' => array(array('linux', 'arm64'), array('linux', 'aarch64')),
+        'linux-aarch64' => array(
+            array('linux', 'arm64'), array('linux', 'aarch64'),
+            array('unix', 'arm64'), array('unix', 'aarch64'),
+        ),
         'macos-x86_64' => array(
             array('mac', 'x64'), array('macos', 'x64'), array('osx', 'x64'),
             array('mac', 'x86_64'), array('macos', 'x86_64'),

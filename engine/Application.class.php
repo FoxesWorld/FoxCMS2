@@ -144,7 +144,9 @@ final class Application
             ENGINE_DIR . 'classes/session/UserSession.class.php',
             ENGINE_DIR . 'classes/repositories/GroupRepository.class.php',
             ENGINE_DIR . 'classes/repositories/MaintenanceModeRepository.class.php',
+            ENGINE_DIR . 'classes/repositories/SiteSettingsRepository.class.php',
             ENGINE_DIR . 'classes/services/MaintenanceModePolicy.class.php',
+            ENGINE_DIR . 'classes/services/RuntimeJdkCatalog.class.php',
             ENGINE_DIR . 'classes/support/UtilityLoader.class.php',
             ENGINE_DIR . 'classes/security/CsrfToken.class.php',
             ENGINE_DIR . 'classes/security/RememberToken.class.php',
@@ -181,6 +183,12 @@ final class Application
             (string)($database['dbCharset'] ?? 'utf8mb4'),
             (int)($database['connectTimeout'] ?? 5),
         );
+        $siteDefaults = is_array($this->config['siteSettings'] ?? null)
+            ? $this->config['siteSettings']
+            : [];
+        $siteState = (new SiteSettingsRepository($this->db))->current($siteDefaults);
+        $siteOverrides = is_array($siteState['settings'] ?? null) ? $siteState['settings'] : [];
+        $this->config['siteSettings'] = array_replace($siteDefaults, $siteOverrides);
         $this->logger = new Logger('lastlog');
         $this->request = HttpRequest::fromGlobals($this->network);
         $this->session = new UserSession($this->db, $this->config, $this->network);

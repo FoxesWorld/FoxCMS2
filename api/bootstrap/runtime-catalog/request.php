@@ -14,11 +14,12 @@ function parseRuntimeRequest(): array
     }
 
     $version = isset($_GET['version']) ? trim((string) $_GET['version']) : '';
-    if (preg_match('/^[0-9]+(?:\.[0-9]+)+$/D', $version) !== 1) {
-        fail(422, 'runtime_request_version_invalid', 'version must be an exact dotted Java version such as 17.0.16.', array(
+    if (preg_match('/^[0-9]+(?:\.[0-9]+)*$/D', $version) !== 1) {
+        fail(422, 'runtime_request_version_invalid', 'version must be a Java major such as 17 or an exact version such as 17.0.16.', array(
             'received' => $version,
         ));
     }
+    $versionMode = strpos($version, '.') === false ? 'major' : 'exact';
 
     $distribution = isset($_GET['distribution'])
         ? strtolower(trim((string) $_GET['distribution']))
@@ -44,6 +45,7 @@ function parseRuntimeRequest(): array
     return array(
         'platform' => $platform,
         'version' => $version,
+        'version_mode' => $versionMode,
         'java_major' => runtimeMajorFromVersion($version),
         'distribution' => $distribution,
         'vendor' => $vendor,

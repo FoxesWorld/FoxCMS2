@@ -25,19 +25,21 @@ function inspectRuntimeArchive(
         ? inspectZipRuntime($absolutePath, $branchPlatform)
         : inspectTarRuntime($absolutePath, $branchPlatform);
 
-    $version = $inspection['version'];
-    $versionCore = runtimeVersionCore($version);
-    if ($versionCore === '') {
-        throw new RuntimeException('The Java version cannot be read from the archive release metadata.');
-    }
-
     $fileVersion = runtimeVersionFromArchiveName($installName);
-    if ($fileVersion !== '' && $fileVersion !== $versionCore) {
+    $metadataVersion = trim((string)($inspection['version'] ?? ''));
+    $metadataVersionCore = runtimeVersionCore($metadataVersion);
+    if ($metadataVersionCore !== '' && $fileVersion !== '' && $fileVersion !== $metadataVersionCore) {
         throw new RuntimeException(sprintf(
             'Archive filename version %s disagrees with contained Java version %s.',
             $fileVersion,
-            $versionCore
+            $metadataVersionCore
         ));
+    }
+
+    $version = $metadataVersion !== '' ? $metadataVersion : $fileVersion;
+    $versionCore = runtimeVersionCore($version);
+    if ($versionCore === '') {
+        throw new RuntimeException('The Java version cannot be derived from release metadata or the archive filename.');
     }
 
     $platform = $inspection['platform'] !== '' ? $inspection['platform'] : $branchPlatform;
@@ -132,35 +134,33 @@ function analyzeRuntimeArchiveEntries(
     $selected = reset($roots);
     $rootSegments = $selected['root'];
     $rootPrefix = count($rootSegments) > 0 ? implode('/', $rootSegments) . '/' : '';
+    $release = array();
     $releaseKey = strtolower($rootPrefix . 'release');
-    if (!isset($filesByLowerName[$releaseKey])) {
-        throw new RuntimeException('Runtime archive has no release metadata beside the selected Java home.');
+    if (isset($filesByLowerName[$releaseKey])) {
+        $releaseEntry = $filesByLowerName[$releaseKey];
+        if ((int) $releaseEntry['size'] > 1024 * 1024) {
+            throw new RuntimeException('Runtime release metadata is unexpectedly large.');
+        }
+        $release = parseJavaReleaseFile($readEntry($releaseEntry['locator']));
     }
 
-    $releaseEntry = $filesByLowerName[$releaseKey];
-    if ((int) $releaseEntry['size'] > 1024 * 1024) {
-        throw new RuntimeException('Runtime release metadata is unexpectedly large.');
-    }
-    $release = parseJavaReleaseFile($readEntry($releaseEntry['locator']));
     $version = isset($release['JAVA_RUNTIME_VERSION'])
-        ? $release['JAVA_RUNTIME_VERSION']
-        : (isset($release['JAVA_VERSION']) ? $release['JAVA_VERSION'] : '');
-    if ($version === '') {
-        throw new RuntimeException('Runtime release metadata has no Java version.');
-    }
-
-    $platform = platformFromJavaRelease($release);
+        ? trim((string)$release['JAVA_RUNTIME_VERSION'])
+        : (isset($release['JAVA_VERSION']) ? trim((string)$release['JAVA_VERSION']) : '');
+    $platform = $release !== array() ? platformFromJavaRelease($release) : '';
     $javacKey = strtolower($rootPrefix . 'bin/' . $expectedJavac);
     return array(
         'vendor' => isset($release['IMPLEMENTOR'])
             ? trim((string) $release['IMPLEMENTOR'])
             : (isset($release['JAVA_VENDOR']) ? trim((string) $release['JAVA_VENDOR']) : ''),
-        'version' => trim($version),
+        'version' => $version,
         'platform' => $platform,
         'distribution' => isset($filesByLowerName[$javacKey]) ? 'jdk' : 'jre',
         'strip_components' => count($rootSegments),
         'java_path' => 'bin/' . $expectedJava,
-        'inspection' => $inspection,
+        'inspection' => $release === array()
+            ? str_replace('-metadata', '-layout', $inspection)
+            : $inspection,
     );
 }
 function normalizeRuntimeArchiveEntry(string $name): string

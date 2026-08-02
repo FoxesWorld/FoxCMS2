@@ -1,0 +1,69 @@
+.image-upload-field {
+  min-width: 0;
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 15px;
+  background: var(--color-surface-soft);
+}
+.image-upload-field__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.image-upload-field__header > div { min-width: 0; display: grid; gap: 3px; }
+.image-upload-field__header strong { font-size: .88rem; }
+.image-upload-field__header small,.image-upload-field__hint { color: var(--color-text-muted); font-size: .7rem; line-height: 1.4; }
+.image-upload-field__preview {
+  position: relative;
+  width: 100%;
+  min-height: 205px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+.image-upload-field--wide .image-upload-field__preview { aspect-ratio: 16/9; }
+.image-upload-field--square .image-upload-field__preview,.image-upload-field--circle .image-upload-field__preview { width: min(100%,260px); min-height: 0; aspect-ratio: 1; justify-self: center; }
+.image-upload-field--circle .image-upload-field__preview { border-radius: 50%; }
+.image-upload-field__preview > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.image-upload-field--fit-cover .image-upload-field__preview > img { object-fit: cover; }
+.image-upload-field--fit-contain .image-upload-field__preview > img { object-fit: contain; }
+.image-upload-field__preview-empty { display: grid; place-items: center; gap: 6px; padding: 22px; color: var(--color-text-muted); text-align: center; }
+.image-upload-field__dropzone {
+  position: relative;
+  min-width: 0;
+  min-height: 116px;
+  display: grid;
+  grid-template-columns: 46px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 2px dashed var(--color-border);
+  border-radius: 13px;
+  background: var(--color-surface);
+}
+.image-upload-field__dropzone > input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.image-upload-field__dropzone > i { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 13px; color: var(--color-accent-contrast); background: var(--color-accent); }
+.image-upload-field__dropzone > div { min-width: 0; display: grid; gap: 3px; }
+.image-upload-field__dropzone > div strong,.image-upload-field__dropzone > div span { overflow: hidden; text-overflow: ellipsis; }
+.image-upload-field__dropzone > div strong { font-size: .8rem; }
+.image-upload-field__dropzone > div span { color: var(--color-text-muted); font-size: .7rem; }
+.image-upload-field__dropzone.is-dragging,.image-upload-field.is-dragging .image-upload-field__preview { border-color: var(--color-accent); background: var(--color-accent-soft); }
+.image-upload-field__dropzone.has-file { border-style: solid; }
+.image-upload-field__selection { display:flex; align-items:center; gap:9px; padding:8px; border:1px solid var(--color-border); border-radius:11px; }
+.image-upload-field__selection > button { margin-left:auto; border:0; color:var(--color-danger); background:transparent; }
+.image-upload-field__feedback,.image-upload-field__hint { margin: 0; }
+.image-upload-field__feedback { display: flex; gap: 8px; padding: 9px 11px; border: 1px solid var(--color-danger); border-radius: 9px; color: var(--color-danger); font-size: .73rem; }
+.image-upload-field__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.image-upload-field.is-disabled { opacity: .68; }
+.image-upload-field.is-disabled .image-upload-field__dropzone { cursor: not-allowed; }
+.image-upload-field.has-error .image-upload-field__preview,.image-upload-field.has-error .image-upload-field__dropzone { border-color: var(--color-danger); }
+.image-upload-field .fa-spinner { animation: image-upload-spin .85s linear infinite; }
+@keyframes image-upload-spin { to { transform: rotate(1turn); } }
+@media (max-width:700px) {
+  .image-upload-field__header { flex-direction: column; }
+  .image-upload-field__dropzone { grid-template-columns: 42px minmax(0,1fr); }
+  .image-upload-field__dropzone > .button { grid-column: 1/-1; width: 100%; }
+  .image-upload-field__actions .button { width: 100%; }
+  .image-upload-field--square .image-upload-field__preview,.image-upload-field--circle .image-upload-field__preview { width: min(100%,210px); }
+}

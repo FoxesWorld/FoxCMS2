@@ -269,15 +269,35 @@ final class SystemRequests
 
     private function handleServerImage(): never
     {
-        $filename = $this->request->string('srvImgName');
-        if (preg_match('/^[A-Za-z0-9_.-]{1,96}\.(?:png|jpe?g|webp)$/iD', $filename) !== 1) {
-            throw new InvalidArgumentException('Invalid server image name.');
+        $reference = trim(str_replace('\\', '/', $this->request->string('srvImgName')));
+        if (str_starts_with($reference, 'uploads/')) {
+            $reference = '/' . $reference;
         }
-        $path = $this->safePublicFile(
-            'templates/' . (string)$this->config['siteSettings']['siteTpl'] . '/assets/img/servers/' . $filename,
-            TEMPLATE_DIR,
-            10_485_760,
-        );
+
+        if (str_starts_with($reference, '/uploads/servers/')) {
+            if (preg_match('#^/uploads/servers/[A-Za-z0-9_.-]{1,180}\.(?:png|jpe?g|webp)$#iD', $reference) !== 1) {
+                throw new InvalidArgumentException('Invalid uploaded server image path.');
+            }
+            $path = $this->safePublicFile(
+                ltrim($reference, '/'),
+                ROOT_DIR . UPLOADS_DIR . 'servers',
+                12_582_912,
+            );
+        } else {
+            if (preg_match('/^[A-Za-z0-9_.-]{1,96}\.(?:png|jpe?g|webp)$/iD', $reference) !== 1) {
+                throw new InvalidArgumentException('Invalid server image name.');
+            }
+            $path = $this->safePublicFile(
+                'templates/' . (string)$this->config['siteSettings']['siteTpl'] . '/assets/img/servers/' . $reference,
+                TEMPLATE_DIR,
+                10_485_760,
+            );
+        }
+
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+        if (!is_string($mime) || !in_array(strtolower($mime), ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            $this->jsonError('Invalid server image.', 415);
+        }
         $content = file_get_contents($path);
         if (!is_string($content)) {
             $this->jsonError('Unable to read server image.', 500);

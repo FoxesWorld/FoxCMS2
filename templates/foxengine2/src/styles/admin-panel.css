@@ -348,6 +348,10 @@ html:has(.admin-workspace) {
   color: var(--color-danger);
 }
 
+.admin-feedback--warning .admin-feedback__message > i {
+  color: var(--color-warning);
+}
+
 .admin-feedback__details {
   min-width: 0;
   display: grid;

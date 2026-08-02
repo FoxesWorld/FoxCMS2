@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 import type { UserRow } from '@modules/AdminPanel/client/useAdminPanel'
 import UserAvatar from './UserAvatar.vue'
+import { userBadgeAssignments } from '@/domain/userBadges'
 
 const props = defineProps<{
   users: UserRow[]
@@ -18,15 +19,36 @@ const emit = defineEmits<{
 }>()
 
 const groupCount = computed(() => new Set(props.users.map((user) => user.groupTag).filter(Boolean)).size)
+const normalizedSearch = computed(() => props.search.trim())
+let searchTimer: number | undefined
 
 function update(event: Event): void {
-  emit('update:search', (event.target as HTMLInputElement).value)
+  const value = (event.target as HTMLInputElement).value
+  emit('update:search', value)
+  if (searchTimer) window.clearTimeout(searchTimer)
+  searchTimer = window.setTimeout(() => emit('search'), 320)
+}
+
+function submitSearch(): void {
+  if (searchTimer) window.clearTimeout(searchTimer)
+  searchTimer = undefined
+  emit('search')
 }
 
 function clearSearch(): void {
+  if (searchTimer) window.clearTimeout(searchTimer)
+  searchTimer = undefined
   emit('update:search', '')
   emit('search')
 }
+
+function badgeCount(user: UserRow): number {
+  return userBadgeAssignments(user.badges).length
+}
+
+onBeforeUnmount(() => {
+  if (searchTimer) window.clearTimeout(searchTimer)
+})
 
 function groupStyle(user: UserRow): Record<string, string> {
   return { '--admin-user-group': String(user.groupColor || 'var(--color-accent)') }
@@ -47,14 +69,14 @@ function groupStyle(user: UserRow): Record<string, string> {
       </div>
     </header>
 
-    <form class="admin-user-search" role="search" @submit.prevent="emit('search')">
+    <form class="admin-user-search" role="search" @submit.prevent="submitSearch">
       <label>
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />
         <input
           :value="search"
           type="search"
           autocomplete="off"
-          placeholder="Логин, email или имя"
+          placeholder="Логин, email, имя, UUID или бейдж"
           aria-label="Поиск пользователей"
           @input="update"
         >
@@ -67,8 +89,13 @@ function groupStyle(user: UserRow): Record<string, string> {
         <span>{{ loading ? 'Поиск…' : 'Найти' }}</span>
       </button>
     </form>
+    <div class="admin-user-search__status" aria-live="polite">
+      <span v-if="normalizedSearch"><i class="fa-solid fa-magnifying-glass" aria-hidden="true" />По запросу «{{ normalizedSearch }}»</span>
+      <span v-else><i class="fa-solid fa-users" aria-hidden="true" />Последние активные пользователи</span>
+      <strong>{{ users.length }}</strong>
+    </div>
 
-    <div v-if="users.length" class="admin-user-list" role="list">
+    <div v-if="users.length" class="admin-user-list" role="list" :aria-busy="loading">
       <button
         v-for="user in users"
         :key="user.uuid"
@@ -85,9 +112,14 @@ function groupStyle(user: UserRow): Record<string, string> {
             <strong>{{ user.realname || user.login }}</strong>
             <small>@{{ user.login }}</small>
           </span>
-          <span class="admin-user-card__group">
-            <i class="fa-solid fa-circle" aria-hidden="true" />
-            {{ user.groupName || user.groupTag }}
+          <span class="admin-user-card__labels">
+            <span class="admin-user-card__group">
+              <i class="fa-solid fa-circle" aria-hidden="true" />
+              {{ user.groupName || user.groupTag }}
+            </span>
+            <span v-if="badgeCount(user)" class="admin-user-card__badges">
+              <i class="fa-solid fa-award" aria-hidden="true" />{{ badgeCount(user) }}
+            </span>
           </span>
           <span class="admin-user-card__meta">
             <span><i class="fa-solid fa-envelope" aria-hidden="true" />{{ user.email || 'Email не указан' }}</span>

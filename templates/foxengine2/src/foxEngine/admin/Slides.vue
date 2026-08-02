@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
+import ImageUploadField from '@/components/ImageUploadField.vue'
 import { appBootstrap } from '@engine/app/context'
 import { themeAsset } from '@engine/domain/bootstrap'
 import type { SlideDraft, SlideRouteOption, SliderSettings } from '@modules/AdminPanel/client/useAdminPanel'
@@ -72,11 +73,8 @@ function moveSlide(index: number, direction: number): void {
   emit('move', index, direction)
 }
 
-function selectImage(index: number, event: Event): void {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (file) emit('upload', index, file)
+function selectImage(index: number, file: File): void {
+  emit('upload', index, file)
 }
 </script>
 
@@ -232,18 +230,34 @@ function selectImage(index: number, event: Event): void {
               <textarea v-model.trim="selectedSlide.description" rows="4" maxlength="600" />
             </label>
 
-            <label class="admin-slide-editor__wide">
-              <span>Изображение</span>
-              <div class="admin-slide-editor__image-field">
+            <div class="admin-slide-editor__wide admin-slide-editor__image-field">
+              <label>
+                <span>Путь изображения</span>
                 <input v-model.trim="selectedSlide.image" type="text" maxlength="512" required placeholder="img/slides/slide1.png или /uploads/slides/...">
-                <label class="button button--ghost admin-slide-editor__upload">
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" :disabled="loading" @change="selectImage(selectedIndex, $event)">
-                  <i class="fa-solid fa-upload" aria-hidden="true" />
-                  <span>Загрузить</span>
-                </label>
-              </div>
-              <small>Ресурс темы задаётся относительно <code>assets/</code>; загрузки сохраняются в <code>/uploads/slides/</code>.</small>
-            </label>
+                <small>Ресурс темы задаётся относительно <code>assets/</code>; загрузки сохраняются в <code>/uploads/slides/</code>.</small>
+              </label>
+              <ImageUploadField
+                title="Изображение слайда"
+                description="Перетащите новую обложку или выберите файл"
+                :preview="selectedImage"
+                preview-mode="none"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                :allowed-types="['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif']"
+                :maximum-bytes="12_582_912"
+                :minimum-width="320"
+                :minimum-height="320"
+                :maximum-width="8192"
+                :maximum-height="8192"
+                :disabled="loading"
+                :uploading="loading"
+                hint="JPEG, PNG, WebP, GIF или AVIF · до 12 МиБ"
+                choose-label="Выбрать изображение"
+                replace-label="Заменить изображение"
+                clear-label="Очистить изображение"
+                @select="selectImage(selectedIndex, $event)"
+                @clear="selectedSlide.image = ''"
+              />
+            </div>
 
             <section class="admin-slide-editor__actions">
               <header>

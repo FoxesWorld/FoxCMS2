@@ -23,12 +23,15 @@ const saving = ref(false)
 const editing = ref(false)
 const comment = ref('')
 const error = ref('')
+let trackedPostId: number | null = null
 
-async function load(): Promise<void> {
+async function load(trackView = false): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const response: NewsDetailResponse = await loadNewsPost(props.id)
+    const shouldTrackView = trackView && trackedPostId !== props.id
+    const response: NewsDetailResponse = await loadNewsPost(props.id, shouldTrackView)
+    if (shouldTrackView) trackedPostId = props.id
     post.value = response.post
     comments.value = response.comments
     canComment.value = response.canComment
@@ -82,13 +85,17 @@ function openAuthor(login: string): void {
   void router.push({ name: 'profile', params: { value: login } })
 }
 
-watch(() => props.id, () => void load(), { immediate: true })
+watch(() => props.id, () => {
+  trackedPostId = null
+  void load(true)
+}, { immediate: true })
 </script>
 
 <template>
   <div v-if="loading" class="content-skeleton" aria-label="Загрузка новости"><span /><span /><span /></div>
   <div v-else-if="error || !post" class="system-message system-message--error">
-    <strong>Публикация недоступна</strong><p>{{ error }}</p>
+    <strong>Публикация недоступна</strong>
+    <p>{{ error }}</p>
   </div>
 
   <article v-else class="content-surface news-article" :class="{ 'news-article--draft': !post.isPublished }">
@@ -101,6 +108,7 @@ watch(() => props.id, () => void load(), { immediate: true })
       @cancel="editing = false"
       @remove="remove"
     />
+
     <template v-else>
       <header class="news-article__header">
         <button class="news-author news-author--button" type="button" @click="openAuthor(post.authorLogin)">
@@ -109,43 +117,80 @@ watch(() => props.id, () => void load(), { immediate: true })
             <b v-else>{{ post.authorName.slice(0, 1).toUpperCase() }}</b>
           </span>
           <span>
-            <strong>{{ post.authorName }}</strong>
-            <small :style="{ color: post.authorColor || undefined }">{{ post.authorGroup || post.authorLogin }}</small>
+            <strong :style="{ color: post.authorColor || undefined }">{{ post.authorName }}</strong>
+            <small>{{ post.authorGroup || `@${post.authorLogin}` }}</small>
           </span>
         </button>
+
         <div class="news-article__tools">
           <span v-if="!post.isPublished" class="news-status">Черновик</span>
-          <button v-if="post.canEdit" class="button button--ghost" type="button" @click="editing = true"><i class="fa-solid fa-pen-to-square" aria-hidden="true" /><span>Редактировать inline</span></button>
+          <button v-if="post.canEdit" class="button button--ghost" type="button" @click="editing = true">
+            <i class="fa-solid fa-pen-to-square" aria-hidden="true" />
+            <span>Редактировать</span>
+          </button>
         </div>
       </header>
 
-      <img v-if="post.coverImage" class="news-article__cover" :src="post.coverImage" :alt="`Обложка публикации ${post.title}`">
-      <span class="eyebrow">Публикация</span>
-      <h1>{{ post.title }}</h1>
-      <p class="news-article__summary">{{ post.summary }}</p>
-      <time>{{ formatNewsDate(post.publishedAt || post.createdAt) }}</time>
-      <div class="news-article__content">{{ post.content }}</div>
+      <section class="news-article__hero">
+        <div class="news-article__intro">
+          <span class="eyebrow">FoxesCraft Chronicle</span>
+          <h1>{{ post.title }}</h1>
+          <p class="news-article__summary">{{ post.summary }}</p>
+          <div class="news-article__date">
+            <time>{{ formatNewsDate(post.publishedAt || post.createdAt) }}</time>
+          </div>
+        </div>
+
+        <figure class="news-article__cover-frame" :class="{ 'is-empty': !post.coverImage }">
+          <img
+            v-if="post.coverImage"
+            class="news-article__cover"
+            :src="post.coverImage"
+            :alt="`Круглая обложка публикации ${post.title}`"
+            decoding="async"
+          >
+          <i v-else class="fa-solid fa-newspaper" aria-hidden="true" />
+        </figure>
+      </section>
+
+      <div class="news-article__divider" aria-hidden="true"><span /></div>
+
+      <div class="news-article__content fr-view" v-html="post.content || ''" />
 
       <footer class="news-article__reactions">
-        <button class="news-reaction news-reaction--large" :class="{ 'is-active': post.likedByViewer }" type="button" :disabled="!post.isPublished" @click="like">
+        <button
+          class="news-reaction news-reaction--large"
+          :class="{ 'is-active': post.likedByViewer }"
+          type="button"
+          :disabled="!post.isPublished"
+          @click="like"
+        >
           <i class="fa-solid fa-heart" aria-hidden="true" />
           <span>{{ post.likesCount }}</span>
         </button>
-        <span><i class="fa-solid fa-comments" aria-hidden="true" /> Комментарии: {{ post.commentsCount }}</span>
-        <span><i class="fa-solid fa-eye" aria-hidden="true" /> Просмотры: {{ post.viewsCount }}</span>
+        <span><i class="fa-solid fa-comments" aria-hidden="true" /><b>{{ post.commentsCount }}</b> комментариев</span>
+        <span><i class="fa-solid fa-eye" aria-hidden="true" /><b>{{ post.viewsCount }}</b> просмотров</span>
       </footer>
     </template>
   </article>
 
   <section v-if="post" class="content-surface news-comments" aria-labelledby="news-comments-title">
     <header>
-      <div><span class="eyebrow">Обсуждение</span><h2 id="news-comments-title">Комментарии</h2></div>
+      <div>
+        <span class="eyebrow">Обсуждение</span>
+        <h2 id="news-comments-title">Комментарии</h2>
+      </div>
       <strong>{{ comments.length }}</strong>
     </header>
 
     <form v-if="canComment" class="news-comment-form" @submit.prevent="publishComment">
       <textarea v-model="comment" rows="4" maxlength="2000" placeholder="Напишите комментарий…" required />
-      <button class="button button--primary" type="submit"><i class="fa-solid fa-paper-plane" aria-hidden="true" /><span>Опубликовать</span></button>
+      <div class="news-comment-form__footer">
+        <small>{{ comment.length }} / 2000</small>
+        <button class="button button--primary" type="submit" :disabled="!comment.trim()">
+          <i class="fa-solid fa-paper-plane" aria-hidden="true" /><span>Опубликовать</span>
+        </button>
+      </div>
     </form>
     <p v-else class="news-comments__notice">Чтобы оставить комментарий, войдите в аккаунт. Комментарии к черновикам отключены.</p>
 
@@ -156,10 +201,16 @@ watch(() => props.id, () => void load(), { immediate: true })
             <img v-if="item.authorPhoto" :src="item.authorPhoto" alt="">
             <b v-else>{{ item.authorName.slice(0, 1).toUpperCase() }}</b>
           </span>
-          <span><strong>{{ item.authorName }}</strong><small>{{ formatNewsDate(item.createdAt) }}</small></span>
+          <span>
+            <strong :style="{ color: item.authorColor || undefined }">{{ item.authorName }}</strong>
+            <small>{{ item.authorGroup || `@${item.authorLogin}` }} · {{ formatNewsDate(item.createdAt) }}</small>
+          </span>
         </button>
         <p>{{ item.content }}</p>
-        <button v-if="item.canDelete" class="news-comment__delete" type="button" @click="removeComment(item)"><i class="fa-solid fa-trash-can" aria-hidden="true" /><span>Удалить</span></button>
+        <button v-if="item.canDelete" class="news-comment__delete" type="button" @click="removeComment(item)">
+          <i class="fa-solid fa-trash-can" aria-hidden="true" />
+          <span>Удалить</span>
+        </button>
       </article>
     </div>
     <p v-else class="news-feed__empty">Комментариев пока нет.</p>

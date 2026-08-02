@@ -5,8 +5,8 @@ export function loadNews(limit = 6): Promise<NewsListResponse> {
   return foxesApi.post<NewsListResponse>({ newsAction: 'list', limit })
 }
 
-export function loadNewsPost(id: number): Promise<NewsDetailResponse> {
-  return foxesApi.post<NewsDetailResponse>({ newsAction: 'detail', id })
+export function loadNewsPost(id: number, trackView = false): Promise<NewsDetailResponse> {
+  return foxesApi.post<NewsDetailResponse>({ newsAction: 'detail', id, trackView: trackView ? 1 : 0 })
 }
 
 export function toggleNewsLike(id: number): Promise<{ liked: boolean; likesCount: number }> {

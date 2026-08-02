@@ -2,24 +2,26 @@
 import { computed } from 'vue'
 import { JsonFormEditor, collectJsonSamples } from '@/forms/json-form'
 import type { JsonValue } from '@/forms/json-form'
-import type { GroupOption, UserDraft, UserRow } from '@modules/AdminPanel/client/useAdminPanel'
+import type { AdminBadgeOption, GroupOption, UserDraft, UserRow } from '@modules/AdminPanel/client/useAdminPanel'
 import UserAvatar from './UserAvatar.vue'
+import UserBadgeEditor from './UserBadgeEditor.vue'
+import { userBadgeAssignments } from '@/domain/userBadges'
 
 const props = defineProps<{
   selected: UserRow | null
   draft: UserDraft
   groups: GroupOption[]
-  badgeOptions: string[]
+  badgeOptions: AdminBadgeOption[]
   samples: UserRow[]
   loading: boolean
 }>()
 
 const emit = defineEmits<{ save: [] }>()
 
-type StructuredUserField = 'balance' | 'badges' | 'serversOnline'
+type StructuredUserField = 'balance' | 'serversOnline'
 
 const selectedGroup = computed(() => props.groups.find((group) => group.groupTag === props.draft.groupTag) ?? null)
-const badgeCount = computed(() => valueCount(props.draft.badges))
+const badgeCount = computed(() => userBadgeAssignments(props.draft.badges).length)
 const serverCount = computed(() => valueCount(props.draft.serversOnline))
 
 function samplesFor(field: StructuredUserField): JsonValue[] {
@@ -120,12 +122,28 @@ function groupStyle(color?: string): Record<string, string> {
       </div>
     </section>
 
+    <section class="admin-user-editor__section admin-user-editor__section--badges">
+      <header class="admin-user-editor__section-header">
+        <span><i class="fa-solid fa-award" aria-hidden="true" /></span>
+        <div>
+          <h3>Персональные бейджи</h3>
+          <p>Визуальное управление достижениями и отметками выбранного пользователя.</p>
+        </div>
+      </header>
+      <UserBadgeEditor
+        :model-value="draft.badges"
+        :options="badgeOptions"
+        :disabled="loading"
+        @update:model-value="draft.badges = $event"
+      />
+    </section>
+
     <section class="admin-user-editor__section admin-user-editor__section--structured">
       <header class="admin-user-editor__section-header">
         <span><i class="fa-solid fa-table-list" aria-hidden="true" /></span>
         <div>
-          <h3>Данные профиля</h3>
-          <p>Баланс, назначенные бейджи и игровая активность редактируются структурированными формами.</p>
+          <h3>Системные данные</h3>
+          <p>Баланс и игровая активность сохранены как структурированные данные профиля.</p>
         </div>
       </header>
 
@@ -143,21 +161,6 @@ function groupStyle(color?: string): Record<string, string> {
         </article>
 
         <article class="admin-user-data-card">
-          <header>
-            <div><strong>Бейджи</strong><small>{{ badgeCount }} назначено</small></div>
-            <span>{{ badgeCount }}</span>
-          </header>
-          <JsonFormEditor
-            :model-value="draft.badges"
-            :samples="samplesFor('badges')"
-            label="Бейджи"
-            root-kind="array"
-            :field-options="{ badgeName: badgeOptions }"
-            @update:model-value="draft.badges = $event"
-          />
-        </article>
-
-        <article class="admin-user-data-card admin-user-data-card--wide">
           <header>
             <div><strong>Игровая активность</strong><small>{{ serverCount }} записей серверов</small></div>
             <span>{{ serverCount }}</span>

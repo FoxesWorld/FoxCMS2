@@ -43,8 +43,17 @@ export interface FoxesCraftBootstrap {
   }
   site: {
     title: string
+    homeTitle: string
+    titleTemplate: string
     status: string
     description: string
+    keywords: string
+    robots: 'index,follow' | 'index,nofollow' | 'noindex,follow' | 'noindex,nofollow'
+    canonicalUrl: string
+    language: string
+    locale: string
+    themeColor: string
+    ogImage: string
   }
   user: Record<string, BootstrapValue>
   frontend: {
@@ -64,7 +73,20 @@ function emptyBootstrap(): FoxesCraftBootstrap {
   return {
     engine: { version: '', csrfToken: '', endpoints: {} },
     theme: { name: themeName, assets, mount: 'foxescraft-app', settings: {} },
-    site: { title: 'FoxesCraft', status: '', description: '' },
+    site: {
+      title: 'FoxesCraft',
+      homeTitle: 'FoxesCraft',
+      titleTemplate: '%page% — %site%',
+      status: '',
+      description: '',
+      keywords: '',
+      robots: 'index,follow',
+      canonicalUrl: '',
+      language: 'ru',
+      locale: 'ru_RU',
+      themeColor: '#152019',
+      ogImage: '',
+    },
     user: { isLogged: false, groupTag: 'guest', login: 'anonymous' },
     frontend: { routes: [], navigation: [], legacy: [], capabilities: [], endpoints: {} },
     replaceData: { groupTag: 'guest', login: 'anonymous', siteTitle: 'FoxesCraft', assets },
@@ -89,6 +111,7 @@ export function readBootstrap(): FoxesCraftBootstrap {
     const theme = value.theme && typeof value.theme === 'object' ? value.theme : fallback.theme
     const site = value.site && typeof value.site === 'object' ? value.site : fallback.site
     const frontend = value.frontend && typeof value.frontend === 'object' ? value.frontend : fallback.frontend
+    const robots = String(site.robots)
     return {
       engine: {
         version: typeof engine.version === 'string' ? engine.version : '',
@@ -103,8 +126,19 @@ export function readBootstrap(): FoxesCraftBootstrap {
       },
       site: {
         title: typeof site.title === 'string' ? site.title : fallback.site.title,
+        homeTitle: typeof site.homeTitle === 'string' ? site.homeTitle : fallback.site.homeTitle,
+        titleTemplate: typeof site.titleTemplate === 'string' ? site.titleTemplate : fallback.site.titleTemplate,
         status: typeof site.status === 'string' ? site.status : '',
         description: typeof site.description === 'string' ? site.description : '',
+        keywords: typeof site.keywords === 'string' ? site.keywords : '',
+        robots: ['index,follow', 'index,nofollow', 'noindex,follow', 'noindex,nofollow'].includes(robots)
+          ? robots as FoxesCraftBootstrap['site']['robots']
+          : fallback.site.robots,
+        canonicalUrl: typeof site.canonicalUrl === 'string' ? site.canonicalUrl : '',
+        language: typeof site.language === 'string' ? site.language : fallback.site.language,
+        locale: typeof site.locale === 'string' ? site.locale : fallback.site.locale,
+        themeColor: typeof site.themeColor === 'string' ? site.themeColor : fallback.site.themeColor,
+        ogImage: typeof site.ogImage === 'string' ? site.ogImage : '',
       },
       user: record(value.user),
       frontend: {

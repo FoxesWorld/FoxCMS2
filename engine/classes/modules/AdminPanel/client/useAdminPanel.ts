@@ -6,7 +6,7 @@ import { bootstrapString } from '@/domain/bootstrap'
 import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
 import type { JsonObject, JsonValue } from '@/forms/json-form'
 
-export type Tab = 'overview' | 'slides' | 'content' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
+export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
 export interface AdminErrorDetails {
   action: string
   exception: string
@@ -57,6 +57,32 @@ export interface MaintenanceSettings {
   updatedByUuid: string
   storageReady: boolean
 }
+export interface SiteSettings {
+  siteTitle: string
+  siteStatus: string
+  siteDesc: string
+  homeTitle: string
+  titleTemplate: string
+  keywords: string
+  robots: 'index,follow' | 'index,nofollow' | 'noindex,follow' | 'noindex,nofollow'
+  canonicalUrl: string
+  lang: string
+  locale: string
+  author: string
+  themeColor: string
+  faviconUrl: string
+  ogSiteName: string
+  ogTitle: string
+  ogDescription: string
+  ogImage: string
+  twitterCard: 'summary' | 'summary_large_image'
+  twitterSite: string
+  twitterCreator: string
+  googleVerification: string
+  yandexVerification: string
+  bingVerification: string
+}
+
 export interface SlideRouteOption {
   name: string
   path: string
@@ -107,6 +133,45 @@ export interface GroupOption {
   groupTag: string
   groupName: string
   groupColor: string
+}
+export interface AdminBadgeOption {
+  badgeName: string
+  title: string
+  description: string
+  image: string | null
+}
+export interface JdkRuntimeOption {
+  value: string
+  label: string
+  version: string
+  javaMajor: number
+  systems: string[]
+  versions: string[]
+  versionsBySystem: Record<string, string[]>
+  selectedVersions: Record<string, string>
+  names: string[]
+  files: Record<string, string[]>
+  archives: number
+  archiveFormats: string[]
+}
+export interface JdkCatalogStatus {
+  available: boolean
+  root: string
+  requiredSystems: string[]
+  scannedArchives: number
+  matchedArchives: number
+  ignoredArchives: number
+  ignoredCandidates?: Array<{
+    path: string
+    name: string
+    version: string
+    system: string | null
+    reason: string
+  }>
+  mode?: 'major-families-by-file-name'
+  versionSource?: 'archive-file-name-major'
+  systemSource?: 'relative-path-or-file-name'
+  error?: string
 }
 export interface UserRow extends JsonRow {
   uuid: string
@@ -171,6 +236,33 @@ export function useAdminPanel() {
   const feedback = ref<Feedback | null>(null)
   const overview = ref<Overview | null>(null)
   const hardware = ref<Hardware | null>(null)
+  const siteSettings = reactive<SiteSettings>({
+    siteTitle: appBootstrap.site.title || 'FoxesCraft',
+    siteStatus: appBootstrap.site.status || '',
+    siteDesc: appBootstrap.site.description || '',
+    homeTitle: appBootstrap.site.homeTitle || appBootstrap.site.title || 'FoxesCraft',
+    titleTemplate: appBootstrap.site.titleTemplate || '%page% — %site%',
+    keywords: appBootstrap.site.keywords || '',
+    robots: appBootstrap.site.robots || 'index,follow',
+    canonicalUrl: appBootstrap.site.canonicalUrl || '',
+    lang: appBootstrap.site.language || 'ru',
+    locale: appBootstrap.site.locale || 'ru_RU',
+    author: 'FoxesCraft',
+    themeColor: appBootstrap.site.themeColor || '#152019',
+    faviconUrl: '/favicon.ico',
+    ogSiteName: appBootstrap.site.title || 'FoxesCraft',
+    ogTitle: appBootstrap.site.homeTitle || appBootstrap.site.title || 'FoxesCraft',
+    ogDescription: appBootstrap.site.description || '',
+    ogImage: appBootstrap.site.ogImage || '',
+    twitterCard: 'summary_large_image',
+    twitterSite: '',
+    twitterCreator: '',
+    googleVerification: '',
+    yandexVerification: '',
+    bingVerification: '',
+  })
+  const siteSettingsUpdatedAt = ref('')
+  const siteSettingsStorageReady = ref(false)
   const maintenance = reactive<MaintenanceSettings>({
     enabled: false,
     allowedGroups: ['admin'],
@@ -191,7 +283,7 @@ export function useAdminPanel() {
   const badgePages = ref<BadgePageDraft[]>([])
   const contentBadges = ref<BadgeCatalogRow[]>([])
   const groupOptions = ref<GroupOption[]>([])
-  const badgeOptions = ref<string[]>([])
+  const badgeOptions = ref<AdminBadgeOption[]>([])
   const users = ref<UserRow[]>([])
   const userSearch = ref('')
   const selectedUser = ref<UserRow | null>(null)
@@ -206,7 +298,18 @@ export function useAdminPanel() {
     serversOnline: '',
   })
   const servers = ref<ServerRow[]>([])
+  const jdkOptions = ref<JdkRuntimeOption[]>([])
+  const jdkCatalog = ref<JdkCatalogStatus>({
+    available: false,
+    root: '/var/www/FoxCMS/uploads/bootstrap/runtime',
+    requiredSystems: ['windows', 'linux', 'macos'],
+    scannedArchives: 0,
+    matchedArchives: 0,
+    ignoredArchives: 0,
+  })
   const selectedServer = ref<ServerRow | null>(null)
+  const serverImageUploading = ref(false)
+  const serverImageError = ref('')
   const serverDraft = shallowReactive<ServerDraft>({
     serverName: '',
     host: '',
@@ -241,6 +344,7 @@ export function useAdminPanel() {
 
   const tabs: Array<{ id: Tab; label: string; description: string; icon: string }> = [
     { id: 'overview', label: 'Обзор', description: 'Состояние системы и основные показатели', icon: 'fa-chart-line' },
+    { id: 'settings', label: 'Настройки сайта', description: 'Title, SEO, индексация и социальные карточки', icon: 'fa-sliders' },
     { id: 'slides', label: 'Слайды', description: 'Главный экран и порядок публикаций', icon: 'fa-images' },
     { id: 'content', label: 'Контент', description: 'Страницы проекта и полные страницы бейджей', icon: 'fa-newspaper' },
     { id: 'maintenance', label: 'Техработы', description: 'Режим обслуживания и доступ групп', icon: 'fa-screwdriver-wrench' },
@@ -298,6 +402,32 @@ export function useAdminPanel() {
     ])
     if (summary) overview.value = summary
     if (hardwareData) hardware.value = hardwareData
+  }
+  async function loadSiteSettings(): Promise<void> {
+    const response = await run(() => foxesApi.post<{
+      settings: SiteSettings
+      updatedAt: string
+      storageReady: boolean
+    }>({ admPanel: 'siteSettings' }))
+    if (!response) return
+    Object.assign(siteSettings, response.settings)
+    siteSettingsUpdatedAt.value = response.updatedAt || ''
+    siteSettingsStorageReady.value = response.storageReady
+  }
+  async function saveSiteSettings(): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & {
+      settings: SiteSettings
+      updatedAt: string
+      storageReady: boolean
+    }>({
+      admPanel: 'saveSiteSettings',
+      entry: JSON.stringify(siteSettings),
+    }))
+    if (!response) return
+    feedback.value = response
+    Object.assign(siteSettings, response.settings)
+    siteSettingsUpdatedAt.value = response.updatedAt || ''
+    siteSettingsStorageReady.value = response.storageReady
   }
   async function loadMaintenance(): Promise<void> {
     const response = await run(() => foxesApi.post<{ settings: MaintenanceSettings; groups: GroupOption[] }>({ admPanel: 'maintenance' }))
@@ -477,19 +607,31 @@ export function useAdminPanel() {
   }
 
   async function loadUsers(options: { selectUuid?: string; autoSelect?: boolean } = {}): Promise<void> {
-    const response = await run(() => foxesApi.post<{ items: UserRow[]; groups: GroupOption[]; badgeOptions: string[] }>({ admPanel: 'users', search: userSearch.value, limit: 100 }))
+    const response = await run(() => foxesApi.post<{
+      items: UserRow[]
+      groups: GroupOption[]
+      badgeOptions: AdminBadgeOption[]
+    }>({ admPanel: 'users', search: userSearch.value, limit: 100 }))
     if (!response) return
     const preferredUuid = options.selectUuid ?? selectedUser.value?.uuid ?? ''
     users.value = response.items
     setGroups(response.groups)
     badgeOptions.value = response.badgeOptions
 
+    if (options.autoSelect === false) return
     const preferred = preferredUuid
       ? users.value.find((user) => user.uuid === preferredUuid) ?? null
       : null
-    const next = preferred ?? (options.autoSelect === false ? null : users.value[0] ?? null)
+    if (preferred) {
+      editUser(preferred)
+      return
+    }
+    const next = users.value[0] ?? null
     if (next) editUser(next)
     else selectedUser.value = null
+  }
+  async function searchUsers(): Promise<void> {
+    await loadUsers({ autoSelect: false })
   }
   function editUser(user: UserRow): void {
     selectedUser.value = user
@@ -518,34 +660,96 @@ export function useAdminPanel() {
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'updateUser', userUuid: selectedUuid, entry: JSON.stringify(entry) }))
     if (response) {
       feedback.value = response
-      await loadUsers({ selectUuid: selectedUuid })
+      selectedUser.value = {
+        ...selectedUser.value,
+        ...entry,
+        uuid: selectedUuid,
+        groupName: groupOptions.value.find((group) => group.groupTag === entry.groupTag)?.groupName,
+        groupColor: groupOptions.value.find((group) => group.groupTag === entry.groupTag)?.groupColor,
+      }
+      await loadUsers({ selectUuid: selectedUuid, autoSelect: false })
     }
   }
   async function loadServers(): Promise<void> {
-    const response = await run(() => foxesApi.post<{ items: ServerRow[]; groups: GroupOption[] }>({ admPanel: 'servers' }))
+    const response = await run(() => foxesApi.post<{
+      items: ServerRow[]
+      groups: GroupOption[]
+      jdkOptions: JdkRuntimeOption[]
+      jdkCatalog: JdkCatalogStatus
+    }>({ admPanel: 'servers' }))
     if (!response) return
     servers.value = response.items
+    jdkOptions.value = response.jdkOptions.map((option) => ({
+      ...option,
+      systems: [...option.systems],
+      versions: [...option.versions],
+      versionsBySystem: Object.fromEntries(
+        Object.entries(option.versionsBySystem).map(([system, versions]) => [system, [...versions]]),
+      ),
+      selectedVersions: { ...option.selectedVersions },
+      names: [...option.names],
+      files: Object.fromEntries(
+        Object.entries(option.files).map(([system, files]) => [system, [...files]]),
+      ),
+      archiveFormats: [...option.archiveFormats],
+    }))
+    jdkCatalog.value = {
+      ...response.jdkCatalog,
+      requiredSystems: [...response.jdkCatalog.requiredSystems],
+    }
     setGroups(response.groups)
   }
   function newServer(): void {
     selectedServer.value = null
+    serverImageError.value = ''
     Object.assign(serverDraft, {
       serverName: '', host: '', port: 25565, enabled: false, checkLib: false,
       ignoreDirs: [],
       serverGroups: groupOptions.value.filter((group) => group.groupTag !== 'admin').map((group) => group.groupTag),
-      serverDescription: '', serverVersion: '', jreVersion: '', serverImage: '', modsInfo: [],
+      serverDescription: '', serverVersion: '', jreVersion: jdkOptions.value[0]?.value ?? '', serverImage: '', modsInfo: [],
     })
   }
   function editServer(server: ServerRow): void {
     selectedServer.value = server
+    serverImageError.value = ''
+    const rawRuntime = String(server.jreVersion ?? '').trim()
+    const runtimeFamily = jdkOptions.value.find((option) => (
+      option.value === rawRuntime || option.versions.includes(rawRuntime)
+    ))?.value ?? rawRuntime
     Object.assign(serverDraft, server, {
       enabled: server.enabled === true || server.enabled === 'true',
       checkLib: server.checkLib === true || server.checkLib === 'true',
       ignoreDirs: decodeJsonValue(server.ignoreDirs, []),
       serverGroups: Array.isArray(server.serverGroups) ? server.serverGroups.map(String) : [],
+      jreVersion: runtimeFamily,
       modsInfo: decodeJsonValue(server.modsInfo, []),
     })
   }
+  function clearServerImage(): void {
+    serverDraft.serverImage = ''
+    serverImageError.value = ''
+  }
+
+  async function uploadServerImage(file: File): Promise<void> {
+    if (serverImageUploading.value) return
+    const body = new FormData()
+    body.set('admPanel', 'uploadServerImage')
+    body.set('image', file, file.name)
+    serverImageUploading.value = true
+    serverImageError.value = ''
+    try {
+      const response = await run(() => foxesApi.postFormData<Feedback & { image: string }>(body))
+      if (response?.image) {
+        serverDraft.serverImage = response.image
+        feedback.value = response
+      } else {
+        serverImageError.value = feedback.value?.message || 'Не удалось загрузить изображение сервера.'
+      }
+    } finally {
+      serverImageUploading.value = false
+    }
+  }
+
   async function saveServer(): Promise<void> {
     const entry = {
       ...serverDraft,
@@ -671,6 +875,7 @@ export function useAdminPanel() {
   async function activate(tab: Tab): Promise<void> {
     activeTab.value = tab
     if (tab === 'overview') await loadOverview()
+    if (tab === 'settings') await loadSiteSettings()
     if (tab === 'slides') await loadSlides()
     if (tab === 'content') await loadContent()
     if (tab === 'maintenance') await loadMaintenance()
@@ -687,14 +892,16 @@ export function useAdminPanel() {
   onUnmounted(() => { if (logTimer) window.clearInterval(logTimer) })
 
   return {
-    isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions,
-    users, userSearch, selectedUser, userDraft, servers, selectedServer, serverDraft,
+    isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady,
+    maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions,
+    users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
-    originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp, loadMaintenance,
+    originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp,
+    loadSiteSettings, saveSiteSettings, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
     loadContent, ensureBadgePage, removeBadgePage, saveProjectPages, saveBadgePage, deleteBadgePage,
-    loadUsers, editUser, saveUser, newServer, editServer, saveServer,
+    loadUsers, searchUsers, editUser, saveUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,

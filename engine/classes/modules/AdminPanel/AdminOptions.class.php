@@ -37,11 +37,14 @@ final class AdminOptions {
     private UserSession $session;
     private ?Logger $logger;
     private MaintenanceModeRepository $maintenanceRepository;
+    private SiteSettingsRepository $siteSettingsRepository;
+    private array $config;
     private GroupRepository $groupRepository;
     private UploadService $uploads;
     private ThemeSlidesRepository $slidesRepository;
     private ThemeContentRepository $contentRepository;
     private ThemeBadgePageRepository $badgePageRepository;
+    private RuntimeJdkCatalog $runtimeJdkCatalog;
 
     public function __construct(
         array $request,
@@ -59,6 +62,7 @@ final class AdminOptions {
         $this->session = $session;
         $this->logger = $logger ?? new Logger('lastlog');
         $this->request = $request;
+        $this->config = $config;
         if (!$httpRequest instanceof HttpRequest) {
             throw new RuntimeException('Admin uploads require the original HTTP request.');
         }
@@ -76,7 +80,9 @@ final class AdminOptions {
             TEMPLATE_DIR,
             (string)($site['siteTpl'] ?? ''),
         );
+        $this->runtimeJdkCatalog = new RuntimeJdkCatalog($this->bootstrapStorageDirectory());
         $this->maintenanceRepository = new MaintenanceModeRepository($db);
+        $this->siteSettingsRepository = new SiteSettingsRepository($db);
         $this->groupRepository = new GroupRepository($db);
         $action = (string)($this->request['admPanel'] ?? '');
 
@@ -84,6 +90,12 @@ final class AdminOptions {
             switch ($action) {
                 case 'overview':
                     $this->overview();
+                    break;
+                case 'siteSettings':
+                    $this->siteSettings();
+                    break;
+                case 'saveSiteSettings':
+                    $this->saveSiteSettings();
                     break;
                 case 'users':
                     $this->users();
@@ -123,6 +135,9 @@ final class AdminOptions {
                     break;
                 case 'uploadSlideImage':
                     $this->uploadSlideImage();
+                    break;
+                case 'uploadServerImage':
+                    $this->uploadServerImage();
                     break;
                 case 'content':
                     $this->content();
@@ -196,6 +211,34 @@ final class AdminOptions {
         }
     }
 
+    private function siteSettings(): void {
+        $fallback = is_array($this->config['siteSettings'] ?? null)
+            ? $this->config['siteSettings']
+            : [];
+        $this->respond($this->siteSettingsRepository->current($fallback));
+    }
+
+    private function saveSiteSettings(): void {
+        $entry = $this->decodeObject('entry');
+        $fallback = is_array($this->config['siteSettings'] ?? null)
+            ? $this->config['siteSettings']
+            : [];
+        $state = $this->siteSettingsRepository->save(
+            $entry,
+            $fallback,
+            $this->session->uuid(),
+        );
+        $this->logger?->logInfo('Site settings updated.', [
+            'event' => 'admin.site_settings.updated',
+            'userUuid' => $this->session->uuid(),
+            'fields' => array_keys($entry),
+        ]);
+        $this->respond(array_merge($state, [
+            'message' => 'Настройки сайта и SEO сохранены. Публичные метатеги обновятся при следующей загрузке страницы.',
+            'type' => 'success',
+        ]));
+    }
+
     private function overview(): void {
         $users = (int)$this->scalar('SELECT COUNT(*) FROM `users`');
         $recent = (int)$this->scalar('SELECT COUNT(*) FROM `users` WHERE `last_date` >= :threshold', [':threshold' => time() - 86400]);
@@ -216,29 +259,69 @@ final class AdminOptions {
         $search = trim((string)($this->request['search'] ?? ''));
         $limit = max(1, min(200, (int)($this->request['limit'] ?? 100)));
         $offset = max(0, (int)($this->request['offset'] ?? 0));
+        $badgeSource = $this->userBadgeReadSource();
+        $badgeExpression = $badgeSource['expression'];
         $where = '';
-        $params = [];
         if ($search !== '') {
-            $where = ' WHERE `user`.`login` LIKE :search OR `user`.`email` LIKE :search OR `user`.`realname` LIKE :search';
-            $params[':search'] = '%' . $search . '%';
+            $searchSql = $this->db->safesql('%' . $search . '%');
+            $where = " WHERE CONCAT_WS(' ', "
+                . "COALESCE(`user`.`login`, ''), "
+                . "COALESCE(`user`.`email`, ''), "
+                . "COALESCE(`user`.`realname`, ''), "
+                . "COALESCE(`user`.`uuid`, ''), "
+                . "COALESCE(CAST(`user`.`user_id` AS CHAR), ''), "
+                . "COALESCE(`user`.`groupTag`, ''), "
+                . "COALESCE(`group`.`groupName`, ''), "
+                . 'COALESCE(' . $badgeExpression . ", '')"
+                . ') LIKE ' . $searchSql;
         }
 
         $sql = 'SELECT `user`.`uuid`, `user`.`user_id`, `user`.`login`, `user`.`email`, '
             . '`user`.`realname`, `user`.`groupTag`, `user`.`last_date`, `user`.`reg_date`, '
-            . '`user`.`profilePhoto`, `user`.`userStatus`, `user`.`balance`, `user`.`badges`, '
-            . '`user`.`serversOnline`, `group`.`groupName`, `group`.`groupColor` '
+            . '`user`.`profilePhoto`, `user`.`userStatus`, `user`.`balance`, '
+            . $badgeExpression . ' AS `badges`, `user`.`serversOnline`, '
+            . '`group`.`groupName`, `group`.`groupColor` '
             . 'FROM `users` AS `user` '
-            . 'LEFT JOIN `groupAssociation` AS `group` ON `group`.`groupTag` = `user`.`groupTag`'
+            . 'LEFT JOIN `groupAssociation` AS `group` ON `group`.`groupTag` = `user`.`groupTag` '
+            . $badgeSource['join']
             . $where . ' ORDER BY `user`.`last_date` DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        try {
+            $statement = $this->db->query($sql);
+            if (!$statement instanceof PDOStatement) {
+                throw new RuntimeException('Database query returned no statement.');
+            }
+            $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $error) {
+            throw new RuntimeException('users.directory query failed: ' . $error->getMessage(), 0, $error);
+        }
+
+        foreach ($rows as &$row) {
+            if (!is_array($row)) continue;
+            $row['balance'] = $this->decodeAdminJsonField($row['balance'] ?? null);
+            $row['badges'] = $this->decodeAdminJsonField($row['badges'] ?? null);
+            $row['serversOnline'] = $this->decodeAdminJsonField($row['serversOnline'] ?? null);
+        }
+        unset($row);
+
+        try {
+            $groups = $this->adminUserGroups();
+        } catch (Throwable $error) {
+            throw new RuntimeException('users.groups query failed: ' . $error->getMessage(), 0, $error);
+        }
+        try {
+            $badgeOptions = $this->badgeOptions();
+        } catch (Throwable $error) {
+            throw new RuntimeException('users.badges query failed: ' . $error->getMessage(), 0, $error);
+        }
+
         $this->respond([
-            'items' => $rows ?: [],
-            'groups' => $this->groupRepository->all(),
-            'badgeOptions' => $this->badgeOptions(),
+            'items' => $rows,
+            'groups' => $groups,
+            'badgeOptions' => $badgeOptions,
             'limit' => $limit,
             'offset' => $offset,
+            'backendVersion' => 'users-directory-v4-direct-query',
         ]);
     }
 
@@ -308,6 +391,24 @@ final class AdminOptions {
             'UPDATE `users` SET ' . implode(', ', $parts) . ' WHERE `uuid` = :userUuid'
         );
         $statement->execute($parameters);
+        if (array_key_exists('badges', $updates)) {
+            $login = (string)($updates['login'] ?? '');
+            if ($login === '') {
+                $lookup = $this->db->query(
+                    'SELECT `login` FROM `users` WHERE `uuid` = ' . $this->db->safesql($userUuid) . ' LIMIT 1'
+                );
+                $login = $lookup instanceof PDOStatement ? (string)($lookup->fetchColumn() ?: '') : '';
+            }
+            try {
+                $this->syncLegacyUserBadges($userUuid, $login, (string)$updates['badges']);
+            } catch (Throwable $error) {
+                $this->logger?->logWarn('Legacy user badge synchronization failed.', [
+                    'event' => 'admin.user.badges.legacy_sync_failed',
+                    'userUuid' => $userUuid,
+                    'reason' => $error->getMessage(),
+                ]);
+            }
+        }
         $this->respond(['message' => 'Пользователь обновлён.', 'type' => 'success']);
     }
 
@@ -319,13 +420,47 @@ final class AdminOptions {
             $server['serverGroups'] = $this->normalizeGroupList($server['serverGroups'] ?? []);
         }
         unset($server);
-        $this->respond(['items' => $items, 'groups' => $this->groupRepository->all()]);
+
+        try {
+            $catalog = $this->runtimeJdkCatalog->scan();
+            $jdkOptions = $catalog['options'];
+        } catch (Throwable $error) {
+            $catalog = [
+                'available' => false,
+                'root' => $this->runtimeJdkCatalog->runtimePath(),
+                'requiredSystems' => ['windows', 'linux', 'macos'],
+                'scannedArchives' => 0,
+                'matchedArchives' => 0,
+                'ignoredArchives' => 0,
+                'ignoredCandidates' => [],
+                'mode' => 'file-names-only',
+                'versionSource' => 'archive-file-name',
+                'systemSource' => 'relative-path-or-file-name',
+                'error' => $error->getMessage(),
+            ];
+            $jdkOptions = [];
+            $this->logger?->logWarn('Admin JDK catalog scan failed.', [
+                'event' => 'admin.runtime_jdk.scan_failed',
+                'root' => $this->runtimeJdkCatalog->runtimePath(),
+                'exception' => $error::class,
+                'message' => $error->getMessage(),
+            ]);
+        }
+
+        $this->respond([
+            'items' => $items,
+            'groups' => $this->groupRepository->all(),
+            'jdkOptions' => $jdkOptions,
+            'jdkCatalog' => $catalog,
+        ]);
     }
 
     private function saveServer(): void {
         $payload = $this->decodeObject('entry');
         $originalName = trim((string)($this->request['originalName'] ?? ''));
         $serverName = trim((string)($payload['serverName'] ?? ''));
+        $enabled = filter_var($payload['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $runtimeWarning = '';
         if (!preg_match('/^[\p{L}\p{N}_ -]{1,64}$/u', $serverName)) {
             $this->respond(['message' => 'Некорректное имя сервера.', 'type' => 'error'], 400);
         }
@@ -343,6 +478,36 @@ final class AdminOptions {
                     $this->respond(['message' => 'Некорректный порт.', 'type' => 'error'], 400);
                 }
             }
+            if ($field === 'jreVersion') {
+                $value = trim((string)$value);
+                if ($value !== '') {
+                    if (preg_match('/^(?:1\.)?([0-9]+)(?:\.[0-9]+)*$/D', $value, $versionMatch) !== 1
+                        || (int)$versionMatch[1] < 1
+                    ) {
+                        $this->respond([
+                            'message' => 'Java runtime должен быть числовой версией JDK, например 17 или 21.',
+                            'type' => 'error',
+                        ], 400);
+                    }
+                    $value = (string)(int)$versionMatch[1];
+                    try {
+                        $normalizedVersion = $this->runtimeJdkCatalog->normalizeVersion($value);
+                        if ($normalizedVersion !== null) {
+                            $value = $normalizedVersion;
+                        } else {
+                            $runtimeWarning = 'JDK ' . $value
+                                . ' сохранён, но архивы этого семейства не найдены для Windows, Linux и macOS. '
+                                . 'Запуск сервера может быть недоступен до загрузки runtime.';
+                        }
+                    } catch (Throwable $error) {
+                        $runtimeWarning = 'JDK ' . $value
+                            . ' сохранён без проверки каталога runtime: ' . $error->getMessage();
+                    }
+                }
+            }
+            if ($field === 'serverImage') {
+                $value = $this->normalizeServerImageReference((string)$value);
+            }
             if ($field === 'serverGroups') {
                 $value = json_encode(
                     $this->normalizeGroupList($value),
@@ -354,6 +519,15 @@ final class AdminOptions {
             $data[$field] = is_string($value) ? trim($value) : $value;
         }
         $data['serverName'] = $serverName;
+        if ($enabled && (!isset($data['jreVersion']) || trim((string)$data['jreVersion']) === '')) {
+            $this->respond([
+                'message' => 'Для включённого сервера Java runtime обязателен. Укажите major-версию JDK.',
+                'type' => 'error',
+            ], 400);
+        }
+        if (!$enabled && (!isset($data['jreVersion']) || trim((string)$data['jreVersion']) === '')) {
+            $runtimeWarning = 'Отключённый сервер сохранён без Java runtime. Назначьте JDK перед включением.';
+        }
 
         if ($originalName !== '') {
             $parts = [];
@@ -373,7 +547,12 @@ final class AdminOptions {
             $stmt = $this->db->prepare('INSERT INTO `servers` (' . $this->quotedFields($fields) . ') VALUES (' . implode(', ', $placeholders) . ')');
             $stmt->execute($params);
         }
-        $this->respond(['message' => 'Сервер сохранён.', 'type' => 'success']);
+        $this->respond([
+            'message' => $runtimeWarning !== ''
+                ? 'Сервер сохранён. ' . $runtimeWarning
+                : 'Сервер сохранён.',
+            'type' => $runtimeWarning !== '' ? 'warning' : 'success',
+        ]);
     }
 
     private function deleteServer(): void {
@@ -508,6 +687,25 @@ final class AdminOptions {
         }
         $this->respond([
             'message' => 'Изображение слайда загружено.',
+            'type' => 'success',
+            'image' => $result->publicPath(),
+            'upload' => $result,
+        ], 201);
+    }
+
+    private function uploadServerImage(): void {
+        try {
+            $result = $this->uploads->store(
+                UploadPurpose::SERVER_IMAGE,
+                is_array($this->request['_serverImageUpload'] ?? null)
+                    ? $this->request['_serverImageUpload']
+                    : null,
+            );
+        } catch (UploadException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], $error->httpStatus());
+        }
+        $this->respond([
+            'message' => 'Изображение сервера загружено.',
             'type' => 'success',
             'image' => $result->publicPath(),
             'upload' => $result,
@@ -1338,6 +1536,55 @@ final class AdminOptions {
         return $storedUuid;
     }
 
+    private function normalizeServerImageReference(string $value): string {
+        $value = trim(str_replace('\\', '/', $value));
+        if ($value === '') {
+            return '';
+        }
+        if (strlen($value) > 1024 || str_contains($value, "\0")
+            || preg_match('/[\x00-\x1F\x7F]/u', $value) === 1) {
+            $this->respond(['message' => 'Некорректный путь к изображению сервера.', 'type' => 'error'], 400);
+        }
+        if (str_starts_with($value, 'uploads/')) {
+            $value = '/' . $value;
+        }
+        $decodedPath = rawurldecode((string)(parse_url($value, PHP_URL_PATH) ?? $value));
+        foreach (explode('/', str_replace('\\', '/', $decodedPath)) as $segment) {
+            if ($segment === '..') {
+                $this->respond(['message' => 'Переходы .. в пути изображения сервера запрещены.', 'type' => 'error'], 400);
+            }
+        }
+        if (str_starts_with($value, '/uploads/')) {
+            try {
+                return $this->uploads->validateReference(UploadPurpose::SERVER_IMAGE, $value);
+            } catch (UploadException $error) {
+                $this->respond(['message' => $error->getMessage(), 'type' => 'error'], $error->httpStatus());
+            }
+        }
+        if (str_starts_with($value, '//')) {
+            $this->respond(['message' => 'Protocol-relative URL изображения сервера запрещён.', 'type' => 'error'], 400);
+        }
+        $scheme = parse_url($value, PHP_URL_SCHEME);
+        if (is_string($scheme) && $scheme !== '') {
+            if (!in_array(strtolower($scheme), ['http', 'https'], true)
+                || filter_var($value, FILTER_VALIDATE_URL) === false) {
+                $this->respond(['message' => 'Некорректный URL изображения сервера.', 'type' => 'error'], 400);
+            }
+        }
+        return $value;
+    }
+
+    private function bootstrapStorageDirectory(): string {
+        $configured = trim((string)(foxEnv('FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY') ?? ''));
+        if ($configured !== '') {
+            return rtrim($configured, '/\\');
+        }
+        $uploads = trim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, UPLOADS_DIR), DIRECTORY_SEPARATOR);
+        return rtrim(ROOT_DIR, '/\\')
+            . DIRECTORY_SEPARATOR . $uploads
+            . DIRECTORY_SEPARATOR . 'bootstrap';
+    }
+
     private function decodeObject(string $field): array {
         $value = $this->request[$field] ?? null;
         if (is_array($value)) return $value;
@@ -1368,11 +1615,112 @@ final class AdminOptions {
         return $tags;
     }
 
-    /** @return list<string> */
+    /** @return array{join:string,expression:string,identityColumn:?string} */
+    private function userBadgeReadSource(): array {
+        $columns = [];
+        try {
+            $statement = $this->db->query(
+                "SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` "
+                . "WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = 'userBadges' "
+                . "AND `COLUMN_NAME` IN ('userUuid', 'userLogin', 'badges')"
+            );
+            if ($statement instanceof PDOStatement) {
+                foreach ($statement->fetchAll(PDO::FETCH_COLUMN) ?: [] as $column) {
+                    $columns[(string)$column] = true;
+                }
+            }
+        } catch (Throwable) {
+            return ['join' => '', 'expression' => '`user`.`badges`', 'identityColumn' => null];
+        }
+
+        if (!isset($columns['badges'])) {
+            return ['join' => '', 'expression' => '`user`.`badges`', 'identityColumn' => null];
+        }
+        if (isset($columns['userUuid'])) {
+            return [
+                'join' => 'LEFT JOIN `userBadges` AS `legacyBadges` ON `legacyBadges`.`userUuid` = `user`.`uuid` ',
+                'expression' => "COALESCE(NULLIF(NULLIF(TRIM(`user`.`badges`), ''), '[]'), NULLIF(TRIM(`legacyBadges`.`badges`), ''), '[]')",
+                'identityColumn' => 'userUuid',
+            ];
+        }
+        if (isset($columns['userLogin'])) {
+            return [
+                'join' => 'LEFT JOIN `userBadges` AS `legacyBadges` ON `legacyBadges`.`userLogin` = `user`.`login` ',
+                'expression' => "COALESCE(NULLIF(NULLIF(TRIM(`user`.`badges`), ''), '[]'), NULLIF(TRIM(`legacyBadges`.`badges`), ''), '[]')",
+                'identityColumn' => 'userLogin',
+            ];
+        }
+        return ['join' => '', 'expression' => '`user`.`badges`', 'identityColumn' => null];
+    }
+
+    /** @return list<array{groupTag:string,groupName:string,groupColor:string}> */
+    private function adminUserGroups(): array {
+        $statement = $this->db->query(
+            'SELECT `groupTag`, `groupName`, `groupColor` FROM `groupAssociation` ORDER BY `groupName`, `groupTag`'
+        );
+        if (!$statement instanceof PDOStatement) {
+            throw new RuntimeException('Database query returned no group statement.');
+        }
+        $groups = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            if (!is_array($row)) continue;
+            $tag = GroupRepository::normalizeTag($row['groupTag'] ?? 'guest');
+            $color = strtolower(trim((string)($row['groupColor'] ?? '#ffffff')));
+            if (preg_match('/^#[0-9a-f]{6}$/D', $color) !== 1) $color = '#ffffff';
+            $groups[] = [
+                'groupTag' => $tag,
+                'groupName' => trim((string)($row['groupName'] ?? '')) ?: $tag,
+                'groupColor' => $color,
+            ];
+        }
+        return $groups;
+    }
+
+    private function decodeAdminJsonField(mixed $value): array {
+        if (is_array($value)) return $value;
+        if (is_object($value)) return (array)$value;
+        $raw = trim((string)$value);
+        if ($raw === '') return [];
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function syncLegacyUserBadges(string $userUuid, string $login, string $badges): void {
+        $source = $this->userBadgeReadSource();
+        $identityColumn = $source['identityColumn'];
+        if (!is_string($identityColumn) || $identityColumn === '') return;
+        $identity = $identityColumn === 'userUuid' ? $userUuid : $login;
+        if ($identity === '') return;
+        $identitySql = $this->db->safesql($identity);
+        $badgesSql = $this->db->safesql($badges);
+        $this->db->exec(
+            'INSERT INTO `userBadges` (`' . $identityColumn . '`, `badges`) VALUES (' . $identitySql . ', ' . $badgesSql . ') '
+            . 'ON DUPLICATE KEY UPDATE `badges` = VALUES(`badges`)'
+        );
+    }
+
+    /** @return list<array{badgeName: string, title: string, description: string, image: ?string}> */
     private function badgeOptions(): array {
-        $stmt = $this->db->prepare('SELECT `badgeName` FROM `badgesList` ORDER BY `badgeName`');
-        $stmt->execute();
-        return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        $stmt = $this->db->query(
+            'SELECT `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`'
+        );
+        if (!$stmt instanceof PDOStatement) {
+            throw new RuntimeException('Database query returned no badge statement.');
+        }
+        $options = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            if (!is_array($row)) continue;
+            $badgeName = trim((string)($row['badgeName'] ?? ''));
+            if ($badgeName === '') continue;
+            $image = trim((string)($row['img'] ?? ''));
+            $options[] = [
+                'badgeName' => $badgeName,
+                'title' => $badgeName,
+                'description' => trim((string)($row['description'] ?? '')),
+                'image' => $image !== '' ? $image : null,
+            ];
+        }
+        return $options;
     }
 
     /** @return array{timestamp: string, time: string, level: string, message: string, tone: string} */

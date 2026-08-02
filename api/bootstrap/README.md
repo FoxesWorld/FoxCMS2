@@ -16,7 +16,7 @@ GET /api/bootstrap/manifest.php
   ?platform=windows-x86_64
   &os=windows
   &arch=x86_64
-  &version=17.0.16
+  &version=17
   &client_version=0.4.1
 ```
 
@@ -33,8 +33,11 @@ Optional runtime filters supported by the resolver:
 ```
 
 The default policy is `distribution=any` and prerelease runtimes disabled.
-Version selection is always exact: requesting `17.0.16` cannot select
-`17.0.20`.
+
+Version selection has two modes:
+
+- `version=17` selects the newest available stable `17.x` archive for the requested platform;
+- `version=17.0.16` keeps exact-version behavior and cannot select `17.0.20`.
 
 ## Storage layout
 
@@ -62,8 +65,8 @@ uploads/bootstrap/
 ```
 
 The resolver also recognizes common aliases such as `windows/x64`,
-`win/amd64`, `linux/x86_64`, `macos/arm64` and `osx/x64`. Only branches that
-map to the requested platform are scanned.
+`win/amd64`, `linux/x86_64`, `unix/x64`, `macos/arm64` and `osx/x64`. Only
+branches that map to the requested platform are scanned.
 
 ## Runtime scanner
 
@@ -92,7 +95,9 @@ The runtime catalog supports:
 - Linux x86, x86-64 and ARM64;
 - macOS x86-64 and ARM64;
 - JDK and JRE layouts with or without one outer archive directory;
-- vendor detection from the Java `release` file with filename fallback;
+- archives with or without a Java `release` file;
+- vendor detection from `release` metadata with path fallback;
+- version detection from `release` metadata with archive-filename fallback;
 - deterministic selection when several exact-version candidates exist.
 
 For each candidate the scanner:
@@ -103,12 +108,12 @@ For each candidate the scanner:
 3. rejects archive symlinks and ambiguous archives containing several Java
    homes;
 4. locates `bin/java` or `bin/java.exe`;
-5. locates the matching `release` file beside that Java home;
-6. detects `strip_components` and the relative Java executable path;
-7. reads the contained Java version, vendor, OS and architecture;
-8. verifies that the filename version, archive metadata and catalog branch do
-   not contradict one another;
-9. compares the contained version with the exact requested version;
+5. reads the matching `release` file when it exists;
+6. falls back to the archive filename and catalog branch when `release` is absent;
+7. detects `strip_components` and the relative Java executable path;
+8. verifies that available filename metadata, archive metadata and catalog branch
+   do not contradict one another;
+9. compares either the exact version or Java major, depending on the request mode;
 10. calculates SHA-256 and size for the selected artifact.
 
 The local installation directory name is extracted only from the archive
@@ -175,9 +180,15 @@ Validate the complete catalog:
 python3 scripts/verify-bootstrap-catalog.py uploads/bootstrap
 ```
 
-Validate an exact runtime selection:
+Validate a runtime selection:
 
 ```bash
+# Major mode: newest available 17.x for the platform
+python3 scripts/verify-bootstrap-catalog.py uploads/bootstrap \
+  --platform windows-x86_64 \
+  --version 17
+
+# Exact mode
 python3 scripts/verify-bootstrap-catalog.py uploads/bootstrap \
   --platform windows-x86_64 \
   --version 17.0.16

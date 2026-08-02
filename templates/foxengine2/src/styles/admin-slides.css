@@ -641,27 +641,12 @@
 .admin-slide-editor__image-field {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 
-.admin-slide-editor__upload {
-  position: relative;
-  min-width: 126px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  overflow: hidden;
-}
 
-.admin-slide-editor__upload > input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
+
 
 .admin-slide-editor__actions {
   min-width: 0;
@@ -854,13 +839,7 @@
     font-size: clamp(1.8rem, 10vw, 3rem);
   }
 
-  .admin-slide-editor__image-field {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
-  .admin-slide-editor__upload {
-    width: 100%;
-  }
 }
 
 @media (max-width: 520px) {

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { GroupOption, UserDraft, UserRow } from '@modules/AdminPanel/client/useAdminPanel'
+import type { AdminBadgeOption, GroupOption, UserDraft, UserRow } from '@modules/AdminPanel/client/useAdminPanel'
 import UserTable from './users/UserTable.vue'
 import UserEditor from './users/UserEditor.vue'
 
 defineProps<{
   users: UserRow[]
   groups: GroupOption[]
-  badgeOptions: string[]
+  badgeOptions: AdminBadgeOption[]
   search: string
   selected: UserRow | null
   draft: UserDraft

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted, reactive, ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ProfileSettingsPage from '@theme/userOptions/userOptions/ProfileSettings.vue'
 import { appBootstrap } from '@/app/context'
@@ -27,7 +27,6 @@ const avatarFile = ref<File | null>(null)
 const avatarPreview = ref('')
 const targetUuid = ref('')
 const accent = ref('#5bd08b')
-let objectUrl = ''
 const form = reactive<ProfileSettingsFormModel>({ login: '', realname: '', userStatus: '', land: '', email: '', currentPassword: '', newPassword: '', repeatPassword: '' })
 const showSkinSettings = ref(true)
 const minecraftFrontPreview = ref('')
@@ -39,7 +38,6 @@ const minecraftSelected = ref<Record<SkinResource, File | null>>({ skin: null, c
 const minecraftInputVersion = ref<Record<SkinResource, number>>({ skin: 0, cloak: 0 })
 let minecraftLoadedUuid = ''
 
-function revoke(): void { if (objectUrl) URL.revokeObjectURL(objectUrl); objectUrl = '' }
 function fail(message: string, tab?: SettingsTab): void {
   feedback.value = { type: 'error', message }
   if (tab) activeTab.value = tab
@@ -48,7 +46,6 @@ function fail(message: string, tab?: SettingsTab): void {
 async function load(value?: string): Promise<void> {
   loading.value = true
   error.value = ''
-  revoke()
   try {
     const identity = value || viewerLogin
     const user = await foxesApi.post<SettingsRecord>({ user_doaction: 'getUserSettings', ...(value ? { userUuid: identity } : { login: identity }) })
@@ -68,20 +65,19 @@ async function load(value?: string): Promise<void> {
   finally { loading.value = false }
 }
 
-function selectAvatar(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+function selectAvatar(file: File): void {
   photoFeedback.value = null
-  if (!file) return
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 5 * 1024 * 1024) {
     photoFeedback.value = { type: 'error', message: 'Нужен JPEG, PNG, WebP или GIF размером до 5 МБ.' }
-    input.value = ''
+    avatarFile.value = null
     return
   }
   avatarFile.value = file
-  revoke()
-  objectUrl = URL.createObjectURL(file)
-  avatarPreview.value = objectUrl
+}
+
+function clearAvatar(): void {
+  avatarFile.value = null
+  photoFeedback.value = null
 }
 
 async function uploadAvatar(): Promise<void> {
@@ -98,7 +94,6 @@ async function uploadAvatar(): Promise<void> {
     if (response.type === 'success' && response.url) {
       avatarPreview.value = response.url
       avatarFile.value = null
-      revoke()
     }
   } catch { photoFeedback.value = { type: 'error', message: 'Не удалось загрузить фото.' } }
   finally { uploading.value = false }
@@ -219,7 +214,6 @@ watch(() => route.value.params.value as string | undefined, load, { immediate: t
 watch(activeTab, (tab) => {
   if (tab === 'appearance' && showSkinSettings.value) void refreshMinecraftPreview()
 })
-onUnmounted(revoke)
 </script>
 
 <template>
@@ -255,6 +249,7 @@ onUnmounted(revoke)
     @update:accent="accent = $event"
     @submit="saveProfile"
     @select-avatar="selectAvatar"
+    @clear-avatar="clearAvatar"
     @upload-avatar="uploadAvatar"
     @select-minecraft="selectMinecraftFile"
     @upload-minecraft="uploadMinecraftFile"

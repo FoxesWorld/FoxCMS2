@@ -34,7 +34,8 @@ const emit = defineEmits<{
   'update:activeTab': [value: SettingsTab]
   'update:accent': [value: string]
   submit: []
-  selectAvatar: [event: Event]
+  selectAvatar: [file: File]
+  clearAvatar: []
   uploadAvatar: []
   selectMinecraft: [type: SkinResource, event: Event]
   uploadMinecraft: [type: SkinResource]
@@ -82,6 +83,7 @@ const emit = defineEmits<{
         :minecraft-busy="minecraftBusy"
         :minecraft-feedback="minecraftFeedback"
         @select-avatar="emit('selectAvatar', $event)"
+        @clear-avatar="emit('clearAvatar')"
         @upload-avatar="emit('uploadAvatar')"
         @select-minecraft="(type, event) => emit('selectMinecraft', type, event)"
         @upload-minecraft="emit('uploadMinecraft', $event)"

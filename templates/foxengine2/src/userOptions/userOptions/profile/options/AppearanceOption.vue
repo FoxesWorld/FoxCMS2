@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import ImageUploadField from '@/components/ImageUploadField.vue'
 import type { FeedbackMessage, ProfileSettingsFormModel, SkinResource } from '@engine/contracts/user-pages'
 import MinecraftIdentityOption from './MinecraftIdentityOption.vue'
 
@@ -26,7 +26,8 @@ const props = defineProps<{
   minecraftFeedback: FeedbackMessage | null
 }>()
 const emit = defineEmits<{
-  selectAvatar: [event: Event]
+  selectAvatar: [file: File]
+  clearAvatar: []
   uploadAvatar: []
   selectMinecraft: [type: SkinResource, event: Event]
   uploadMinecraft: [type: SkinResource]
@@ -34,27 +35,41 @@ const emit = defineEmits<{
   refreshMinecraft: []
   'update:accent': [value: string]
 }>()
-const previewFailed = ref(false)
 function updateAccent(event: Event): void { emit('update:accent', (event.target as HTMLInputElement).value) }
 </script>
 
 <template>
   <section class="settings-panel">
-    <div class="avatar-editor">
-      <img v-if="avatarPreview && !previewFailed" :src="avatarPreview" :alt="form.login" @load="previewFailed = false" @error="previewFailed = true">
-      <span v-else class="avatar-editor__fallback">{{ form.login.slice(0, 1).toUpperCase() || '?' }}</span>
-      <div>
-        <strong>Фото профиля</strong>
-        <p>JPEG, PNG, WebP или GIF, от 64×64 до 4096×4096, максимум 5 МБ.</p>
-        <label class="button button--ghost file-button">
-          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="emit('selectAvatar', $event)">
-          <span>Выбрать изображение</span>
-        </label>
+    <ImageUploadField
+      class="avatar-image-upload"
+      title="Фото профиля"
+      description="Единая форма загрузки с drag-and-drop и предпросмотром"
+      :preview="avatarPreview"
+      :preview-alt="form.login"
+      preview-mode="circle"
+      accept="image/jpeg,image/png,image/webp,image/gif"
+      :allowed-types="['image/jpeg', 'image/png', 'image/webp', 'image/gif']"
+      :maximum-bytes="5_242_880"
+      :minimum-width="64"
+      :minimum-height="64"
+      :maximum-width="4096"
+      :maximum-height="4096"
+      :uploading="uploading"
+      :error="photoFeedback?.type === 'error' ? photoFeedback.message : ''"
+      :allow-clear="false"
+      hint="JPEG, PNG, WebP или GIF · 64×64–4096×4096 · до 5 МБ"
+      choose-label="Выбрать фото"
+      replace-label="Выбрать другое"
+      @select="emit('selectAvatar', $event)"
+      @clear="emit('clearAvatar')"
+    >
+      <template #actions>
         <button class="button button--primary" type="button" :disabled="!avatarSelected || uploading" @click="emit('uploadAvatar')">
-          {{ uploading ? 'Загрузка…' : 'Загрузить' }}
+          <i class="fa-solid" :class="uploading ? 'fa-spinner' : 'fa-upload'" aria-hidden="true" />
+          <span>{{ uploading ? 'Загрузка…' : 'Загрузить фото' }}</span>
         </button>
-      </div>
-    </div>
+      </template>
+    </ImageUploadField>
     <p v-if="photoFeedback" class="form-feedback" :class="{ 'form-feedback--success': photoFeedback.type === 'success' }">{{ photoFeedback.message }}</p>
     <MinecraftIdentityOption
       v-if="showSkinSettings"

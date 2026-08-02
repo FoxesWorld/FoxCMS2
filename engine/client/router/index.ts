@@ -103,5 +103,13 @@ normalizeLegacyHash()
 router.afterEach((route) => {
   const title = typeof route.meta.title === 'string' ? route.meta.title : ''
   const siteTitle = appBootstrap.site.title || 'FoxesCraft'
-  document.title = !title || title === siteTitle ? siteTitle : `${title} — ${siteTitle}`
+  const isHome = route.name === 'home' || route.path === '/'
+  if (isHome || !title || title === siteTitle) {
+    document.title = appBootstrap.site.homeTitle || siteTitle
+    return
+  }
+  const template = appBootstrap.site.titleTemplate || '%page% — %site%'
+  document.title = template
+    .replaceAll('%page%', title)
+    .replaceAll('%site%', siteTitle)
 })

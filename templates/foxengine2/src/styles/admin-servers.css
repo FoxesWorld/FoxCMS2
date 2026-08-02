@@ -1,0 +1,160 @@
+.server-runtime-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-soft);
+}
+
+.server-runtime-field > span {
+  color: var(--color-text-muted);
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.server-runtime-field > select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 42px 0 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  color: var(--color-text);
+  background: var(--color-input);
+  font: inherit;
+  font-weight: 750;
+  outline: none;
+}
+
+.server-runtime-field > select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.server-runtime-field > select:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+
+.server-runtime-status {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.server-runtime-status > i {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+}
+
+.server-runtime-status > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.server-runtime-status strong {
+  overflow-wrap: anywhere;
+  font-size: .82rem;
+}
+
+.server-runtime-status small {
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: .69rem;
+  line-height: 1.45;
+}
+
+.server-runtime-status.is-ready {
+  border-color: color-mix(in srgb, var(--color-success) 38%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 7%, var(--color-surface));
+}
+
+.server-runtime-status.is-ready > i {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 13%, var(--color-surface));
+}
+
+.server-runtime-status.is-error,
+.server-runtime-status.is-empty,
+.server-runtime-status.is-warning {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 7%, var(--color-surface));
+}
+
+.server-runtime-status.is-error > i,
+.server-runtime-status.is-empty > i,
+.server-runtime-status.is-warning > i {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 13%, var(--color-surface));
+}
+
+@media (max-width: 620px) {
+  .server-runtime-field {
+    padding: 11px;
+  }
+
+}
+
+
+.server-image-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.server-image-field__path {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.server-image-field__path > span {
+  color: var(--color-text-muted);
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.server-image-field__path > input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  color: var(--color-text);
+  background: var(--color-input);
+  font: inherit;
+  outline: none;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.server-image-field__path > input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.server-image-field__path > input:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+

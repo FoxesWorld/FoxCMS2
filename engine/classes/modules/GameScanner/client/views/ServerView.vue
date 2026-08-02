@@ -39,7 +39,7 @@ onMounted(async () => {
     else mods.value = normalizeMods(details.value.modsInfo)
   } catch (requestError) {
     console.error('[FoxesCraft] Server request failed', requestError)
-    error.value = 'Не удалось получить сведения о сервере.'
+    error.value = 'Не удалось загрузить сведения о сервере.'
   } finally { loading.value = false }
 })
 </script>

@@ -9,6 +9,7 @@ final class UploadPurpose
     public const PROFILE_PHOTO = 'profile.photo';
     public const NEWS_COVER = 'news.cover';
     public const SLIDER_IMAGE = 'slider.image';
+    public const SERVER_IMAGE = 'server.image';
     public const ADMIN_FILE = 'admin.file';
 
     private const VALUES = [
@@ -17,6 +18,7 @@ final class UploadPurpose
         self::PROFILE_PHOTO,
         self::NEWS_COVER,
         self::SLIDER_IMAGE,
+        self::SERVER_IMAGE,
         self::ADMIN_FILE,
     ];
 

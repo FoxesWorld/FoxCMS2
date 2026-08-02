@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useAdminPanel } from '@modules/AdminPanel/client/useAdminPanel'
 import AdminOverview from '@theme/foxEngine/admin/Overview.vue'
+import AdminSiteSettings from '@theme/foxEngine/admin/SiteSettings.vue'
 import AdminSlides from '@theme/foxEngine/admin/Slides.vue'
 import AdminContent from '@theme/foxEngine/admin/Content.vue'
 import AdminMaintenance from '@theme/foxEngine/admin/Maintenance.vue'
@@ -12,10 +13,12 @@ import AdminLogs from '@theme/foxEngine/admin/Logs.vue'
 import AdminCatalogs from '@theme/foxEngine/admin/Catalogs.vue'
 
 const {
-  isAdmin, activeTab, loading, feedback, overview, hardware, maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
-  servers, selectedServer, serverDraft, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
+  isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady,
+  maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
+  servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
   logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, catalogKey, hardwareMax,
-  formatTimestamp, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, loadUsers, editUser, saveUser, newServer, editServer, saveServer, deleteServer,
+  formatTimestamp, loadSiteSettings, saveSiteSettings, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide,
+  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, loadUsers, searchUsers, editUser, saveUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
 } = useAdminPanel()
@@ -84,6 +87,8 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
           class="form-feedback admin-feedback"
           :class="{
             'form-feedback--success': feedback.type === 'success',
+            'form-feedback--warning': feedback.type === 'warning',
+            'admin-feedback--warning': feedback.type === 'warning',
             'admin-feedback--error': feedback.type === 'error',
           }"
           role="status"
@@ -91,7 +96,11 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
           <div class="admin-feedback__message">
             <i
               class="fa-solid"
-              :class="feedback.type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark'"
+              :class="feedback.type === 'success'
+                ? 'fa-circle-check'
+                : feedback.type === 'warning'
+                  ? 'fa-circle-exclamation'
+                  : 'fa-circle-xmark'"
               aria-hidden="true"
             />
             <span>{{ feedback.message }}</span>
@@ -114,6 +123,14 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
 
         <section class="admin-workspace__content">
           <AdminOverview v-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" :hardware-max="hardwareMax" />
+          <AdminSiteSettings
+            v-else-if="activeTab === 'settings'"
+            :settings="siteSettings"
+            :loading="loading"
+            :updated-at="siteSettingsUpdatedAt"
+            :storage-ready="siteSettingsStorageReady"
+            @save="saveSiteSettings"
+          />
           <AdminSlides
             v-else-if="activeTab === 'slides'"
             :settings="sliderSettings"
@@ -152,7 +169,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             :draft="userDraft"
             :format-timestamp="formatTimestamp"
             :loading="loading"
-            @search="loadUsers"
+            @search="searchUsers"
             @edit="editUser"
             @save="saveUser"
           />
@@ -162,9 +179,16 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             :selected="selectedServer"
             :draft="serverDraft"
             :groups="groupOptions"
+            :jdk-options="jdkOptions"
+            :jdk-catalog="jdkCatalog"
+            :loading="loading"
+            :image-uploading="serverImageUploading"
+            :image-error="serverImageError"
             @create="newServer"
             @edit="editServer"
             @remove="deleteServer"
+            @upload-image="uploadServerImage"
+            @clear-image="clearServerImage"
             @save="saveServer"
           />
           <AdminFileManager

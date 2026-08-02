@@ -13,7 +13,15 @@ function evaluateRuntimeCompatibility(array $candidate, array $request): array
             $request['platform']
         ));
     }
-    if ($candidate['version_core'] !== $request['version']) {
+    if (($request['version_mode'] ?? 'exact') === 'major') {
+        if ((int)$candidate['java_major'] !== (int)$request['java_major']) {
+            return array('compatible' => false, 'code' => 'java_major_mismatch', 'reason' => sprintf(
+                'Detected Java %s, Java major %s was requested.',
+                $candidate['version_core'],
+                $request['version']
+            ));
+        }
+    } elseif ($candidate['version_core'] !== $request['version']) {
         return array('compatible' => false, 'code' => 'java_version_not_exact', 'reason' => sprintf(
             'Detected Java %s, exact Java %s was requested.',
             $candidate['version_core'],
@@ -30,7 +38,10 @@ function evaluateRuntimeCompatibility(array $candidate, array $request): array
     if (!$request['allow_prerelease'] && !$candidate['stable']) {
         return array('compatible' => false, 'code' => 'prerelease_rejected', 'reason' => 'Prerelease runtimes are disabled.');
     }
-    return array('compatible' => true, 'code' => 'compatible', 'reason' => 'Exact version and platform match.');
+    $reason = ($request['version_mode'] ?? 'exact') === 'major'
+        ? 'Java major and platform match.'
+        : 'Exact version and platform match.';
+    return array('compatible' => true, 'code' => 'compatible', 'reason' => $reason);
 }
 function scoreRuntimeCandidate(array $candidate, array $request): int
 {
@@ -74,6 +85,18 @@ function summarizeRuntimeCandidate(array $candidate): array
 }
 function buildRuntimeSelectionReason(array $selected, array $request): string
 {
+    if (($request['version_mode'] ?? 'exact') === 'major') {
+        return sprintf(
+            'Selected newest Java %s.x for %s from %s: %s %s (%s), target=%s.',
+            $request['version'],
+            $request['platform'],
+            $selected['catalog_branch'],
+            $selected['vendor'],
+            $selected['version'],
+            strtoupper($selected['distribution']),
+            $selected['install_path']
+        );
+    }
     return sprintf(
         'Selected exact Java %s from %s: %s %s (%s), target=%s.',
         $request['version'],

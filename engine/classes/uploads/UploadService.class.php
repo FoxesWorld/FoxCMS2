@@ -149,6 +149,7 @@ final class UploadService
                 UploadPermission::SLIDER_IMAGE,
                 $authorize,
             ),
+            UploadPurpose::SERVER_IMAGE => $this->serverImagePolicy($authorize),
             UploadPurpose::PROFILE_PHOTO => [
                 'directory' => 'users/' . Uuid::canonical($ownerUuid),
                 'createDirectory' => true,
@@ -202,6 +203,30 @@ final class UploadService
             'maximumWidth' => $maximumDimension,
             'maximumHeight' => $maximumDimension,
             'maximumPixels' => $directory === 'news' ? 24_000_000 : $maximumDimension * $maximumDimension,
+            'overwrite' => false,
+            'image' => true,
+        ];
+    }
+
+    private function serverImagePolicy(bool $authorize): array
+    {
+        if ($authorize) {
+            $this->assertAdminOrPermission(UploadPermission::SERVER_IMAGE);
+        }
+        return [
+            'directory' => 'servers',
+            'createDirectory' => true,
+            'maximumBytes' => 12_582_912,
+            'mimeExtensions' => [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+            ],
+            'minimumWidth' => 320,
+            'minimumHeight' => 180,
+            'maximumWidth' => 8192,
+            'maximumHeight' => 8192,
+            'maximumPixels' => 33_554_432,
             'overwrite' => false,
             'image' => true,
         ];
@@ -420,6 +445,7 @@ final class UploadService
         return match ($purpose) {
             UploadPurpose::NEWS_COVER => 'news-' . bin2hex(random_bytes(16)) . '.' . $extension,
             UploadPurpose::SLIDER_IMAGE => 'slide-' . bin2hex(random_bytes(16)) . '.' . $extension,
+            UploadPurpose::SERVER_IMAGE => 'server-' . bin2hex(random_bytes(16)) . '.' . $extension,
             UploadPurpose::PROFILE_PHOTO => 'profile-photo-' . bin2hex(random_bytes(12)) . '.' . $extension,
             UploadPurpose::MINECRAFT_SKIN => Uuid::canonical($this->ownerUuid($context)) . '-skin.png',
             UploadPurpose::MINECRAFT_CAPE => Uuid::canonical($this->ownerUuid($context)) . '-cape.png',

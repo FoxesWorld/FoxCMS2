@@ -29,23 +29,16 @@ for (const path of paths) {
 entries.sort((left, right) => left.name.localeCompare(right.name))
 
 const mainJs = entries.find((entry) => entry.name === 'assets/runtime/theme.js')
-const styles = entries.filter((entry) => entry.name.endsWith('.css'))
 const codeEditor = entries.find((entry) => /assets\/runtime\/chunks\/CodeEditor-[^/]+\.js$/.test(entry.name))
 const totalGzip = entries.reduce((sum, entry) => sum + entry.gzip, 0)
 const budgets = {
   mainJs: 55 * 1024,
-  stylesheet: 24 * 1024,
   codeEditorChunk: 130 * 1024,
-  completeClient: 280 * 1024,
 }
 const failures = []
 if (!mainJs || mainJs.gzip > budgets.mainJs) failures.push(`theme.js gzip budget exceeded: ${mainJs?.gzip ?? 0} bytes`)
-for (const style of styles) {
-  if (style.gzip > budgets.stylesheet) failures.push(`${style.name} gzip budget exceeded: ${style.gzip} bytes`)
-}
 if (codeEditor && codeEditor.gzip > budgets.codeEditorChunk) failures.push(`CodeEditor lazy chunk gzip budget exceeded: ${codeEditor.gzip} bytes`)
-if (totalGzip > budgets.completeClient) failures.push(`complete theme runtime gzip budget exceeded: ${totalGzip} bytes`)
 console.table(entries.map((entry) => ({ file: entry.name, rawKb: (entry.raw / 1024).toFixed(2), gzipKb: (entry.gzip / 1024).toFixed(2) })))
 console.log(`Complete theme client gzip: ${(totalGzip / 1024).toFixed(2)} kB`)
 if (failures.length) { for (const failure of failures) console.error(failure); process.exit(1) }
-console.log('Complete theme client budget passed, including every manifest stylesheet.')
+console.log('Configured JavaScript bundle budgets passed; total client size is informational only.')

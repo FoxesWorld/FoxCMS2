@@ -90,14 +90,23 @@ function resolveRuntimeForRequest(string $storageDirectory): array
     $candidates = array_values($candidatesByTarget);
     $diagnostics['compatible_archives'] = count($candidates);
     if (count($candidates) === 0) {
-        fail(404, 'runtime_exact_version_unavailable', sprintf(
-            'No compatible Java runtime was found for %s and exact version %s.',
+        $majorMode = ($request['version_mode'] ?? 'exact') === 'major';
+        fail(404, $majorMode ? 'runtime_major_version_unavailable' : 'runtime_exact_version_unavailable', sprintf(
+            $majorMode
+                ? 'No compatible Java runtime was found for %s and Java major %s.'
+                : 'No compatible Java runtime was found for %s and exact version %s.',
             $request['platform'],
             $request['version']
         ), $diagnostics);
     }
 
-    usort($candidates, static function (array $left, array $right): int {
+    usort($candidates, static function (array $left, array $right) use ($request): int {
+        if (($request['version_mode'] ?? 'exact') === 'major') {
+            $versionOrder = version_compare((string)$right['version_core'], (string)$left['version_core']);
+            if ($versionOrder !== 0) {
+                return $versionOrder;
+            }
+        }
         if ($left['score'] !== $right['score']) {
             return $right['score'] <=> $left['score'];
         }
@@ -132,6 +141,7 @@ function resolveRuntimeForRequest(string $storageDirectory): array
             'requested' => array(
                 'platform' => $request['platform'],
                 'version' => $request['version'],
+                'version_mode' => $request['version_mode'] ?? 'exact',
                 'client_version' => $request['client_version'],
             ),
             'scanned_archives' => $diagnostics['scanned_archives'],

@@ -12,6 +12,7 @@ Direct use of `$_FILES`, `is_uploaded_file`, `move_uploaded_file`, or local `UPL
 | `profile.photo` | `uploads/users/<uuid>/profile-photo-<random>.<ext>` | owner, admin, or `upload.profile.any` | JPEG/PNG/WebP/GIF, ≤5 MiB, dimension and pixel limits |
 | `news.cover` | `uploads/news/news-<random>.<ext>` | admin or `upload.news.cover` | JPEG/PNG/WebP/GIF/AVIF, ≤8 MiB, dimension and pixel limits |
 | `slider.image` | `uploads/slides/slide-<random>.<ext>` | admin or `upload.slider.image` | JPEG/PNG/WebP/GIF/AVIF, ≤12 MiB, dimension and pixel limits |
+| `server.image` | `uploads/servers/server-<random>.<ext>` | admin or `upload.server.image` | JPEG/PNG/WebP, ≤12 MiB, 320×180–8192×8192, pixel limit |
 | `admin.file` | selected directory inside `uploads` | admin or `upload.admin.files` | ≤64 MiB, safe filename, blocked web/server-active extensions and MIME types |
 
 ## Security contract
@@ -27,3 +28,30 @@ Every attempt is written to the system `lastlog` through `Logger`:
 - `Upload failed unexpectedly.` — purpose, actor and exception class.
 
 Domain commits that happen after file publication, such as updating `users.profilePhoto`, log a separate error if the database operation fails.
+
+
+## Server image workflow
+
+The administrative server editor uploads through `admPanel=uploadServerImage`. A successful upload immediately writes the returned `/uploads/servers/...` path into `servers.serverImage` and renders the same URL in a 16:9 preview. A temporary `blob:` preview is used while the HTTP upload is in progress and is revoked after success, failure, replacement, or component disposal.
+
+At server-save time, local `/uploads/servers/...` references are revalidated through `UploadService::validateReference`. The public server page and the legacy `sysRequest=serverImage` endpoint support both the new uploads namespace and existing theme image filenames.
+
+
+## Shared image upload form
+
+Regular image uploads use the single Vue component:
+
+```text
+engine/client/components/ImageUploadField.vue
+```
+
+Its shared contract includes file-picker and drag-and-drop input, local MIME/size/dimension validation, temporary `blob:` preview with URL cleanup, wide/square/circle preview modes, selected-file metadata, upload/error/disabled states, replacement and clearing. Domain components provide only policy values and the upload action.
+
+The shared form is used for:
+
+- user profile photos in the crop dialog and profile appearance settings;
+- server cover images;
+- news covers;
+- slider images.
+
+Minecraft skin and cloak inputs remain specialized because they use a separate texture contract and launcher API.

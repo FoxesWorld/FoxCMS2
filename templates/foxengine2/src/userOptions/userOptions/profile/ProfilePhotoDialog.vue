@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import ImageUploadField from '@/components/ImageUploadField.vue'
 
 const props = defineProps<{
   targetLogin: string
@@ -40,17 +41,8 @@ function draw(): void {
   context.drawImage(image, sx, sy, crop, crop, 0, 0, target.width, target.height)
 }
 
-async function selectFile(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+async function selectFile(file: File): Promise<void> {
   localError.value = ''
-  if (!file) return
-  if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
-    localError.value = 'Нужен JPEG, PNG, WebP или GIF до 5 МБ.'
-    input.value = ''
-    return
-  }
-
   revokeUrl()
   const image = new Image()
   image.onload = async () => {
@@ -69,6 +61,16 @@ async function selectFile(event: Event): Promise<void> {
   image.onerror = () => { localError.value = 'Не удалось прочитать изображение.' }
   objectUrl = URL.createObjectURL(file)
   image.src = objectUrl
+}
+
+function clearSelectedFile(): void {
+  revokeUrl()
+  source.value = null
+  selected.value = false
+  localError.value = ''
+  zoom.value = 1
+  centerX.value = .5
+  centerY.value = .5
 }
 
 function pointerDown(event: PointerEvent): void {
@@ -145,18 +147,34 @@ onBeforeUnmount(revokeUrl)
       </div>
 
       <div class="profile-photo-dialog__controls">
-        <label class="profile-photo-picker" for="profile-photo-file">
-          <b class="profile-photo-picker__icon" aria-hidden="true">＋</b>
-          <span><strong>{{ selected ? 'Выбрать другое изображение' : 'Выбрать изображение' }}</strong><small>JPEG, PNG, WebP или GIF · до 5 МБ</small></span>
-        </label>
-        <input id="profile-photo-file" class="profile-photo-picker__input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :disabled="uploading" @change="selectFile">
+        <ImageUploadField
+          title="Фото профиля"
+          description="Перетащите изображение или выберите его через системный диалог"
+          preview-mode="none"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          :allowed-types="['image/jpeg', 'image/png', 'image/webp', 'image/gif']"
+          :maximum-bytes="5_242_880"
+          :minimum-width="64"
+          :minimum-height="64"
+          :maximum-width="4096"
+          :maximum-height="4096"
+          :disabled="uploading"
+          :uploading="uploading"
+          :error="localError || error"
+          :allow-clear="false"
+          hint="JPEG, PNG, WebP или GIF · 64×64–4096×4096 · до 5 МБ"
+          :choose-label="selected ? 'Выбрать другое изображение' : 'Выбрать изображение'"
+          replace-label="Выбрать другое"
+          @select="selectFile"
+          @clear="clearSelectedFile"
+          @invalid="localError = $event"
+        />
 
         <div v-if="selected" class="profile-photo-crop-controls">
           <label for="profile-photo-zoom"><span>Масштаб</span><strong>{{ zoom.toFixed(1) }}×</strong></label>
           <input id="profile-photo-zoom" v-model.number="zoom" type="range" min="1" max="3" step="0.05" :disabled="uploading">
         </div>
 
-        <div v-if="localError || error" class="profile-photo-dialog__feedback profile-photo-dialog__feedback--error" role="alert">{{ localError || error }}</div>
       </div>
     </div>
 

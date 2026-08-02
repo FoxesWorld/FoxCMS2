@@ -119,6 +119,45 @@ final class AuthlibSessionRepository
         return $profiles;
     }
 
+    /**
+     * @param list<string> $usernames
+     * @return array<string, array{userUuid:string,profileId:string,username:string}>
+     */
+    public function findProfilesByNames(array $usernames): array
+    {
+        $normalized = [];
+        foreach ($usernames as $username) {
+            if (preg_match('/^[A-Za-z0-9_.-]{1,64}$/D', $username) !== 1) {
+                continue;
+            }
+            $normalized[strtolower($username)] = $username;
+        }
+        if ($normalized === []) {
+            return [];
+        }
+
+        $placeholders = [];
+        $parameters = [];
+        foreach (array_keys($normalized) as $index => $username) {
+            $placeholder = ':profile_name_' . $index;
+            $placeholders[] = $placeholder;
+            $parameters[$placeholder] = $username;
+        }
+
+        $statement = $this->database->prepare(
+            'SELECT `uuid` AS `userUuid`, `login` FROM `users` '
+            . 'WHERE LOWER(`login`) IN (' . implode(', ', $placeholders) . ')'
+        );
+        $statement->execute($parameters);
+
+        $profiles = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $profile = $this->profileResult($row);
+            $profiles[strtolower($profile['username'])] = $profile;
+        }
+        return $profiles;
+    }
+
     /** @param list<string> $identities @return array{0:string,1:array<string,string>} */
     private function identityPredicate(string $column, array $identities, string $prefix): array
     {
