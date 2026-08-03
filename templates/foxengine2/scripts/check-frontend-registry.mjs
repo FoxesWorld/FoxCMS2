@@ -73,6 +73,9 @@ if (frontendManifest) {
     if (!route || typeof route !== 'object') { failures.push(`non-object route in ${themeName}`); continue }
     if (typeof route.name !== 'string' || !/^[A-Za-z][A-Za-z0-9._-]{0,63}$/.test(route.name)) failures.push(`invalid route name in ${themeName}`)
     if (typeof route.path !== 'string' || !route.path.startsWith('/')) failures.push(`invalid route path for ${route.name ?? '?'} in ${themeName}`)
+    if (route.layout !== undefined && !['standard', 'wide', 'workspace'].includes(route.layout)) {
+      failures.push(`invalid route layout for ${route.name ?? '?'} in ${themeName}: ${String(route.layout)}`)
+    }
     if (routeNames.has(route.name)) failures.push(`duplicate route name ${route.name}`)
     else routeNames.set(route.name, themeName)
     if (routePaths.has(route.path)) failures.push(`duplicate route path ${route.path}`)
@@ -297,8 +300,30 @@ for (const token of [
   'uploadMinecraftFile',
   'removeMinecraftFile',
   '@theme/userOptions/userOptions/ProfileSettings.vue',
+  'function selectTab(tab: SettingsTab)',
 ]) {
   if (!profileSettingsController.includes(token)) failures.push(`embedded Minecraft identity controller missing ${token}`)
+}
+const profileSettingsTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'userOptions', 'ProfileSettings.vue'), 'utf8')
+for (const option of ['ProfileOption', 'AppearanceOption', 'SecurityOption']) {
+  if (!profileSettingsTemplate.includes(`import('./profile/options/${option}.vue')`)) {
+    failures.push(`profile settings option is not runtime-loaded: ${option}`)
+  }
+  if (profileSettingsTemplate.includes(`import ${option} from`)) {
+    failures.push(`profile settings option is statically bundled: ${option}`)
+  }
+}
+if (!profileSettingsTemplate.includes('<Suspense timeout="0">')) {
+  failures.push('profile settings runtime loader has no suspense fallback')
+}
+const adminPanelTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'userOptions', 'AdminPanel.vue'), 'utf8')
+for (const component of ['Users', 'Servers', 'Content', 'FileManager']) {
+  if (!adminPanelTemplate.includes(`import('@theme/foxEngine/admin/${component}.vue')`)) {
+    failures.push(`admin tool is not runtime-loaded: ${component}`)
+  }
+  if (adminPanelTemplate.includes(`import Admin${component} from`)) {
+    failures.push(`admin tool is statically bundled: ${component}`)
+  }
 }
 const appearanceOption = await readFile(join(themeRoot, 'src', 'userOptions', 'userOptions', 'profile', 'options', 'AppearanceOption.vue'), 'utf8')
 if (!appearanceOption.includes("import MinecraftIdentityOption from './MinecraftIdentityOption.vue'")) {

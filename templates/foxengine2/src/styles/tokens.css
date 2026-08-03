@@ -16,6 +16,7 @@
   --space-16: 64px;
 
   --page-width: 1360px;
+  --workspace-width: 1560px;
   --page-gutter: clamp(12px, 3vw, 30px);
   --sidebar-width: 330px;
   --header-height: 88px;

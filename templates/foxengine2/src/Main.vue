@@ -9,7 +9,7 @@ import RightBlock from '@theme/RightBlock.vue'
 import CookiePopup from '@theme/CookiePopup.vue'
 import ButtonUp from '@theme/ButtonUp.vue'
 import ToastViewport from '@theme/ToastViewport.vue'
-import { themeAsset } from '@engine/domain/bootstrap'
+import { themeAsset, type FrontendLayout } from '@engine/domain/bootstrap'
 import { useEngineShell } from '@engine/shell/useEngineShell'
 import { restoreQueuedToast } from '@engine/notifications/toasts'
 import { getSeasonBackground, getSiteSeason } from '@theme/domain/season'
@@ -22,7 +22,12 @@ const THEME_STORAGE_KEY = 'foxescraft.color-theme'
 const shell = useEngineShell()
 const route = useRoute()
 const isHome = computed(() => route.name === 'home')
+const layoutMode = computed<FrontendLayout>(() => {
+  const layout = route.meta.layout
+  return layout === 'wide' || layout === 'workspace' ? layout : 'standard'
+})
 const isAdmin = computed(() => route.name === 'admin')
+const showSidebar = computed(() => layoutMode.value === 'standard')
 const activeSeason = getSiteSeason()
 const logoUrl = themeAsset(shell.bootstrap, 'img/logo.png')
 
@@ -104,14 +109,14 @@ onBeforeUnmount(() => systemThemeQuery.removeEventListener('change', handleSyste
     />
 
     <main id="main-content" class="legacy-main">
-      <div class="page-width legacy-main__inner" :class="{ 'legacy-main__inner--admin': isAdmin }">
+      <div class="page-width legacy-main__inner" :class="[`legacy-main__inner--${layoutMode}`, { 'legacy-main__inner--admin': isAdmin }]">
         <Slider v-if="isHome" />
-        <div class="content-layout" :class="{ 'content-layout--admin': isAdmin }">
+        <div class="content-layout" :class="[`content-layout--${layoutMode}`, { 'content-layout--admin': isAdmin }]">
           <section class="content-column">
             <RouterView />
             <NewsFeed v-if="isHome" />
           </section>
-          <RightBlock v-if="!isAdmin" />
+          <RightBlock v-if="showSidebar" />
         </div>
       </div>
     </main>

@@ -1,23 +1,56 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { computed, watch } from 'vue'
+import { computed, defineAsyncComponent, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminPanel } from '@modules/AdminPanel/client/useAdminPanel'
 import type { AdminCategoryId, AdminSection, AdminToolId } from '@modules/AdminPanel/client/useAdminPanel'
 import AdminDashboard from '@theme/foxEngine/admin/Dashboard.vue'
 import AdminCategoryView from '@theme/foxEngine/admin/Category.vue'
-import AdminOverview from '@theme/foxEngine/admin/Overview.vue'
-import AdminSiteSettings from '@theme/foxEngine/admin/SiteSettings.vue'
-import AdminSlides from '@theme/foxEngine/admin/Slides.vue'
-import AdminContent from '@theme/foxEngine/admin/Content.vue'
-import AdminRewards from '@theme/foxEngine/admin/Rewards.vue'
-import AdminMaintenance from '@theme/foxEngine/admin/Maintenance.vue'
-import AdminUsers from '@theme/foxEngine/admin/Users.vue'
-import AdminServers from '@theme/foxEngine/admin/Servers.vue'
-import AdminFileManager from '@theme/foxEngine/admin/FileManager.vue'
-import AdminLogs from '@theme/foxEngine/admin/Logs.vue'
-import AdminCatalogs from '@theme/foxEngine/admin/Catalogs.vue'
+
+const loadAdminOverview = () => import('@theme/foxEngine/admin/Overview.vue')
+const loadAdminSiteSettings = () => import('@theme/foxEngine/admin/SiteSettings.vue')
+const loadAdminSlides = () => import('@theme/foxEngine/admin/Slides.vue')
+const loadAdminContent = () => import('@theme/foxEngine/admin/Content.vue')
+const loadAdminRewards = () => import('@theme/foxEngine/admin/Rewards.vue')
+const loadAdminMaintenance = () => import('@theme/foxEngine/admin/Maintenance.vue')
+const loadAdminUsers = () => import('@theme/foxEngine/admin/Users.vue')
+const loadAdminServers = () => import('@theme/foxEngine/admin/Servers.vue')
+const loadAdminFileManager = () => import('@theme/foxEngine/admin/FileManager.vue')
+const loadAdminLogs = () => import('@theme/foxEngine/admin/Logs.vue')
+const loadAdminCatalogs = () => import('@theme/foxEngine/admin/Catalogs.vue')
+
+const AdminOverview = defineAsyncComponent(loadAdminOverview)
+const AdminSiteSettings = defineAsyncComponent(loadAdminSiteSettings)
+const AdminSlides = defineAsyncComponent(loadAdminSlides)
+const AdminContent = defineAsyncComponent(loadAdminContent)
+const AdminRewards = defineAsyncComponent(loadAdminRewards)
+const AdminMaintenance = defineAsyncComponent(loadAdminMaintenance)
+const AdminUsers = defineAsyncComponent(loadAdminUsers)
+const AdminServers = defineAsyncComponent(loadAdminServers)
+const AdminFileManager = defineAsyncComponent(loadAdminFileManager)
+const AdminLogs = defineAsyncComponent(loadAdminLogs)
+const AdminCatalogs = defineAsyncComponent(loadAdminCatalogs)
+
+const adminToolLoaders = {
+  overview: loadAdminOverview,
+  settings: loadAdminSiteSettings,
+  slides: loadAdminSlides,
+  content: loadAdminContent,
+  rewards: loadAdminRewards,
+  maintenance: loadAdminMaintenance,
+  users: loadAdminUsers,
+  servers: loadAdminServers,
+  files: loadAdminFileManager,
+  logs: loadAdminLogs,
+  infobox: loadAdminCatalogs,
+  badges: loadAdminCatalogs,
+  groups: loadAdminCatalogs,
+} satisfies Record<AdminToolId, () => Promise<unknown>>
+
+function preloadAdminTool(toolId: AdminToolId): void {
+  void adminToolLoaders[toolId]()
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -74,6 +107,7 @@ async function navigateCategory(category: AdminCategoryId): Promise<void> {
 async function navigateTool(toolId: AdminToolId): Promise<void> {
   const tool = tabs.find((entry) => entry.id === toolId)
   if (!tool) return
+  preloadAdminTool(tool.id)
   await router.push({ query: { ...route.query, group: tool.category, section: tool.id } })
 }
 
@@ -84,6 +118,7 @@ watch(
     if (section !== 'home') {
       const tool = tabs.find((entry) => entry.id === section)
       if (!tool) { void activate('home'); return }
+      preloadAdminTool(tool.id)
       if (normalizeCategory(groupValue) !== tool.category) {
         void router.replace({ query: { ...route.query, group: tool.category, section: tool.id } })
         return
@@ -224,9 +259,11 @@ watch(
             :loading="loading"
             @select="navigateTool"
           />
-          <AdminOverview v-else-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" />
-          <AdminSiteSettings
-            v-else-if="activeTab === 'settings'"
+          <Suspense v-else timeout="0">
+            <template #default>
+              <AdminOverview v-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" />
+              <AdminSiteSettings
+                v-else-if="activeTab === 'settings'"
             :settings="siteSettings"
             :loading="loading"
             :updated-at="siteSettingsUpdatedAt"
@@ -344,18 +381,25 @@ watch(
             @reload="loadLogs"
             @clear="clearLogs"
           />
-          <AdminCatalogs
-            v-else-if="activeTab === 'catalogs'"
-            :name="catalogName"
-            :rows="catalogRows"
-            :key-field="catalogKey"
-            :original-key="originalCatalogKey"
-            v-model:draft="catalogDraft"
-            @create="newCatalogEntry"
-            @edit="editCatalogEntry"
-            @remove="deleteCatalogEntry"
-            @save="saveCatalogEntry"
-          />
+              <AdminCatalogs
+                v-else-if="activeTab === 'catalogs'"
+                :name="catalogName"
+                :rows="catalogRows"
+                :key-field="catalogKey"
+                :original-key="originalCatalogKey"
+                v-model:draft="catalogDraft"
+                @create="newCatalogEntry"
+                @edit="editCatalogEntry"
+                @remove="deleteCatalogEntry"
+                @save="saveCatalogEntry"
+              />
+            </template>
+            <template #fallback>
+              <div class="runtime-panel-skeleton runtime-panel-skeleton--admin" aria-hidden="true">
+                <span /><span /><span /><span />
+              </div>
+            </template>
+          </Suspense>
 
         </section>
       </div>

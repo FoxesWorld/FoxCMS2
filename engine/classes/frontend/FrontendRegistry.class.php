@@ -107,7 +107,11 @@ final class FrontendRegistry
         $path = (string)($route['path'] ?? '');
         $view = (string)($route['view'] ?? '');
         $redirect = (string)($route['redirect'] ?? '');
+        $layout = (string)($route['layout'] ?? 'standard');
 
+        if (!in_array($layout, ['standard', 'wide', 'workspace'], true)) {
+            throw new RuntimeException('Invalid frontend layout in ' . $owner . ': ' . $name);
+        }
         if (preg_match('/^[A-Za-z][A-Za-z0-9._-]{0,63}$/D', $name) !== 1) {
             throw new RuntimeException('Invalid frontend route name in ' . $owner);
         }
@@ -126,6 +130,7 @@ final class FrontendRegistry
             'name' => $name,
             'title' => (string)($route['title'] ?? ''),
             'owner' => $owner,
+            'layout' => $layout,
         ];
         if ($redirect !== '') {
             $normalized['redirect'] = $redirect;

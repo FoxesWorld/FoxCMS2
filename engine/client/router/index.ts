@@ -28,7 +28,7 @@ function routeRecord(definition: FrontendRouteDefinition): RouteRecordRaw {
   const base = {
     path: definition.path,
     name: definition.name,
-    meta: { title: definition.title ?? '' },
+    meta: { title: definition.title ?? '', layout: definition.layout ?? 'standard' },
   }
   if (definition.redirect) return { ...base, redirect: definition.redirect }
 
@@ -57,7 +57,7 @@ if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news-list
       path: '/news',
       name: 'news-list',
       component,
-      meta: { title: t('engine.router.index.004') },
+      meta: { title: t('engine.router.index.004'), layout: 'wide' },
     })
   }
 }
@@ -71,7 +71,7 @@ if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news')) {
       name: 'news',
       component,
       props: true,
-      meta: { title: t('engine.router.index.003') },
+      meta: { title: t('engine.router.index.003'), layout: 'wide' },
     })
   }
 }

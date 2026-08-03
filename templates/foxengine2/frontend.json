@@ -5,14 +5,16 @@
       "path": "/",
       "name": "home",
       "view": "HomeView",
-      "title": "FoxesCraft"
+      "title": "FoxesCraft",
+      "layout": "standard"
     },
     {
       "path": "/news",
       "name": "news-list",
       "view": "NewsListView",
       "title": "Все публикации",
-      "module": "News"
+      "module": "News",
+      "layout": "wide"
     },
     {
       "path": "/news/:id",
@@ -20,7 +22,8 @@
       "view": "NewsView",
       "title": "Новость",
       "props": true,
-      "module": "News"
+      "module": "News",
+      "layout": "wide"
     },
     {
       "path": "/about",
@@ -29,7 +32,8 @@
       "title": "О проекте",
       "props": {
         "pageId": "about"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/rules",
@@ -38,7 +42,8 @@
       "title": "Правила",
       "props": {
         "pageId": "rules"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/funding",
@@ -47,13 +52,15 @@
       "title": "Поддержать проект",
       "props": {
         "pageId": "funding"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/guides/draft",
       "name": "guide-draft",
       "view": "GuideDraftView",
-      "title": "Черновик гайда"
+      "title": "Черновик гайда",
+      "layout": "standard"
     },
     {
       "path": "/guides/discord-access",
@@ -62,20 +69,23 @@
       "title": "Доступ к Discord",
       "props": {
         "pageId": "discord-access"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/badges",
       "name": "badges",
       "view": "BadgesView",
-      "title": "Бейджи"
+      "title": "Бейджи",
+      "layout": "wide"
     },
     {
       "path": "/badges/:id",
       "name": "badge",
       "view": "BadgeView",
       "title": "Значок",
-      "props": true
+      "props": true,
+      "layout": "wide"
     },
     {
       "path": "/legal/privacy",
@@ -84,7 +94,8 @@
       "title": "Конфиденциальность",
       "props": {
         "pageId": "privacy"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/legal/cookies",
@@ -93,7 +104,8 @@
       "title": "Cookie",
       "props": {
         "pageId": "cookies"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/security/verified-libraries",
@@ -102,7 +114,8 @@
       "title": "Проверенные библиотеки",
       "props": {
         "pageId": "verified-libraries"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/security/unverified-libraries",
@@ -111,7 +124,8 @@
       "title": "Непроверенные библиотеки",
       "props": {
         "pageId": "unverified-libraries"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/technology",
@@ -120,7 +134,8 @@
       "title": "Технологии",
       "props": {
         "pageId": "technology"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/roadmap",
@@ -129,7 +144,8 @@
       "title": "Roadmap",
       "props": {
         "pageId": "roadmap"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/admin",
@@ -140,7 +156,8 @@
       "groups": [
         "admin"
       ],
-      "module": "AdminPanel"
+      "module": "AdminPanel",
+      "layout": "workspace"
     },
     {
       "path": "/auth",
@@ -148,7 +165,8 @@
       "view": "AuthView",
       "title": "Вход",
       "auth": "guest",
-      "module": "AuthReg"
+      "module": "AuthReg",
+      "layout": "wide"
     },
     {
       "path": "/register",
@@ -156,7 +174,8 @@
       "view": "RegisterView",
       "title": "Регистрация",
       "auth": "guest",
-      "module": "AuthReg"
+      "module": "AuthReg",
+      "layout": "wide"
     },
     {
       "path": "/lost-password",
@@ -164,7 +183,8 @@
       "view": "LostPasswordView",
       "title": "Восстановление пароля",
       "auth": "guest",
-      "module": "AuthReg"
+      "module": "AuthReg",
+      "layout": "wide"
     },
     {
       "path": "/reset-password",
@@ -172,7 +192,8 @@
       "view": "ResetPasswordView",
       "title": "Новый пароль",
       "auth": "guest",
-      "module": "AuthReg"
+      "module": "AuthReg",
+      "layout": "wide"
     },
     {
       "path": "/start",
@@ -182,7 +203,8 @@
       "module": "GameScanner",
       "props": {
         "pageId": "start"
-      }
+      },
+      "layout": "standard"
     },
     {
       "path": "/server/:value",
@@ -190,7 +212,8 @@
       "view": "ServerView",
       "title": "Сервер",
       "props": true,
-      "module": "GameScanner"
+      "module": "GameScanner",
+      "layout": "wide"
     },
     {
       "path": "/settings/skin",
@@ -203,7 +226,8 @@
       "view": "ProfileSettingsView",
       "title": "Настройки профиля",
       "auth": "user",
-      "module": "UserSettings"
+      "module": "UserSettings",
+      "layout": "workspace"
     },
     {
       "path": "/profile/:value",
@@ -211,14 +235,16 @@
       "view": "ProfileView",
       "title": "Профиль",
       "props": true,
-      "module": "UserSettings"
+      "module": "UserSettings",
+      "layout": "wide"
     },
     {
       "path": "/players",
       "name": "players",
       "view": "PlayersView",
       "title": "Наши игроки",
-      "module": "UserTop"
+      "module": "UserTop",
+      "layout": "wide"
     },
     {
       "path": "/:pathMatch(.*)*",

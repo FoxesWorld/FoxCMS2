@@ -209,6 +209,15 @@ function navigate(route: string): void {
   void router.push(route === 'profile' ? { name: route, params: { value: form.login } } : { name: route })
 }
 
+function selectTab(tab: SettingsTab): void {
+  activeTab.value = tab
+  if (route.value.query.tab === tab) return
+  void router.replace({
+    query: { ...route.value.query, tab },
+    hash: route.value.hash,
+  })
+}
+
 watch(() => route.value.query.tab, (value) => {
   if (value === 'profile' || value === 'appearance' || value === 'security') activeTab.value = value
 }, { immediate: true })
@@ -247,7 +256,7 @@ watch(activeTab, (tab) => {
     :feedback="feedback"
     :accent="accent"
     :submitting="submitting"
-    @update:active-tab="activeTab = $event"
+    @update:active-tab="selectTab"
     @update:accent="accent = $event"
     @submit="saveProfile"
     @select-avatar="selectAvatar"

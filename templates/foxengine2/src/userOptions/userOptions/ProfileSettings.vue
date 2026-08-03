@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
+import { defineAsyncComponent } from 'vue'
 import type { FeedbackMessage, ProfileSettingsFormModel, SettingsTab, SkinResource } from '@engine/contracts/user-pages'
-import AppearanceOption from './profile/options/AppearanceOption.vue'
-import ProfileOption from './profile/options/ProfileOption.vue'
-import SecurityOption from './profile/options/SecurityOption.vue'
+
+const optionLoaders = {
+  profile: () => import('./profile/options/ProfileOption.vue'),
+  appearance: () => import('./profile/options/AppearanceOption.vue'),
+  security: () => import('./profile/options/SecurityOption.vue'),
+} satisfies Record<SettingsTab, () => Promise<unknown>>
+
+const ProfileOption = defineAsyncComponent(() => optionLoaders.profile())
+const AppearanceOption = defineAsyncComponent(() => optionLoaders.appearance())
+const SecurityOption = defineAsyncComponent(() => optionLoaders.security())
+
+function preloadOption(tab: SettingsTab): void {
+  void optionLoaders[tab]()
+}
 
 defineProps<{
   canManageUsers: boolean
@@ -55,45 +67,54 @@ const emit = defineEmits<{
       <p class="lead">{{ t('theme.useroptions.useroptions.profilesettings.003') }}</p>
     </header>
     <nav class="settings-tabs" :aria-label="t('theme.useroptions.useroptions.profilesettings.004')">
-      <button class="button button--primary" type="button" :class="{ active: activeTab === 'profile' }" @click="emit('update:activeTab', 'profile')">{{ t('theme.useroptions.useroptions.profilesettings.005') }}</button>
-      <button class="button button--primary" type="button" :class="{ active: activeTab === 'appearance' }" @click="emit('update:activeTab', 'appearance')">{{ t('theme.useroptions.useroptions.profilesettings.006') }}</button>
-      <button class="button button--primary" type="button" :class="{ active: activeTab === 'security' }" @click="emit('update:activeTab', 'security')">{{ t('theme.useroptions.useroptions.profilesettings.007') }}</button>
+      <button class="button button--primary" type="button" :class="{ active: activeTab === 'profile' }" @pointerenter="preloadOption('profile')" @focus="preloadOption('profile')" @click="emit('update:activeTab', 'profile')">{{ t('theme.useroptions.useroptions.profilesettings.005') }}</button>
+      <button class="button button--primary" type="button" :class="{ active: activeTab === 'appearance' }" @pointerenter="preloadOption('appearance')" @focus="preloadOption('appearance')" @click="emit('update:activeTab', 'appearance')">{{ t('theme.useroptions.useroptions.profilesettings.006') }}</button>
+      <button class="button button--primary" type="button" :class="{ active: activeTab === 'security' }" @pointerenter="preloadOption('security')" @focus="preloadOption('security')" @click="emit('update:activeTab', 'security')">{{ t('theme.useroptions.useroptions.profilesettings.007') }}</button>
     </nav>
     <form class="settings-form" @submit.prevent="emit('submit')">
-      <ProfileOption v-show="activeTab === 'profile'" :form="form" />
-      <AppearanceOption
-        v-show="activeTab === 'appearance'"
-        :key="avatarPreview"
-        :form="form"
-        :avatar-preview="avatarPreview"
-        :avatar-selected="avatarSelected"
-        :uploading="uploading"
-        :photo-feedback="photoFeedback"
-        :accent="accent"
-        :show-skin-settings="showSkinSettings"
-        :viewer-group-tag="viewerGroupTag"
-        :minecraft-uuid="minecraftUuid"
-        :minecraft-front-preview="minecraftFrontPreview"
-        :minecraft-back-preview="minecraftBackPreview"
-        :minecraft-preview-loading="minecraftPreviewLoading"
-        :minecraft-selected-skin-name="minecraftSelectedSkinName"
-        :minecraft-selected-skin-size="minecraftSelectedSkinSize"
-        :minecraft-selected-cloak-name="minecraftSelectedCloakName"
-        :minecraft-selected-cloak-size="minecraftSelectedCloakSize"
-        :minecraft-skin-input-version="minecraftSkinInputVersion"
-        :minecraft-cloak-input-version="minecraftCloakInputVersion"
-        :minecraft-busy="minecraftBusy"
-        :minecraft-feedback="minecraftFeedback"
-        @select-avatar="emit('selectAvatar', $event)"
-        @clear-avatar="emit('clearAvatar')"
-        @upload-avatar="emit('uploadAvatar')"
-        @select-minecraft="(type, event) => emit('selectMinecraft', type, event)"
-        @upload-minecraft="emit('uploadMinecraft', $event)"
-        @remove-minecraft="emit('removeMinecraft', $event)"
-        @refresh-minecraft="emit('refreshMinecraft')"
-        @update:accent="emit('update:accent', $event)"
-      />
-      <SecurityOption v-show="activeTab === 'security'" :form="form" :require-current-password="!canManageUsers" />
+      <Suspense timeout="0">
+        <template #default>
+          <ProfileOption v-if="activeTab === 'profile'" :form="form" />
+          <AppearanceOption
+            v-else-if="activeTab === 'appearance'"
+            :key="avatarPreview"
+            :form="form"
+            :avatar-preview="avatarPreview"
+            :avatar-selected="avatarSelected"
+            :uploading="uploading"
+            :photo-feedback="photoFeedback"
+            :accent="accent"
+            :show-skin-settings="showSkinSettings"
+            :viewer-group-tag="viewerGroupTag"
+            :minecraft-uuid="minecraftUuid"
+            :minecraft-front-preview="minecraftFrontPreview"
+            :minecraft-back-preview="minecraftBackPreview"
+            :minecraft-preview-loading="minecraftPreviewLoading"
+            :minecraft-selected-skin-name="minecraftSelectedSkinName"
+            :minecraft-selected-skin-size="minecraftSelectedSkinSize"
+            :minecraft-selected-cloak-name="minecraftSelectedCloakName"
+            :minecraft-selected-cloak-size="minecraftSelectedCloakSize"
+            :minecraft-skin-input-version="minecraftSkinInputVersion"
+            :minecraft-cloak-input-version="minecraftCloakInputVersion"
+            :minecraft-busy="minecraftBusy"
+            :minecraft-feedback="minecraftFeedback"
+            @select-avatar="emit('selectAvatar', $event)"
+            @clear-avatar="emit('clearAvatar')"
+            @upload-avatar="emit('uploadAvatar')"
+            @select-minecraft="(type, event) => emit('selectMinecraft', type, event)"
+            @upload-minecraft="emit('uploadMinecraft', $event)"
+            @remove-minecraft="emit('removeMinecraft', $event)"
+            @refresh-minecraft="emit('refreshMinecraft')"
+            @update:accent="emit('update:accent', $event)"
+          />
+          <SecurityOption v-else :form="form" :require-current-password="!canManageUsers" />
+        </template>
+        <template #fallback>
+          <div class="runtime-panel-skeleton" aria-hidden="true">
+            <span /><span /><span />
+          </div>
+        </template>
+      </Suspense>
       <p v-if="feedback" class="form-feedback" :class="{ 'form-feedback--success': feedback.type === 'success' }">{{ feedback.message }}</p>
       <div class="settings-actions">
         <button class="button button--ghost" type="button" @click="emit('navigate', 'profile')">{{ t('theme.useroptions.useroptions.profilesettings.008') }}</button>

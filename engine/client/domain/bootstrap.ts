@@ -1,6 +1,8 @@
 import { t } from '@/i18n'
 export type BootstrapValue = string | number | boolean | null | BootstrapValue[] | { [key: string]: BootstrapValue }
 
+export type FrontendLayout = 'standard' | 'wide' | 'workspace'
+
 export interface FrontendRouteDefinition {
   path: string
   name: string
@@ -9,6 +11,7 @@ export interface FrontendRouteDefinition {
   title?: string
   props?: boolean | Record<string, BootstrapValue>
   owner?: string
+  layout?: FrontendLayout
 }
 
 export interface NavigationDefinition {
