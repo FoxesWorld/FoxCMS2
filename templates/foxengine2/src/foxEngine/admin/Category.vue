@@ -25,8 +25,9 @@ function toolMetric(tool: AdminToolDefinition): string {
   if (tool.id === 'servers') return `${props.overview.enabledServers}/${props.overview.servers} активны`
   if (tool.id === 'logs') return 'Live telemetry'
   if (tool.catalog === 'infobox') return 'Справочник'
-  if (tool.catalog === 'badges') return 'Награды'
+  if (tool.catalog === 'badges') return 'Каталог профиля'
   if (tool.catalog === 'groups') return 'Роли и доступ'
+  if (tool.id === 'rewards') return 'Выдача по ключам'
   return ''
 }
 </script>
@@ -61,10 +62,6 @@ function toolMetric(tool: AdminToolDefinition): string {
           <i class="fa-solid" :class="tool.icon" />
         </span>
         <span class="admin-category-tool__copy">
-          <small v-if="tool.parentLabel" class="admin-category-tool__parent">
-            <i class="fa-solid" :class="tool.parentIcon" aria-hidden="true" />
-            {{ tool.parentLabel }}
-          </small>
           <span class="admin-category-tool__title">
             <strong>{{ tool.label }}</strong>
             <small v-if="toolMetric(tool)">{{ toolMetric(tool) }}</small>

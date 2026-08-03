@@ -125,58 +125,118 @@ CREATE TABLE `badgesList` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `badgesList` (`badgeName`, `description`, `img`) VALUES
-('Знаток правил', 'Подтверждает, что пользователь ознакомился с правилами проекта.', '');
+('Знаток правил', 'Подтверждает, что пользователь ознакомился с правилами проекта.', ''),
+('Раннее Возрождение', 'Участник раннего этапа возрождения FoxesCraft 3.0.', '');
 
-CREATE TABLE `badgeClaimKeys` (
+CREATE TABLE `rewardDefinitions` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `badgeId` BIGINT UNSIGNED NOT NULL,
+    `rewardName` VARCHAR(160) NOT NULL,
+    `description` TEXT NOT NULL,
+    `badgeId` BIGINT UNSIGNED NULL,
+    `currencyCode` VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    `currencyAmount` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `enabled` TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
+    `createdAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `updatedAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `createdByUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    `updatedByUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_reward_definition_name` (`rewardName`),
+    KEY `ix_reward_definition_badge` (`badgeId`),
+    KEY `ix_reward_definition_enabled` (`enabled`),
+    CONSTRAINT `fk_reward_definition_badge`
+        FOREIGN KEY (`badgeId`) REFERENCES `badgesList` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `ck_reward_definition_payload`
+        CHECK (`badgeId` IS NOT NULL OR (`currencyCode` IS NOT NULL AND `currencyAmount` > 0)),
+    CONSTRAINT `ck_reward_definition_currency`
+        CHECK ((`currencyCode` IS NULL AND `currencyAmount` = 0) OR (`currencyCode` IS NOT NULL AND `currencyAmount` > 0))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `rewardDefinitions`
+    (`rewardName`, `description`, `badgeId`, `currencyCode`, `currencyAmount`, `enabled`, `createdAt`, `updatedAt`)
+SELECT
+    'Награда за ознакомление с правилами',
+    'Выдаёт бейдж за подтверждение ознакомления с правилами проекта.',
+    `id`,
+    NULL,
+    0,
+    1,
+    UNIX_TIMESTAMP(),
+    UNIX_TIMESTAMP()
+FROM `badgesList`
+WHERE `badgeName` = 'Знаток правил';
+
+INSERT INTO `rewardDefinitions`
+    (`rewardName`, `description`, `badgeId`, `currencyCode`, `currencyAmount`, `enabled`, `createdAt`, `updatedAt`)
+SELECT
+    'Награда раннего возрождения',
+    'Выдаёт памятный бейдж и стартовый бонус ранним участникам FoxesCraft 3.0.',
+    `id`,
+    'crystals',
+    3,
+    1,
+    UNIX_TIMESTAMP(),
+    UNIX_TIMESTAMP()
+FROM `badgesList`
+WHERE `badgeName` = 'Раннее Возрождение';
+
+CREATE TABLE `rewardClaimKeys` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `rewardId` BIGINT UNSIGNED NOT NULL,
     `tokenHash` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     `tokenHint` VARCHAR(12) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
     `usageMode` VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'single',
     `accessMode` VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'code',
+    `publicPlacement` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     `usesCount` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `enabled` TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
     `createdAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `updatedAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `createdByUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uq_badge_claim_key_hash` (`tokenHash`),
-    KEY `ix_badge_claim_key_badge` (`badgeId`),
-    KEY `ix_badge_claim_key_enabled` (`enabled`),
-    CONSTRAINT `fk_badge_claim_key_badge`
-        FOREIGN KEY (`badgeId`) REFERENCES `badgesList` (`id`) ON DELETE CASCADE
+    UNIQUE KEY `uq_reward_claim_key_hash` (`tokenHash`),
+    UNIQUE KEY `uq_reward_claim_public_placement` (`publicPlacement`),
+    KEY `ix_reward_claim_key_reward` (`rewardId`),
+    KEY `ix_reward_claim_key_enabled` (`enabled`),
+    CONSTRAINT `fk_reward_claim_key_reward`
+        FOREIGN KEY (`rewardId`) REFERENCES `rewardDefinitions` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `badgeClaimKeys`
-    (`badgeId`, `tokenHash`, `tokenHint`, `usageMode`, `accessMode`, `usesCount`, `enabled`, `createdAt`, `updatedAt`, `createdByUuid`)
+INSERT INTO `rewardClaimKeys`
+    (`rewardId`, `tokenHash`, `tokenHint`, `usageMode`, `accessMode`, `publicPlacement`, `usesCount`, `enabled`, `createdAt`, `updatedAt`, `createdByUuid`)
 SELECT
-    `id`,
-    'e959a5af7ab0d7307f3881221b2e4fb96a236509df791073c8b7a5fddcb15e57',
-    'VpS-gZAlB8',
-    'reusable',
-    'public',
-    0,
-    1,
-    UNIX_TIMESTAMP(),
-    UNIX_TIMESTAMP(),
-    NULL
-FROM `badgesList`
-WHERE `badgeName` = 'Знаток правил';
+    `id`, SHA2(RANDOM_BYTES(32), 256), LOWER(HEX(RANDOM_BYTES(5))),
+    'reusable', 'public', 'rules', 0, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), NULL
+FROM `rewardDefinitions`
+WHERE `rewardName` = 'Награда за ознакомление с правилами';
 
-CREATE TABLE `badgeKeyClaims` (
+INSERT INTO `rewardClaimKeys`
+    (`rewardId`, `tokenHash`, `tokenHint`, `usageMode`, `accessMode`, `publicPlacement`, `usesCount`, `enabled`, `createdAt`, `updatedAt`, `createdByUuid`)
+SELECT
+    `id`, SHA2(RANDOM_BYTES(32), 256), LOWER(HEX(RANDOM_BYTES(5))),
+    'reusable', 'public', 'welcome-native', 0, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), NULL
+FROM `rewardDefinitions`
+WHERE `rewardName` = 'Награда раннего возрождения';
+
+CREATE TABLE `rewardClaims` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `badgeId` BIGINT UNSIGNED NOT NULL,
+    `rewardId` BIGINT UNSIGNED NOT NULL,
     `keyId` BIGINT UNSIGNED NOT NULL,
     `userUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `badgeGranted` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
+    `badgeId` BIGINT UNSIGNED NULL,
+    `badgeName` VARCHAR(120) NULL,
+    `currencyCode` VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    `currencyAmount` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `claimedAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
-    KEY `ix_badge_key_claim_badge_user` (`badgeId`, `userUuid`),
-    KEY `ix_badge_key_claim_key` (`keyId`),
-    KEY `ix_badge_key_claim_user` (`userUuid`),
-    CONSTRAINT `fk_badge_key_claim_badge`
-        FOREIGN KEY (`badgeId`) REFERENCES `badgesList` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_badge_key_claim_key`
-        FOREIGN KEY (`keyId`) REFERENCES `badgeClaimKeys` (`id`) ON DELETE CASCADE
+    UNIQUE KEY `uq_reward_claim_reward_user` (`rewardId`, `userUuid`),
+    KEY `ix_reward_claim_key` (`keyId`),
+    KEY `ix_reward_claim_user` (`userUuid`),
+    CONSTRAINT `fk_reward_claim_reward`
+        FOREIGN KEY (`rewardId`) REFERENCES `rewardDefinitions` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_reward_claim_key`
+        FOREIGN KEY (`keyId`) REFERENCES `rewardClaimKeys` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `system_hardware_inventory` (

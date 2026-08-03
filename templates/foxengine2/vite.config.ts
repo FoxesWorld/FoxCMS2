@@ -14,6 +14,7 @@ const engineClient = resolve(repositoryRoot, 'engine', 'client')
 const engineModules = resolve(repositoryRoot, 'engine', 'classes', 'modules')
 const themeModules = resolve(themeRoot, 'node_modules')
 
+
 export default defineConfig({
   root: repositoryRoot,
   base: `/templates/${encodeURIComponent(themeName)}/assets/runtime/`,
@@ -43,10 +44,11 @@ export default defineConfig({
       output: {
         entryFileNames: 'theme.js',
         chunkFileNames: 'chunks/[name]-[hash].js',
-        assetFileNames: (assetInfo) =>
-          assetInfo.names?.some((name) => name.endsWith('.css'))
-            ? 'theme.css'
-            : 'assets/[name]-[hash][extname]',
+        assetFileNames: (assetInfo) => {
+          const cssName = assetInfo.names?.find((name) => name.endsWith('.css'))
+          if (!cssName) return 'assets/[name]-[hash][extname]'
+          return 'theme.css'
+        },
       },
     },
   },

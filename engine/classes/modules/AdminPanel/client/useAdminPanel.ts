@@ -7,9 +7,9 @@ import { normalizeBalanceMatrix } from '@/domain/userBalance'
 import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
 import type { JsonObject, JsonValue } from '@/forms/json-form'
 
-export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
+export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
 export type CatalogName = 'infobox' | 'badges' | 'groups'
-export type AdminToolId = Exclude<Tab, 'catalogs'> | 'catalog-infobox' | 'catalog-badges' | 'catalog-groups'
+export type AdminToolId = Exclude<Tab, 'catalogs'> | 'infobox' | 'badges' | 'groups'
 export type AdminSection = 'home' | AdminToolId
 export type AdminView = 'home' | Tab
 export type AdminCategoryId = 'observability' | 'community' | 'content' | 'infrastructure'
@@ -21,8 +21,6 @@ export interface AdminToolDefinition {
   description: string
   icon: string
   catalog?: CatalogName
-  parentLabel?: string
-  parentIcon?: string
 }
 export interface AdminCategoryDefinition {
   id: AdminCategoryId
@@ -228,15 +226,38 @@ export interface BadgeCatalogRow {
   pageSlug: string
   pageConfigured: boolean
 }
-export type BadgeClaimUsageMode = 'single' | 'reusable'
-export type BadgeClaimAccessMode = 'code' | 'public'
-export interface BadgeClaimKeyRow {
+export type RewardClaimUsageMode = 'single' | 'reusable'
+export type RewardClaimAccessMode = 'code' | 'public'
+export interface RewardDefinitionRow {
   id: number
+  rewardName: string
+  description: string
   badgeId: number
   badgeName: string
+  badgeDescription: string
+  badgeImage: string
+  currencyCode: string
+  currencyAmount: number
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+  createdByUuid: string
+  updatedByUuid: string
+  keysCount: number
+  claimsCount: number
+}
+export interface RewardClaimKeyRow {
+  id: number
+  rewardId: number
+  rewardName: string
+  badgeId: number
+  badgeName: string
+  currencyCode: string
+  currencyAmount: number
   tokenHint: string
-  usageMode: BadgeClaimUsageMode
-  accessMode: BadgeClaimAccessMode
+  usageMode: RewardClaimUsageMode
+  accessMode: RewardClaimAccessMode
+  publicPlacement: string
   usesCount: number
   enabled: boolean
   createdAt: number
@@ -245,9 +266,18 @@ export interface BadgeClaimKeyRow {
   claimsCount: number
   lastClaimedAt: number | null
 }
-export interface IssuedBadgeClaimCode {
-  token: string
-  entry: BadgeClaimKeyRow
+export interface IssuedRewardClaimCode {
+  token: string | null
+  entry: RewardClaimKeyRow
+}
+export interface RewardDraft {
+  id: number
+  rewardName: string
+  description: string
+  badgeId: number
+  currencyCode: string
+  currencyAmount: number
+  enabled: boolean
 }
 export interface RuntimeContentDocument<T> {
   schema: number
@@ -420,8 +450,10 @@ export function useAdminPanel() {
   const projectPages = ref<ProjectPageDraft[]>([])
   const badgePages = ref<BadgePageDraft[]>([])
   const contentBadges = ref<BadgeCatalogRow[]>([])
-  const badgeClaimKeys = ref<BadgeClaimKeyRow[]>([])
-  const issuedBadgeClaimCode = ref<IssuedBadgeClaimCode | null>(null)
+  const rewardDefinitions = ref<RewardDefinitionRow[]>([])
+  const rewardClaimKeys = ref<RewardClaimKeyRow[]>([])
+  const issuedRewardClaimCode = ref<IssuedRewardClaimCode | null>(null)
+  const rewardDraft = reactive<RewardDraft>({ id: 0, rewardName: '', description: '', badgeId: 0, currencyCode: '', currencyAmount: 0, enabled: true })
   const groupOptions = ref<GroupOption[]>([])
   const badgeOptions = ref<AdminBadgeOption[]>([])
   const users = ref<UserRow[]>([])
@@ -512,10 +544,11 @@ export function useAdminPanel() {
     { id: 'overview', tab: 'overview', category: 'observability', label: 'Обзор', description: 'Сводка проекта и данные об оборудовании', icon: 'fa-chart-line' },
     { id: 'logs', tab: 'logs', category: 'observability', label: 'Журналы', description: 'Запросы, ошибки и диагностический контекст', icon: 'fa-rectangle-list' },
     { id: 'users', tab: 'users', category: 'community', label: 'Пользователи', description: 'Профили, группы, баланс и награды', icon: 'fa-users' },
-    { id: 'catalog-infobox', tab: 'catalogs', category: 'community', catalog: 'infobox', parentLabel: 'Каталоги', parentIcon: 'fa-table-list', label: 'InfoBox', description: 'Информационные блоки и справочные записи', icon: 'fa-circle-info' },
-    { id: 'catalog-badges', tab: 'catalogs', category: 'community', catalog: 'badges', parentLabel: 'Каталоги', parentIcon: 'fa-table-list', label: 'Бейджи', description: 'Награды, изображения и параметры бейджей', icon: 'fa-award' },
-    { id: 'catalog-groups', tab: 'catalogs', category: 'community', catalog: 'groups', parentLabel: 'Каталоги', parentIcon: 'fa-table-list', label: 'Группы', description: 'Роли, цвета и права групп пользователей', icon: 'fa-user-group' },
-    { id: 'content', tab: 'content', category: 'content', label: 'Страницы', description: 'Проектные страницы, бейджи и ключи выдачи', icon: 'fa-newspaper' },
+    { id: 'infobox', tab: 'catalogs', category: 'community', catalog: 'infobox', label: 'InfoBox', description: 'Информационные блоки и справочные записи', icon: 'fa-circle-info' },
+    { id: 'badges', tab: 'catalogs', category: 'community', catalog: 'badges', label: 'Бейджи', description: 'Каталог визуальных знаков профиля', icon: 'fa-award' },
+    { id: 'rewards', tab: 'rewards', category: 'community', label: 'Награды', description: 'Композиции из бейджа и/или валюты, ключи и история выдачи', icon: 'fa-coins' },
+    { id: 'groups', tab: 'catalogs', category: 'community', catalog: 'groups', label: 'Группы', description: 'Роли, цвета и права групп пользователей', icon: 'fa-user-group' },
+    { id: 'content', tab: 'content', category: 'content', label: 'Страницы', description: 'Проектные страницы и HTML-страницы бейджей', icon: 'fa-newspaper' },
     { id: 'slides', tab: 'slides', category: 'content', label: 'Слайды', description: 'Главный слайдер, изображения и переходы', icon: 'fa-images' },
     { id: 'settings', tab: 'settings', category: 'content', label: 'Настройки сайта', description: 'Title, SEO, метаданные и оформление', icon: 'fa-sliders' },
     { id: 'servers', tab: 'servers', category: 'infrastructure', label: 'Серверы', description: 'Игровая сеть, runtime JDK и параметры запуска', icon: 'fa-server' },
@@ -747,23 +780,105 @@ export function useAdminPanel() {
       projectPages: RuntimeContentDocument<ProjectPageDraft>
       badgePages: { pages: BadgePageDraft[] }
       badges: BadgeCatalogRow[]
-      badgeClaimKeys: BadgeClaimKeyRow[]
     }>({ admPanel: 'content' }))
     if (!response) return
     projectPages.value = cloneContent(response.projectPages.pages)
     badgePages.value = cloneContent(response.badgePages.pages)
     contentBadges.value = response.badges.map((badge) => ({ ...badge, id: Number(badge.id) }))
-    badgeClaimKeys.value = response.badgeClaimKeys.map((entry) => ({
+  }
+
+  function applyRewardDraft(source?: RewardDefinitionRow): void {
+    rewardDraft.id = source?.id ?? 0
+    rewardDraft.rewardName = source?.rewardName ?? ''
+    rewardDraft.description = source?.description ?? ''
+    rewardDraft.badgeId = source?.badgeId ?? 0
+    rewardDraft.currencyCode = source?.currencyCode ?? ''
+    rewardDraft.currencyAmount = source?.currencyAmount ?? 0
+    rewardDraft.enabled = source?.enabled ?? true
+  }
+
+  async function loadRewards(): Promise<void> {
+    const response = await run(() => foxesApi.post<{
+      rewards: RewardDefinitionRow[]
+      claimKeys: RewardClaimKeyRow[]
+      badges: AdminBadgeOption[]
+    }>({ admPanel: 'rewards' }))
+    if (!response) return
+    rewardDefinitions.value = response.rewards.map((entry) => ({
       ...entry,
       id: Number(entry.id),
       badgeId: Number(entry.badgeId),
+      currencyAmount: Number(entry.currencyAmount),
+      createdAt: Number(entry.createdAt),
+      updatedAt: Number(entry.updatedAt),
+      keysCount: Number(entry.keysCount),
+      claimsCount: Number(entry.claimsCount),
+      enabled: entry.enabled === true,
+    }))
+    rewardClaimKeys.value = response.claimKeys.map((entry) => ({
+      ...entry,
+      id: Number(entry.id),
+      rewardId: Number(entry.rewardId),
+      badgeId: Number(entry.badgeId),
+      currencyAmount: Number(entry.currencyAmount),
       usesCount: Number(entry.usesCount),
       claimsCount: Number(entry.claimsCount),
       createdAt: Number(entry.createdAt),
       updatedAt: Number(entry.updatedAt),
       lastClaimedAt: entry.lastClaimedAt === null ? null : Number(entry.lastClaimedAt),
+      enabled: entry.enabled === true,
     }))
+    badgeOptions.value = response.badges.map((badge) => ({ ...badge, id: Number(badge.id) }))
+    if (rewardDraft.id > 0) {
+      applyRewardDraft(rewardDefinitions.value.find((entry) => entry.id === rewardDraft.id))
+    }
   }
+
+  function newReward(): void { applyRewardDraft() }
+  function editReward(reward: RewardDefinitionRow): void { applyRewardDraft(reward) }
+  async function saveReward(): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & { reward: RewardDefinitionRow }>({
+      admPanel: 'saveReward',
+      entry: JSON.stringify(rewardDraft),
+    }))
+    if (!response) return
+    feedback.value = response
+    await loadRewards()
+    applyRewardDraft(rewardDefinitions.value.find((entry) => entry.id === Number(response.reward.id)))
+  }
+  async function deleteReward(reward: RewardDefinitionRow): Promise<void> {
+    if (!window.confirm(`Удалить награду «${reward.rewardName}»? Награды с историей выдач удалить нельзя.`)) return
+    const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteReward', rewardId: reward.id }))
+    if (!response) return
+    feedback.value = response
+    if (rewardDraft.id === reward.id) applyRewardDraft()
+    await loadRewards()
+  }
+  async function issueRewardClaimKey(
+    rewardId: number,
+    usageMode: RewardClaimUsageMode,
+    accessMode: RewardClaimAccessMode,
+    publicPlacement: string,
+  ): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & IssuedRewardClaimCode>({
+      admPanel: 'issueRewardClaimKey', rewardId, usageMode, accessMode, publicPlacement,
+    }))
+    if (!response) return
+    feedback.value = response
+    issuedRewardClaimCode.value = { token: response.token, entry: response.entry }
+    await loadRewards()
+  }
+  async function revokeRewardClaimKey(keyId: number): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & { entry: RewardClaimKeyRow }>({
+      admPanel: 'revokeRewardClaimKey', keyId,
+    }))
+    if (!response) return
+    feedback.value = response
+    if (issuedRewardClaimCode.value?.entry.id === keyId) issuedRewardClaimCode.value = null
+    await loadRewards()
+  }
+  function clearIssuedRewardClaimCode(): void { issuedRewardClaimCode.value = null }
+
   function ensureBadgePage(badge: BadgeCatalogRow): BadgePageDraft {
     const existing = badgePages.value.find((page) => page.slug === badge.pageSlug)
     if (existing) return existing
@@ -780,34 +895,6 @@ export function useAdminPanel() {
     if (!badge) return
     const index = badgePages.value.findIndex((page) => page.slug === badge.pageSlug)
     if (index >= 0) badgePages.value.splice(index, 1)
-  }
-  async function issueBadgeClaimKey(badgeId: number, usageMode: BadgeClaimUsageMode): Promise<void> {
-    const response = await run(() => foxesApi.post<Feedback & IssuedBadgeClaimCode>({
-      admPanel: 'issueBadgeClaimKey',
-      badgeId,
-      usageMode,
-    }))
-    if (!response) return
-    feedback.value = response
-    issuedBadgeClaimCode.value = { token: response.token, entry: response.entry }
-    badgeClaimKeys.value = [
-      response.entry,
-      ...badgeClaimKeys.value.filter((entry) => entry.id !== response.entry.id),
-    ]
-  }
-  async function revokeBadgeClaimKey(keyId: number): Promise<void> {
-    const response = await run(() => foxesApi.post<Feedback & { entry: BadgeClaimKeyRow }>({
-      admPanel: 'revokeBadgeClaimKey',
-      keyId,
-    }))
-    if (!response) return
-    feedback.value = response
-    const index = badgeClaimKeys.value.findIndex((entry) => entry.id === keyId)
-    if (index >= 0) badgeClaimKeys.value.splice(index, 1, response.entry)
-    if (issuedBadgeClaimCode.value?.entry.id === keyId) issuedBadgeClaimCode.value = null
-  }
-  function clearIssuedBadgeClaimCode(): void {
-    issuedBadgeClaimCode.value = null
   }
   async function saveProjectPages(): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback & { document: RuntimeContentDocument<ProjectPageDraft> }>({
@@ -903,21 +990,36 @@ export function useAdminPanel() {
       await loadUsers({ selectUuid: selectedUuid, autoSelect: false })
     }
   }
-  async function grantBadgeToSelectedUser(badgeId: number): Promise<void> {
-    if (!selectedUser.value || badgeId <= 0) return
-    const selectedUuid = selectedUser.value.uuid
-    const response = await run(() => foxesApi.post<Feedback & { key: BadgeClaimKeyRow }>({
-      admPanel: 'grantBadgeToUser',
-      userUuid: selectedUuid,
-      badgeId,
+
+  function applySelectedUserBadges(userUuid: string, badges: JsonValue): void {
+    userDraft.badges = badges
+    if (selectedUser.value?.uuid === userUuid) {
+      selectedUser.value = { ...selectedUser.value, badges }
+    }
+    const index = users.value.findIndex((user) => user.uuid === userUuid)
+    if (index >= 0) users.value[index] = { ...users.value[index], badges }
+  }
+
+  async function grantUserBadge(badgeId: number, reason: string): Promise<void> {
+    if (!selectedUser.value) return
+    const userUuid = selectedUser.value.uuid
+    const response = await run(() => foxesApi.post<Feedback & { badges: JsonValue }>({
+      admPanel: 'grantUserBadge', userUuid, badgeId, reason,
     }))
     if (!response) return
     feedback.value = response
-    badgeClaimKeys.value = [
-      response.key,
-      ...badgeClaimKeys.value.filter((entry) => entry.id !== response.key.id),
-    ]
-    await loadUsers({ selectUuid: selectedUuid })
+    applySelectedUserBadges(userUuid, response.badges)
+  }
+
+  async function revokeUserBadge(badgeName: string, reason: string): Promise<void> {
+    if (!selectedUser.value) return
+    const userUuid = selectedUser.value.uuid
+    const response = await run(() => foxesApi.post<Feedback & { badges: JsonValue }>({
+      admPanel: 'revokeUserBadge', userUuid, badgeName, reason,
+    }))
+    if (!response) return
+    feedback.value = response
+    applySelectedUserBadges(userUuid, response.badges)
   }
 
   async function loadServers(): Promise<void> {
@@ -1140,6 +1242,7 @@ export function useAdminPanel() {
     if (tool.tab === 'settings') await loadSiteSettings()
     if (tool.tab === 'slides') await loadSlides()
     if (tool.tab === 'content') await loadContent()
+    if (tool.tab === 'rewards') await loadRewards()
     if (tool.tab === 'maintenance') await loadMaintenance()
     if (tool.tab === 'users') await loadUsers()
     if (tool.tab === 'servers') { await loadServers(); if (!selectedServer.value) newServer() }
@@ -1153,15 +1256,15 @@ export function useAdminPanel() {
 
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-    maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, badgeClaimKeys, issuedBadgeClaimCode, groupOptions, badgeOptions,
+    maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp,
     loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
-    loadContent, ensureBadgePage, removeBadgePage, issueBadgeClaimKey, revokeBadgeClaimKey, clearIssuedBadgeClaimCode, saveProjectPages, saveBadgePage, deleteBadgePage,
-    loadUsers, searchUsers, editUser, saveUser, grantBadgeToSelectedUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
+    loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, saveBadgePage, deleteBadgePage,
+    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,

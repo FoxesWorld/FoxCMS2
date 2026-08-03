@@ -32,16 +32,11 @@ require_once ENGINE_DIR . 'classes/themes/ThemeBadgePageRepository.class.php';
 
 function contentText(mixed $value): string
 {
-    $text = (string)$value;
-    if (function_exists('mb_scrub')) {
-        $text = mb_scrub($text, 'UTF-8');
-    } elseif (function_exists('iconv')) {
-        $converted = iconv('UTF-8', 'UTF-8//IGNORE', $text);
-        if (is_string($converted)) {
-            $text = $converted;
-        }
+    $text = str_replace("\0", '', (string)$value);
+    if (preg_match('//u', $text) !== 1) {
+        throw new InvalidArgumentException('Content data must be valid UTF-8.');
     }
-    return str_replace("\0", '', $text);
+    return $text;
 }
 
 function contentDatabase(array $config): db

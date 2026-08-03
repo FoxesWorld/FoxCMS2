@@ -19,7 +19,11 @@ const props = defineProps<{
   loading: boolean
 }>()
 
-const emit = defineEmits<{ save: []; grantBadge: [badgeId: number] }>()
+const emit = defineEmits<{
+  save: []
+  grantBadge: [payload: { badgeId: number; reason: string }]
+  revokeBadge: [payload: { badgeName: string; reason: string }]
+}>()
 
 type StructuredUserField = 'serversOnline'
 
@@ -149,7 +153,7 @@ function groupStyle(color?: string): Record<string, string> {
         <span><i class="fa-solid fa-award" aria-hidden="true" /></span>
         <div>
           <h3>Персональные бейджи</h3>
-          <p>Выдача выполняется через создаваемый сервером одноразовый код получения.</p>
+          <p>Администратор может выдать или отозвать знак профиля напрямую. Это действие не начисляет валюту, не создаёт награду и не изменяет журнал погашения ключей.</p>
         </div>
       </header>
       <UserBadgeEditor
@@ -157,6 +161,7 @@ function groupStyle(color?: string): Record<string, string> {
         :options="badgeOptions"
         :disabled="loading"
         @grant="emit('grantBadge', $event)"
+        @revoke="emit('revokeBadge', $event)"
       />
     </section>
 

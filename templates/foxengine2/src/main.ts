@@ -1,3 +1,4 @@
+import './styles/font-awesome-pro.css'
 import ThemeRoot from './ThemeRoot.vue'
 import { mountEngine } from '@engine/runtime/mountEngine'
 import './styles/fonts.css'

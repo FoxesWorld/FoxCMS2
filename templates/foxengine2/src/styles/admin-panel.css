@@ -385,6 +385,16 @@ html:has(.admin-workspace) {
   margin: 0;
 }
 
+.admin-feedback__details-reason {
+  grid-column: 1 / -1;
+}
+
+.admin-feedback__details-reason dd {
+  color: var(--color-text);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .admin-feedback__details code {
   display: block;
   overflow: hidden;

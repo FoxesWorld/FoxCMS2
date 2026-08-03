@@ -9,6 +9,7 @@ import AdminOverview from '@theme/foxEngine/admin/Overview.vue'
 import AdminSiteSettings from '@theme/foxEngine/admin/SiteSettings.vue'
 import AdminSlides from '@theme/foxEngine/admin/Slides.vue'
 import AdminContent from '@theme/foxEngine/admin/Content.vue'
+import AdminRewards from '@theme/foxEngine/admin/Rewards.vue'
 import AdminMaintenance from '@theme/foxEngine/admin/Maintenance.vue'
 import AdminUsers from '@theme/foxEngine/admin/Users.vue'
 import AdminServers from '@theme/foxEngine/admin/Servers.vue'
@@ -20,11 +21,11 @@ const route = useRoute()
 const router = useRouter()
 const {
   isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-  maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, badgeClaimKeys, issuedBadgeClaimCode, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
+  maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
   servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
   logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, groupedTabs, catalogKey,
   formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide,
-  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, issueBadgeClaimKey, revokeBadgeClaimKey, clearIssuedBadgeClaimCode, loadUsers, searchUsers, editUser, saveUser, grantBadgeToSelectedUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
+  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
 } = useAdminPanel()
@@ -124,13 +125,6 @@ watch(
           {{ currentCategory.label }}
         </button>
       </template>
-      <template v-if="currentTool?.parentLabel">
-        <i class="fa-solid fa-chevron-right" aria-hidden="true" />
-        <span class="admin-breadcrumbs__level admin-breadcrumbs__level--parent">
-          <i class="fa-solid" :class="currentTool.parentIcon" aria-hidden="true" />
-          {{ currentTool.parentLabel }}
-        </span>
-      </template>
       <template v-if="currentTool">
         <i class="fa-solid fa-chevron-right" aria-hidden="true" />
         <span class="admin-breadcrumbs__level is-current" aria-current="page">
@@ -160,7 +154,7 @@ watch(
               <i class="fa-solid" :class="currentTool?.icon" />
             </span>
             <div>
-              <span class="eyebrow">{{ currentTool?.parentLabel || currentCategory?.label }}</span>
+              <span class="eyebrow">{{ currentCategory?.label }}</span>
               <h1>{{ pageTitle }}</h1>
               <p class="lead">{{ pageDescription }}</p>
             </div>
@@ -198,6 +192,10 @@ watch(
             <div>
               <dt>Исключение</dt>
               <dd><code>{{ feedback.error.exception }}</code></dd>
+            </div>
+            <div class="admin-feedback__details-reason">
+              <dt>Причина</dt>
+              <dd>{{ feedback.error.detail }}</dd>
             </div>
             <div>
               <dt>Код запроса</dt>
@@ -253,15 +251,27 @@ watch(
             :project-pages="projectPages"
             :badge-pages="badgePages"
             :badges="contentBadges"
-            :claim-keys="badgeClaimKeys"
-            :issued-code="issuedBadgeClaimCode"
             :loading="loading"
             @save-project-pages="saveProjectPages"
             @save-badge-page="saveBadgePage"
             @delete-badge-page="deleteBadgePage"
-            @issue-claim-key="issueBadgeClaimKey"
-            @revoke-claim-key="revokeBadgeClaimKey"
-            @clear-issued-code="clearIssuedBadgeClaimCode"
+          />
+          <AdminRewards
+            v-else-if="activeTab === 'rewards'"
+            :rewards="rewardDefinitions"
+            :claim-keys="rewardClaimKeys"
+            :issued-code="issuedRewardClaimCode"
+            :badges="badgeOptions"
+            :draft="rewardDraft"
+            :loading="loading"
+            :format-timestamp="formatTimestamp"
+            @create="newReward"
+            @edit="editReward"
+            @save="saveReward"
+            @remove="deleteReward"
+            @issue-key="issueRewardClaimKey"
+            @revoke-key="revokeRewardClaimKey"
+            @clear-issued-code="clearIssuedRewardClaimCode"
           />
           <AdminMaintenance
             v-else-if="activeTab === 'maintenance'"
@@ -283,7 +293,8 @@ watch(
             @search="searchUsers"
             @edit="editUser"
             @save="saveUser"
-            @grant-badge="grantBadgeToSelectedUser"
+            @grant-badge="grantUserBadge"
+            @revoke-badge="revokeUserBadge"
           />
           <AdminServers
             v-else-if="activeTab === 'servers'"

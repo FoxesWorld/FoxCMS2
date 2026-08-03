@@ -40,6 +40,7 @@ final class AdminPanel extends Module
                 );
             }
 
+            require_once __DIR__ . '/AdminFailurePresenter.class.php';
             require_once __DIR__ . '/AdminFileManager.class.php';
             require_once __DIR__ . '/AdminOptions.class.php';
             $payload = $request->all();
@@ -62,7 +63,16 @@ final class AdminPanel extends Module
                 $error->getMessage(),
                 ['action' => $action],
             );
-            JsonResponse::error($error->getMessage(), $error->status(), $error->headers());
+            require_once __DIR__ . '/AdminFailurePresenter.class.php';
+            $requestId = RequestTelemetry::requestId();
+            if ($requestId === '') {
+                $requestId = ExceptionContext::requestId('admin-rejected');
+            }
+            JsonResponse::send(
+                AdminFailurePresenter::payload($error, $action, $requestId),
+                $error->status(),
+                $error->headers(),
+            );
         } catch (Throwable $error) {
             RequestTelemetry::failure(
                 'admin.bootstrap.failed',
@@ -74,9 +84,10 @@ final class AdminPanel extends Module
             if ($requestId === '') {
                 $requestId = ExceptionContext::requestId('admin-bootstrap');
             }
-            JsonResponse::error(
-                'Внутренняя ошибка административной операции. Код события: ' . $requestId . '.',
-                500,
+            require_once __DIR__ . '/AdminFailurePresenter.class.php';
+            JsonResponse::send(
+                AdminFailurePresenter::payload($error, $action, $requestId),
+                AdminFailurePresenter::status($error),
             );
         }
     }

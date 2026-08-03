@@ -108,8 +108,9 @@ const expectedProfileCopy = [
 for (const copy of expectedProfileCopy) {
   if (!source.profileSection.includes(copy)) failures.push(`Profile balance copy is missing or has invalid encoding: ${copy}`)
 }
-for (const marker of ['Р‘Р°', 'РІР°', 'Р”Р°']) {
-  if (source.profileSection.includes(marker)) failures.push('Profile balance copy contains UTF-8/Windows-1251 mojibake')
+const suspiciousCyrillicMojibake = /(?:(?:\u0420|\u0421)[\u0401-\u040f\u0451-\u045f\u0080-\u00ff\u2010-\u203a]){2,}/u
+if (suspiciousCyrillicMojibake.test(source.profileSection)) {
+  failures.push('Profile balance copy contains legacy Cyrillic mojibake')
 }
 
 if (failures.length) {

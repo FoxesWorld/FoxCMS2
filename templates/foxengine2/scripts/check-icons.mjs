@@ -5,8 +5,12 @@ import { modulesRoot, repositoryRoot, sourceRoot, themeRoot, engineClientRoot } 
 const failures = []
 const sourceDirectories = [sourceRoot, engineClientRoot, modulesRoot]
 const fontsPath = join(themeRoot, 'src', 'styles', 'fonts.css')
+const fontAwesomePath = join(themeRoot, 'src', 'styles', 'font-awesome-pro.css')
 const fonts = await readFile(fontsPath, 'utf8')
-const defined = new Set([...fonts.matchAll(/\.(fa-[a-z0-9-]+)::before/g)].map((match) => match[1]))
+const fontAwesome = await readFile(fontAwesomePath, 'utf8')
+const mainSource = await readFile(join(themeRoot, 'src', 'main.ts'), 'utf8')
+const iconStyles = `${fonts}\n${fontAwesome}`
+const defined = new Set([...iconStyles.matchAll(/\.(fa-[a-z0-9-]+):{1,2}before\b/g)].map((match) => match[1]))
 const ignored = new Set(['fa-solid', 'fa-fw'])
 const used = new Map()
 
@@ -36,14 +40,18 @@ for (const [icon, references] of [...used].sort(([left], [right]) => left.locale
 }
 
 for (const token of [
-  '@font-face{font-family:"Font Awesome 6 Pro"',
+  'Font Awesome Pro 6.3.0',
   'fa-solid-900.woff2',
-  'font-variant:normal',
-  'text-rendering:auto',
-  'speak:never',
+  'fa-regular-400.woff2',
+  'fa-brands-400.woff2',
+  '.fa-solid',
+  '.fa-regular',
+  '.fa-brands',
 ]) {
-  if (!fonts.includes(token)) failures.push(`Font Awesome base rule is missing ${token}`)
+  if (!fontAwesome.includes(token)) failures.push(`Font Awesome Pro stylesheet is missing ${token}`)
 }
+if (defined.size < 2_000) failures.push(`Font Awesome Pro mapping is incomplete: only ${defined.size} icon classes found`)
+if (!mainSource.includes("import './styles/font-awesome-pro.css'")) failures.push('Font Awesome Pro stylesheet is not imported by src/main.ts')
 
 if (failures.length) {
   console.error('Icon contract failed:')

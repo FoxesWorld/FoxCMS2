@@ -424,6 +424,14 @@ onBeforeUnmount(() => {
     <div
       class="image-upload-field__dropzone"
       :class="{ 'is-dragging': isDragging, 'has-file': localFile }"
+      role="button"
+      :tabindex="isDisabled ? -1 : 0"
+      :aria-disabled="isDisabled"
+      :aria-busy="uploading || validating || editing"
+      :aria-label="localFile || preview ? replaceLabel : chooseLabel"
+      @click="choose"
+      @keydown.enter.prevent="choose"
+      @keydown.space.prevent="choose"
       @dragenter.prevent="onDragEnter"
       @dragover.prevent
       @dragleave.prevent="onDragLeave"
@@ -435,7 +443,7 @@ onBeforeUnmount(() => {
         <strong>{{ localFile ? localFile.name : dropLabel }}</strong>
         <span>{{ localFile ? `${selectionSize} · можно заменить или отредактировать` : editorEnabled ? 'после выбора откроется редактор Pintura' : 'или откройте системный диалог выбора' }}</span>
       </div>
-      <button class="button button--ghost" type="button" :disabled="isDisabled" @click="choose">
+      <button class="button button--ghost" type="button" :disabled="isDisabled" @click.stop="choose">
         <i class="fa-solid fa-folder-open" aria-hidden="true" />
         <span>{{ localFile || preview ? replaceLabel : chooseLabel }}</span>
       </button>

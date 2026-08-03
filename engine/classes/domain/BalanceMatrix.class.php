@@ -94,6 +94,49 @@ final class BalanceMatrix
         );
     }
 
+    /** @return array{code:string,name:string,symbol:string,primary:bool} */
+    public static function currencyDefinition(string $currencyCode): array
+    {
+        $code = self::normalizeCode($currencyCode);
+        if ($code === '' || !isset(self::CURRENCIES[$code])) {
+            throw new InvalidArgumentException('Unsupported balance currency: ' . $currencyCode);
+        }
+        $definition = self::CURRENCIES[$code];
+        return [
+            'code' => $code,
+            'name' => (string)$definition['name'],
+            'symbol' => (string)$definition['symbol'],
+            'primary' => (bool)$definition['primary'],
+        ];
+    }
+
+    public static function increment(mixed $value, string $currencyCode, int $amount): array
+    {
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('Balance increment must be a positive integer.');
+        }
+
+        $code = self::currencyDefinition($currencyCode)['code'];
+
+        $matrix = self::normalize($value);
+        foreach ($matrix['currencies'] as &$currency) {
+            if (($currency['code'] ?? '') !== $code) {
+                continue;
+            }
+
+            $current = self::amount($currency['amount'] ?? 0, true, $code);
+            if ($current > self::MAX_AMOUNT - $amount) {
+                throw new InvalidArgumentException('Balance amount for ' . $code . ' exceeds the safe integer limit.');
+            }
+            $currency['amount'] = $current + $amount;
+            unset($currency);
+            return $matrix;
+        }
+        unset($currency);
+
+        throw new InvalidArgumentException('Balance currency is missing from the canonical matrix: ' . $code);
+    }
+
     private static function decode(mixed $value, bool $strict): mixed
     {
         if (!is_string($value)) {

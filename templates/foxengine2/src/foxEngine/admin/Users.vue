@@ -19,7 +19,8 @@ const emit = defineEmits<{
   search: []
   edit: [user: UserRow]
   save: []
-  grantBadge: [badgeId: number]
+  grantBadge: [badgeId: number, reason: string]
+  revokeBadge: [badgeName: string, reason: string]
 }>()
 </script>
 
@@ -43,7 +44,8 @@ const emit = defineEmits<{
       :samples="users"
       :loading="loading"
       @save="emit('save')"
-      @grant-badge="emit('grantBadge', $event)"
+      @grant-badge="emit('grantBadge', $event.badgeId, $event.reason)"
+      @revoke-badge="emit('revokeBadge', $event.badgeName, $event.reason)"
     />
   </section>
 </template>

@@ -65,7 +65,7 @@ for (const token of [
 
 for (const token of [
   'admin-log-line__meta',
-  'Р”РёР°РіРЅРѕСЃС‚РёС‡РµСЃРєРёР№ РєРѕРЅС‚РµРєСЃС‚',
+  'Диагностический контекст',
   'Request ID',
   'Correlation ID',
   'entry.deviation',

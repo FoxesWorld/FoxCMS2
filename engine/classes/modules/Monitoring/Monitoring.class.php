@@ -40,7 +40,7 @@ class FoxesMon
             'todaysRecord' => $this->record['day'] ?? 0,
         ];
 
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=UTF-8');
         echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
     }

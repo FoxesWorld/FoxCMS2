@@ -6,6 +6,8 @@ if (!defined('ADMIN')) {
     die();
 }
 
+require_once __DIR__ . '/AdminFailurePresenter.class.php';
+
 final class AdminOptions {
     private const LOG_FILES = ['lastlog', 'error', 'access'];
     private const ACTION_HANDLERS = [
@@ -14,7 +16,8 @@ final class AdminOptions {
         'saveSiteSettings' => 'saveSiteSettings',
         'users' => 'users',
         'updateUser' => 'updateUser',
-        'grantBadgeToUser' => 'grantBadgeToUser',
+        'grantUserBadge' => 'grantUserBadge',
+        'revokeUserBadge' => 'revokeUserBadge',
         'servers' => 'servers',
         'saveServer' => 'saveServer',
         'deleteServer' => 'deleteServer',
@@ -32,8 +35,11 @@ final class AdminOptions {
         'saveProjectPages' => 'saveProjectPages',
         'saveBadgePage' => 'saveBadgePage',
         'deleteBadgePage' => 'deleteBadgePage',
-        'issueBadgeClaimKey' => 'issueBadgeClaimKey',
-        'revokeBadgeClaimKey' => 'revokeBadgeClaimKey',
+        'rewards' => 'rewards',
+        'saveReward' => 'saveReward',
+        'deleteReward' => 'deleteReward',
+        'issueRewardClaimKey' => 'issueRewardClaimKey',
+        'revokeRewardClaimKey' => 'revokeRewardClaimKey',
         'fileList' => 'fileList',
         'fileCreateDirectory' => 'fileCreateDirectory',
         'fileUpload' => 'fileUpload',
@@ -84,7 +90,7 @@ final class AdminOptions {
     private ThemeBadgePageRepository $badgePageRepository;
     private RuntimeJdkCatalog $runtimeJdkCatalog;
     private LogQueryService $logQuery;
-    private BadgeClaimService $badgeClaims;
+    private RewardClaimService $rewardClaims;
 
     public function __construct(
         array $request,
@@ -109,7 +115,7 @@ final class AdminOptions {
         $this->uploads = new UploadService($db, $session, $this->logger, $httpRequest);
         $this->fileManager = new AdminFileManager($this->uploads, $session, $this->logger);
         $this->logQuery = new LogQueryService(self::LOG_FILES);
-        $this->badgeClaims = new BadgeClaimService($db, $logger);
+        $this->rewardClaims = new RewardClaimService($db, $logger);
         $site = is_array($config['siteSettings'] ?? null) ? $config['siteSettings'] : [];
         $this->slidesRepository = new ThemeSlidesRepository(
             TEMPLATE_DIR,
@@ -142,8 +148,12 @@ final class AdminOptions {
             }
             $this->{$handler}();
         } catch (HttpException $error) {
+            $requestId = RequestTelemetry::requestId();
+            if ($requestId === '') {
+                $requestId = ExceptionContext::requestId('admin-rejected');
+            }
             $this->respond(
-                ['message' => $error->getMessage(), 'type' => 'error'],
+                AdminFailurePresenter::payload($error, $action, $requestId),
                 $error->status(),
             );
         } catch (Throwable $error) {
@@ -157,11 +167,10 @@ final class AdminOptions {
             if ($requestId === '') {
                 $requestId = ExceptionContext::requestId('admin');
             }
-            $this->respond([
-                'message' => 'Внутренняя ошибка административной операции. Код события: ' . $requestId . '.',
-                'type' => 'error',
-                'requestId' => $requestId,
-            ], 500);
+            $this->respond(
+                AdminFailurePresenter::payload($error, $action, $requestId),
+                AdminFailurePresenter::status($error),
+            );
         }
     }
 
@@ -293,7 +302,7 @@ final class AdminOptions {
         $payload = $this->decodeObject('entry');
         if (array_key_exists('badges', $payload)) {
             throw new HttpException(
-                'Прямое назначение бейджей запрещено. Создайте код получения в разделе «Коды получения».',
+                'Поле badges нельзя изменять вместе с общими данными пользователя. Используйте отдельные административные действия выдачи и отзыва бейджей.',
                 409,
             );
         }
@@ -367,24 +376,219 @@ final class AdminOptions {
         $this->respond(['message' => 'Пользователь обновлён.', 'type' => 'success']);
     }
 
-
-    private function grantBadgeToUser(): void
+    private function grantUserBadge(): void
     {
-        $userUuid = trim((string)($this->request['userUuid'] ?? ''));
-        $badgeId = max(0, (int)($this->request['badgeId'] ?? 0));
-        $result = $this->badgeClaims->grantToUser(
-            $badgeId,
-            $userUuid,
-            $this->session->uuid(),
-        );
-        $badgeName = trim((string)($result['badge']['badgeName'] ?? 'Бейдж'));
-        $this->respond([
-            'message' => 'Бейдж «' . $badgeName . '» выдан через созданный и немедленно применённый одноразовый код.',
-            'type' => 'success',
-            'badge' => $result['badge'],
-            'key' => $result['key'],
-        ], 201);
+        $this->mutateUserBadge(true);
     }
+
+    private function revokeUserBadge(): void
+    {
+        $this->mutateUserBadge(false);
+    }
+
+    private function mutateUserBadge(bool $grant): void
+    {
+        $requestedUuid = trim((string)($this->request['userUuid'] ?? ''));
+        if (!Uuid::isValid($requestedUuid)) {
+            throw new HttpException('Некорректный UUID пользователя.', 400);
+        }
+        $userUuid = $this->resolveStoredUserUuid($requestedUuid);
+        $reason = preg_replace('/\s+/u', ' ', trim((string)($this->request['reason'] ?? '')));
+        $reason = is_string($reason) ? $reason : '';
+        $reasonLength = function_exists('mb_strlen') ? mb_strlen($reason, 'UTF-8') : strlen($reason);
+        if ($reasonLength < 3 || $reasonLength > 500) {
+            throw new HttpException('Укажите причину административной выдачи или отзыва: от 3 до 500 символов.', 400);
+        }
+
+        $badgeId = max(0, (int)($this->request['badgeId'] ?? 0));
+        $badgeName = trim((string)($this->request['badgeName'] ?? ''));
+        $badge = null;
+        if ($badgeId > 0) {
+            $statement = $this->db->prepare(
+                'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` WHERE `id` = :id LIMIT 1'
+            );
+            $statement->execute([':id' => $badgeId]);
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                $badge = [
+                    'id' => (int)($row['id'] ?? 0),
+                    'badgeName' => trim((string)($row['badgeName'] ?? '')),
+                    'title' => trim((string)($row['badgeName'] ?? '')),
+                    'description' => trim((string)($row['description'] ?? '')),
+                    'image' => trim((string)($row['img'] ?? '')) ?: null,
+                ];
+                $badgeName = (string)$badge['badgeName'];
+            }
+        }
+        if (!$grant && $badge === null && $badgeName !== '') {
+            $statement = $this->db->prepare(
+                'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` WHERE `badgeName` = :badgeName LIMIT 1'
+            );
+            $statement->execute([':badgeName' => $badgeName]);
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                $badge = [
+                    'id' => (int)($row['id'] ?? 0),
+                    'badgeName' => trim((string)($row['badgeName'] ?? '')),
+                    'title' => trim((string)($row['badgeName'] ?? '')),
+                    'description' => trim((string)($row['description'] ?? '')),
+                    'image' => trim((string)($row['img'] ?? '')) ?: null,
+                ];
+                $badgeName = (string)$badge['badgeName'];
+            }
+        }
+        if ($grant && $badge === null) {
+            throw new HttpException('Выбранный бейдж отсутствует в каталоге.', 404);
+        }
+        if ($badgeName === '') {
+            throw new HttpException('Бейдж для административной операции не указан.', 400);
+        }
+        if ((function_exists('mb_strlen') ? mb_strlen($badgeName, 'UTF-8') : strlen($badgeName)) > 160) {
+            throw new HttpException('Название бейджа превышает допустимую длину.', 400);
+        }
+
+        $actorUuid = $this->session->uuid();
+        $result = $this->db->transactional(function () use ($grant, $userUuid, $badgeName, $badge): array {
+            $statement = $this->db->prepare(
+                'SELECT `uuid`, `login`, `badges` FROM `users` WHERE `uuid` = :uuid LIMIT 1 FOR UPDATE'
+            );
+            $statement->execute([':uuid' => $userUuid]);
+            $user = $statement->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($user)) {
+                throw new HttpException('Пользователь не найден.', 404);
+            }
+
+            $assignments = $this->decodeBadgeAssignmentsForMutation($user['badges'] ?? null);
+            $needle = $this->normalizeBadgeAssignmentKey($badgeName);
+            $exists = false;
+            foreach ($assignments as $assignment) {
+                if ($this->normalizeBadgeAssignmentKey($this->badgeAssignmentName($assignment)) === $needle) {
+                    $exists = true;
+                    break;
+                }
+            }
+
+            $changed = false;
+            if ($grant && !$exists) {
+                $assignments[] = [
+                    'badgeName' => $badgeName,
+                    'acquiredAt' => time(),
+                    'source' => 'admin',
+                ];
+                $changed = true;
+            } elseif (!$grant && $exists) {
+                $assignments = array_values(array_filter(
+                    $assignments,
+                    fn (mixed $assignment): bool => $this->normalizeBadgeAssignmentKey(
+                        $this->badgeAssignmentName($assignment)
+                    ) !== $needle,
+                ));
+                $changed = true;
+            }
+
+            $badgesJson = json_encode(
+                array_values($assignments),
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
+            if ($changed) {
+                $update = $this->db->prepare('UPDATE `users` SET `badges` = :badges WHERE `uuid` = :uuid');
+                $update->execute([':badges' => $badgesJson, ':uuid' => $userUuid]);
+            }
+
+            return [
+                'changed' => $changed,
+                'badges' => array_values($assignments),
+                'login' => trim((string)($user['login'] ?? '')),
+            ];
+        });
+
+        $operation = $grant ? 'grant' : 'revoke';
+        $this->logger->event(
+            'admin.user_badge.' . $operation,
+            $grant ? 'Administrator granted a profile badge.' : 'Administrator revoked a profile badge.',
+            [
+                'component' => 'admin_users',
+                'operation' => $operation,
+                'actorUuid' => $actorUuid,
+                'targetUserUuid' => $userUuid,
+                'targetLogin' => (string)$result['login'],
+                'badgeId' => $badge !== null ? (int)$badge['id'] : null,
+                'badgeName' => $badgeName,
+                'reason' => $reason,
+                'changed' => (bool)$result['changed'],
+                'rewardClaimChanged' => false,
+                'balanceChanged' => false,
+            ],
+            (bool)$result['changed'] ? 'INFO' : 'NOTICE',
+            (bool)$result['changed'] ? 'success' : 'noop',
+        );
+
+        $message = $grant
+            ? ((bool)$result['changed'] ? 'Бейдж выдан пользователю.' : 'У пользователя уже есть этот бейдж.')
+            : ((bool)$result['changed'] ? 'Бейдж отозван у пользователя.' : 'У пользователя уже нет этого бейджа.');
+        $this->respond([
+            'message' => $message,
+            'type' => (bool)$result['changed'] ? 'success' : 'warning',
+            'changed' => (bool)$result['changed'],
+            'badges' => $result['badges'],
+            'badge' => $badge ?? ['id' => 0, 'badgeName' => $badgeName, 'title' => $badgeName, 'description' => '', 'image' => null],
+        ]);
+    }
+
+    /** @return list<mixed> */
+    private function decodeBadgeAssignmentsForMutation(mixed $value): array
+    {
+        $decoded = $value;
+        if (!is_array($decoded)) {
+            $raw = trim((string)$value);
+            if ($raw === '') {
+                return [];
+            }
+            $decoded = json_decode($raw, true);
+            if (!is_array($decoded)) {
+                return [['badgeName' => $raw]];
+            }
+        }
+        if ($decoded === []) {
+            return [];
+        }
+        if (array_is_list($decoded)) {
+            return array_values($decoded);
+        }
+        if (array_key_exists('badgeName', $decoded) || array_key_exists('id', $decoded)
+            || array_key_exists('name', $decoded) || array_key_exists('title', $decoded)) {
+            return [$decoded];
+        }
+        $assignments = [];
+        foreach ($decoded as $name => $acquiredAt) {
+            $badgeName = trim((string)$name);
+            if ($badgeName !== '') {
+                $assignments[] = ['badgeName' => $badgeName, 'acquiredAt' => $acquiredAt];
+            }
+        }
+        return $assignments;
+    }
+
+    private function badgeAssignmentName(mixed $assignment): string
+    {
+        if (is_string($assignment) || is_numeric($assignment)) {
+            return trim((string)$assignment);
+        }
+        if (!is_array($assignment)) {
+            return '';
+        }
+        $candidate = $assignment['badgeName'] ?? $assignment['id'] ?? $assignment['name'] ?? $assignment['title'] ?? '';
+        return is_string($candidate) || is_numeric($candidate) ? trim((string)$candidate) : '';
+    }
+
+    private function normalizeBadgeAssignmentKey(string $badgeName): string
+    {
+        $badgeName = trim($badgeName);
+        return function_exists('mb_strtolower')
+            ? mb_strtolower($badgeName, 'UTF-8')
+            : strtolower($badgeName);
+    }
+
 
     private function servers(): void {
         $stmt = $this->db->prepare('SELECT `id`, ' . $this->quotedFields(self::SERVER_FIELDS) . ' FROM `servers` ORDER BY `serverName`');
@@ -818,6 +1022,7 @@ final class AdminOptions {
     }
 
     private function content(): void {
+        $this->assertBadgeCatalogSchema();
         $statement = $this->db->prepare(
             'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`, `id`'
         );
@@ -863,32 +1068,74 @@ final class AdminOptions {
             'projectPages' => $this->contentRepository->readProjectPages(),
             'badgePages' => ['pages' => $badgePages],
             'badges' => array_values($badges),
-            'badgeClaimKeys' => $this->badgeClaims->listKeys(),
         ]);
     }
 
-
-    private function issueBadgeClaimKey(): void
+    private function rewards(): void
     {
-        $badgeId = max(0, (int)($this->request['badgeId'] ?? 0));
-        $usageMode = strtolower(trim((string)($this->request['usageMode'] ?? 'single')));
-        $result = $this->badgeClaims->issue($badgeId, $usageMode, $this->session->uuid());
+        $this->assertRewardAdministrationSchema();
         $this->respond([
-            'message' => $usageMode === 'reusable'
-                ? 'Многоразовый код создан. Сохраните его сейчас: повторно он показан не будет.'
-                : 'Одноразовый код создан. Сохраните его сейчас: повторно он показан не будет.',
+            'rewards' => $this->rewardClaims->listDefinitions(),
+            'claimKeys' => $this->rewardClaims->listKeys(),
+            'badges' => $this->badgeOptions(),
+        ]);
+    }
+
+    private function saveReward(): void
+    {
+        $this->assertRewardAdministrationSchema();
+        $payload = $this->decodeObject('entry');
+        $definition = $this->rewardClaims->saveDefinition($payload, $this->session->uuid());
+        $this->respond([
+            'message' => 'Награда сохранена. Ключи выдачи настраиваются отдельно.',
+            'type' => 'success',
+            'reward' => $definition,
+        ]);
+    }
+
+    private function deleteReward(): void
+    {
+        $this->assertRewardAdministrationSchema();
+        $rewardId = max(0, (int)($this->request['rewardId'] ?? 0));
+        $this->rewardClaims->deleteDefinition($rewardId, $this->session->uuid());
+        $this->respond([
+            'message' => 'Неиспользованная награда и её ключи удалены.',
+            'type' => 'success',
+        ]);
+    }
+
+    private function issueRewardClaimKey(): void
+    {
+        $this->assertRewardAdministrationSchema();
+        $rewardId = max(0, (int)($this->request['rewardId'] ?? 0));
+        $usageMode = strtolower(trim((string)($this->request['usageMode'] ?? 'single')));
+        $accessMode = strtolower(trim((string)($this->request['accessMode'] ?? 'code')));
+        $publicPlacement = trim((string)($this->request['publicPlacement'] ?? ''));
+        $result = $this->rewardClaims->issue(
+            $rewardId,
+            $usageMode,
+            $this->session->uuid(),
+            $accessMode,
+            $publicPlacement,
+        );
+        $public = ($result['entry']['accessMode'] ?? '') === 'public';
+        $this->respond([
+            'message' => $public
+                ? 'Скрытый криптографический placement-ключ создан. Открытое значение уничтожено.'
+                : 'Криптографический код создан. Сохраните его сейчас: повторно он показан не будет.',
             'type' => 'success',
             'token' => $result['token'],
             'entry' => $result['entry'],
         ], 201);
     }
 
-    private function revokeBadgeClaimKey(): void
+    private function revokeRewardClaimKey(): void
     {
+        $this->assertRewardAdministrationSchema();
         $keyId = max(0, (int)($this->request['keyId'] ?? 0));
-        $entry = $this->badgeClaims->revoke($keyId, $this->session->uuid());
+        $entry = $this->rewardClaims->revoke($keyId, $this->session->uuid());
         $this->respond([
-            'message' => 'Код получения бейджа отозван.',
+            'message' => 'Ключ награды отозван.',
             'type' => 'success',
             'entry' => $entry,
         ]);
@@ -920,6 +1167,7 @@ final class AdminOptions {
     }
 
     private function saveBadgePage(): void {
+        $this->assertBadgeCatalogSchema();
         $payload = $this->decodeObject('entry');
         $requestedName = trim((string)($payload['badgeName'] ?? ''));
         $statement = $this->db->prepare(
@@ -1050,7 +1298,10 @@ final class AdminOptions {
     }
 
     private function catalog(): void {
-        [$spec] = $this->catalogSpec();
+        [$spec, $catalog] = $this->catalogSpec();
+        if ($catalog === 'badges') {
+            $this->assertBadgeCatalogSchema();
+        }
         $stmt = $this->db->prepare('SELECT ' . $this->quotedFields($spec['fields']) . ' FROM `' . $spec['table'] . '` ORDER BY `' . $spec['key'] . '`');
         $stmt->execute();
         $this->respond([
@@ -1115,6 +1366,7 @@ final class AdminOptions {
 
 
     private function deleteBadgeCatalogEntry(): never {
+        $this->assertRewardAdministrationSchema();
         $badgeName = trim((string)($this->request['key'] ?? ''));
         if ($badgeName === '') {
             $this->respond(['message' => 'Название бейджа не указано.', 'type' => 'error'], 400);
@@ -1130,20 +1382,22 @@ final class AdminOptions {
         }
 
         $badgeId = (int)($badge['id'] ?? 0);
-        $this->db->transactional(function () use ($badgeId): void {
-            $claims = $this->db->prepare('DELETE FROM `badgeKeyClaims` WHERE `badgeId` = :badgeId');
-            $claims->execute([':badgeId' => $badgeId]);
-
-            $keys = $this->db->prepare('DELETE FROM `badgeClaimKeys` WHERE `badgeId` = :badgeId');
-            $keys->execute([':badgeId' => $badgeId]);
-
-            $badge = $this->db->prepare('DELETE FROM `badgesList` WHERE `id` = :badgeId');
-            $badge->execute([':badgeId' => $badgeId]);
-        });
+        $references = $this->db->prepare(
+            'SELECT COUNT(*) FROM `rewardDefinitions` WHERE `badgeId` = :badgeId'
+        );
+        $references->execute([':badgeId' => $badgeId]);
+        if ((int)$references->fetchColumn() > 0) {
+            $this->respond([
+                'message' => 'Бейдж используется в одной или нескольких наградах. Сначала измените конфигурацию этих наград.',
+                'type' => 'error',
+            ], 409);
+        }
+        $delete = $this->db->prepare('DELETE FROM `badgesList` WHERE `id` = :badgeId');
+        $delete->execute([':badgeId' => $badgeId]);
 
         $this->logger->event(
             'catalog.badges.deleted',
-            'Badge catalog entry and its claim keys were deleted.',
+            'Unreferenced badge catalog entry deleted.',
             [
                 'component' => 'badge_catalog',
                 'operation' => 'delete',
@@ -1154,12 +1408,13 @@ final class AdminOptions {
             'success',
         );
         $this->respond([
-            'message' => 'Бейдж и связанные коды получения удалены.',
+            'message' => 'Бейдж удалён из каталога.',
             'type' => 'success',
         ]);
     }
 
     private function saveBadgeCatalogEntry(): never {
+        $this->assertBadgeCatalogSchema();
         $payload = $this->decodeObject('entry');
         $originalName = trim((string)($this->request['originalKey'] ?? ''));
         $badgeName = trim((string)($payload['badgeName'] ?? ''));
@@ -1238,8 +1493,7 @@ final class AdminOptions {
             $this->db->beginTransaction();
             if (is_array($originalRow)) {
                 $update = $this->db->prepare(
-                    'UPDATE `badgesList` SET `badgeName` = :badgeName, `description` = :description, `img` = :image '
-                    . 'WHERE `id` = :id'
+                    'UPDATE `badgesList` SET `badgeName` = :badgeName, `description` = :description, `img` = :image WHERE `id` = :id'
                 );
                 $update->execute([
                     ':badgeName' => $badgeName,
@@ -1745,8 +1999,92 @@ final class AdminOptions {
         return is_array($decoded) ? $decoded : [];
     }
 
+    private function assertBadgeCatalogSchema(): void
+    {
+        $statement = $this->db->prepare(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'badgesList' "
+            . "AND COLUMN_NAME IN ('id', 'badgeName', 'description', 'img')"
+        );
+        $statement->execute();
+        if ((int)$statement->fetchColumn() !== 4) {
+            throw new HttpException(
+                'Не удалось загрузить бейджи: таблица badgesList отсутствует или повреждена.',
+                503,
+            );
+        }
+    }
+
+    private function assertRewardAdministrationSchema(): void
+    {
+        $required = [
+            'badgesList' => ['id', 'badgeName', 'description', 'img'],
+            'rewardDefinitions' => [
+                'id', 'rewardName', 'description', 'badgeId', 'currencyCode', 'currencyAmount',
+                'enabled', 'createdAt', 'updatedAt', 'createdByUuid', 'updatedByUuid',
+            ],
+            'rewardClaimKeys' => [
+                'id', 'rewardId', 'tokenHash', 'tokenHint', 'usageMode', 'accessMode', 'publicPlacement',
+                'usesCount', 'enabled', 'createdAt', 'updatedAt', 'createdByUuid',
+            ],
+            'rewardClaims' => [
+                'id', 'rewardId', 'keyId', 'userUuid', 'badgeGranted', 'badgeId', 'badgeName',
+                'currencyCode', 'currencyAmount', 'claimedAt',
+            ],
+        ];
+        $placeholders = [];
+        $parameters = [];
+        foreach (array_keys($required) as $index => $table) {
+            $placeholder = ':table_' . $index;
+            $placeholders[] = $placeholder;
+            $parameters[$placeholder] = $table;
+        }
+        $statement = $this->db->prepare(
+            'SELECT `TABLE_NAME`, `COLUMN_NAME` FROM information_schema.COLUMNS '
+            . 'WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` IN (' . implode(', ', $placeholders) . ')'
+        );
+        $statement->execute($parameters);
+        $actual = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $column) {
+            $table = (string)($column['TABLE_NAME'] ?? '');
+            $name = (string)($column['COLUMN_NAME'] ?? '');
+            if ($table !== '' && $name !== '') {
+                $actual[$table][$name] = true;
+            }
+        }
+        $missing = [];
+        foreach ($required as $table => $columns) {
+            if (!isset($actual[$table])) {
+                $missing[] = $table . '.*';
+                continue;
+            }
+            foreach ($columns as $column) {
+                if (!isset($actual[$table][$column])) {
+                    $missing[] = $table . '.' . $column;
+                }
+            }
+        }
+        $indexStatement = $this->db->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS "
+            . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rewardClaims' "
+            . "AND INDEX_NAME = 'uq_reward_claim_reward_user'"
+        );
+        $indexStatement->execute();
+        if ((int)$indexStatement->fetchColumn() < 1) {
+            $missing[] = 'rewardClaims.uq_reward_claim_reward_user';
+        }
+        if ($missing !== []) {
+            throw new HttpException(
+                'Не удалось загрузить награды: схема базы данных не обновлена. Отсутствуют: '
+                . implode(', ', $missing) . '. Выполните `php scripts/migrate.php`; необходима миграция 021.',
+                503,
+            );
+        }
+    }
+
     /** @return list<array{id: int, badgeName: string, title: string, description: string, image: ?string}> */
     private function badgeOptions(): array {
+        $this->assertBadgeCatalogSchema();
         $stmt = $this->db->query(
             'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`'
         );

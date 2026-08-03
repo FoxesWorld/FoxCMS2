@@ -33,8 +33,9 @@ final class db
         if ($dbName === '' || $dbUser === '') {
             throw new InvalidArgumentException('Database name and user are required.');
         }
-        if (preg_match('/^[A-Za-z0-9_]+$/', $charset) !== 1) {
-            throw new InvalidArgumentException('Invalid database charset.');
+        $charset = strtolower(trim($charset));
+        if ($charset !== 'utf8mb4') {
+            throw new InvalidArgumentException('FoxCMS requires the utf8mb4 database charset.');
         }
 
         $dsn = str_starts_with($dbHost, '/')
@@ -50,6 +51,7 @@ final class db
                 PDO::ATTR_PERSISTENT => false,
                 PDO::ATTR_TIMEOUT => max(1, min(30, $connectTimeout)),
             ]);
+            $this->pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
             $this->pdo->exec(
                 "SET SESSION sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'"
             );

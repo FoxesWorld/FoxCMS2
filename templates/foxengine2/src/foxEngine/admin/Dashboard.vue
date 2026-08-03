@@ -95,10 +95,6 @@ function toolMetric(tab: AdminToolId): string {
               <i class="fa-solid" :class="tool.icon" />
             </span>
             <span class="admin-dashboard-card__copy">
-              <small v-if="tool.parentLabel" class="admin-dashboard-card__parent">
-                <i class="fa-solid" :class="tool.parentIcon" aria-hidden="true" />
-                {{ tool.parentLabel }}
-              </small>
               <span class="admin-dashboard-card__title">
                 <strong>{{ tool.label }}</strong>
                 <small v-if="toolMetric(tool.id)">{{ toolMetric(tool.id) }}</small>

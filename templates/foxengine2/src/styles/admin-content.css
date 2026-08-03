@@ -29,4 +29,309 @@
 @media(max-width:760px){.admin-badge-html-editor__actions{justify-content:stretch}.admin-badge-html-editor__actions .button{width:100%}.admin-html-workbench__tabs button{flex:1}.admin-html-preview__header{align-items:flex-start;flex-direction:column}.admin-html-preview__stage{min-height:520px;padding:14px}.admin-badge-html-editor__source textarea{min-height:440px}}
 
 
-.admin-content-editor__workspace--claims{align-items:start}.admin-claim-keys{display:grid;gap:16px}.admin-claim-issuer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;padding:14px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}.admin-claim-issuer label{display:grid;gap:6px}.admin-claim-issuer label>span{color:var(--color-text-muted);font-size:.71rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase}.admin-claim-issuer select{width:100%;min-height:44px;padding:0 11px;border:1px solid var(--color-border);border-radius:10px;color:var(--color-text);background:var(--color-input);font:inherit}.admin-claim-issuer .button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.admin-issued-code{display:grid;gap:12px;padding:15px;border:1px solid color-mix(in srgb,var(--color-success) 42%,var(--color-border));border-radius:13px;background:color-mix(in srgb,var(--color-success) 8%,var(--color-surface))}.admin-issued-code>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.admin-issued-code>header>div{display:grid;gap:3px}.admin-issued-code>header strong{font-size:.9rem}.admin-issued-code>header small{color:var(--color-text-muted);font-size:.73rem}.admin-issued-code>header>button{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--color-border);border-radius:8px;color:var(--color-text-muted);background:transparent;cursor:pointer}.admin-issued-code__value{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.admin-issued-code__value code{min-width:0;display:flex;align-items:center;padding:11px 12px;overflow:auto;border:1px solid var(--color-border);border-radius:10px;color:var(--color-accent);background:var(--color-background);font:700 .8rem/1.3 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:nowrap}.admin-issued-code__value .button{display:inline-flex;align-items:center;justify-content:center;gap:7px}.admin-claim-key-list{display:grid;gap:11px}.admin-claim-key-list>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.admin-claim-key-list>header h4{margin:0;font-size:1rem}.admin-claim-key-list>header p{margin:3px 0 0;color:var(--color-text-muted);font-size:.73rem}.admin-claim-key-list>header>span{min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--color-border);border-radius:999px;color:var(--color-accent);background:var(--color-surface);font-size:.75rem;font-weight:900}.admin-claim-key-rows{display:grid;gap:9px}.admin-claim-key-row{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(280px,1.2fr) auto;align-items:center;gap:14px;padding:13px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}.admin-claim-key-row.is-disabled{opacity:.62}.admin-claim-key-row__identity{min-width:0;display:grid;gap:4px}.admin-claim-key-row__identity>strong{overflow:hidden;text-overflow:ellipsis;font:800 .83rem/1.3 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:nowrap}.admin-claim-key-row__identity>small{color:var(--color-text-muted);font-size:.68rem}.admin-claim-key-row__mode{justify-self:start;padding:4px 7px;border:1px solid var(--color-border);border-radius:999px;font-size:.62rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase}.admin-claim-key-row__mode.is-reusable{color:var(--color-success);border-color:color-mix(in srgb,var(--color-success) 42%,var(--color-border));background:color-mix(in srgb,var(--color-success) 9%,transparent)}.admin-claim-key-row__mode.is-single{color:var(--color-accent);border-color:color-mix(in srgb,var(--color-accent) 42%,var(--color-border));background:color-mix(in srgb,var(--color-accent) 9%,transparent)}.admin-claim-key-row__mode.is-public{color:var(--color-warning);border-color:color-mix(in srgb,var(--color-warning) 42%,var(--color-border));background:color-mix(in srgb,var(--color-warning) 9%,transparent)}.admin-claim-key-row dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}.admin-claim-key-row dl>div{min-width:0;display:grid;gap:2px;padding:8px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-soft)}.admin-claim-key-row dt{color:var(--color-text-muted);font-size:.61rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.admin-claim-key-row dd{margin:0;overflow:hidden;text-overflow:ellipsis;font-size:.72rem;font-weight:800;white-space:nowrap}.admin-claim-key-row>.button{display:inline-flex;align-items:center;justify-content:center;gap:6px}.admin-content-empty-page--compact{min-height:190px}.admin-content-editor__modes{flex-wrap:wrap}@media(max-width:1100px){.admin-claim-key-row{grid-template-columns:minmax(180px,1fr) minmax(0,1.4fr)}.admin-claim-key-row>.button{grid-column:1/-1;justify-self:end}.admin-claim-key-row dl{grid-template-columns:repeat(3,minmax(100px,1fr))}}@media(max-width:760px){.admin-claim-issuer,.admin-issued-code__value,.admin-claim-key-row{grid-template-columns:1fr}.admin-claim-issuer .button,.admin-issued-code__value .button,.admin-claim-key-row>.button{width:100%;justify-self:stretch}.admin-claim-key-row dl{grid-template-columns:1fr}.admin-claim-key-row>.button{grid-column:auto}.admin-content-editor__modes button{min-width:140px}}
+.admin-content-editor__workspace--claims{align-items:start}.admin-claim-keys{display:grid;gap:16px}.admin-claim-issuer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;align-items:end;gap:12px;padding:14px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}.admin-claim-issuer label{display:grid;gap:6px}.admin-claim-issuer label>span{color:var(--color-text-muted);font-size:.71rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase}.admin-claim-issuer select,.admin-claim-issuer input{width:100%;min-height:44px;padding:0 11px;border:1px solid var(--color-border);border-radius:10px;color:var(--color-text);background:var(--color-input);font:inherit}.admin-claim-issuer label small{color:var(--color-text-muted);font-size:.66rem;line-height:1.4}.admin-claim-issuer .button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.admin-issued-code{display:grid;gap:12px;padding:15px;border:1px solid color-mix(in srgb,var(--color-success) 42%,var(--color-border));border-radius:13px;background:color-mix(in srgb,var(--color-success) 8%,var(--color-surface))}.admin-issued-code>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.admin-issued-code>header>div{display:grid;gap:3px}.admin-issued-code>header strong{font-size:.9rem}.admin-issued-code>header small{color:var(--color-text-muted);font-size:.73rem}.admin-issued-code>header>button{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--color-border);border-radius:8px;color:var(--color-text-muted);background:transparent;cursor:pointer}.admin-issued-code__value{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.admin-issued-code__value code{min-width:0;display:flex;align-items:center;padding:11px 12px;overflow:auto;border:1px solid var(--color-border);border-radius:10px;color:var(--color-accent);background:var(--color-background);font:700 .8rem/1.3 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:nowrap}.admin-issued-code__value .button{display:inline-flex;align-items:center;justify-content:center;gap:7px}.admin-claim-key-list{display:grid;gap:11px}.admin-claim-key-list>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.admin-claim-key-list>header h4{margin:0;font-size:1rem}.admin-claim-key-list>header p{margin:3px 0 0;color:var(--color-text-muted);font-size:.73rem}.admin-claim-key-list>header>span{min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--color-border);border-radius:999px;color:var(--color-accent);background:var(--color-surface);font-size:.75rem;font-weight:900}.admin-claim-key-rows{display:grid;gap:9px}.admin-claim-key-row{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(280px,1.2fr) auto;align-items:center;gap:14px;padding:13px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}.admin-claim-key-row.is-disabled{opacity:.62}.admin-claim-key-row__identity{min-width:0;display:grid;gap:4px}.admin-claim-key-row__identity>strong{overflow:hidden;text-overflow:ellipsis;font:800 .83rem/1.3 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:nowrap}.admin-claim-key-row__identity>small{color:var(--color-text-muted);font-size:.68rem}.admin-claim-key-row__mode{justify-self:start;padding:4px 7px;border:1px solid var(--color-border);border-radius:999px;font-size:.62rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase}.admin-claim-key-row__mode.is-reusable{color:var(--color-success);border-color:color-mix(in srgb,var(--color-success) 42%,var(--color-border));background:color-mix(in srgb,var(--color-success) 9%,transparent)}.admin-claim-key-row__mode.is-single{color:var(--color-accent);border-color:color-mix(in srgb,var(--color-accent) 42%,var(--color-border));background:color-mix(in srgb,var(--color-accent) 9%,transparent)}.admin-claim-key-row__mode.is-public{color:var(--color-warning);border-color:color-mix(in srgb,var(--color-warning) 42%,var(--color-border));background:color-mix(in srgb,var(--color-warning) 9%,transparent)}.admin-claim-key-row dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}.admin-claim-key-row dl>div{min-width:0;display:grid;gap:2px;padding:8px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-soft)}.admin-claim-key-row dt{color:var(--color-text-muted);font-size:.61rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.admin-claim-key-row dd{margin:0;overflow:hidden;text-overflow:ellipsis;font-size:.72rem;font-weight:800;white-space:nowrap}.admin-claim-key-row>.button{display:inline-flex;align-items:center;justify-content:center;gap:6px}.admin-content-empty-page--compact{min-height:190px}.admin-content-editor__modes{flex-wrap:wrap}@media(max-width:1100px){.admin-claim-key-row{grid-template-columns:minmax(180px,1fr) minmax(0,1.4fr)}.admin-claim-key-row>.button{grid-column:1/-1;justify-self:end}.admin-claim-key-row dl{grid-template-columns:repeat(3,minmax(100px,1fr))}}@media(max-width:760px){.admin-claim-issuer,.admin-issued-code__value,.admin-claim-key-row{grid-template-columns:1fr}.admin-claim-issuer .button,.admin-issued-code__value .button,.admin-claim-key-row>.button{width:100%;justify-self:stretch}.admin-claim-key-row dl{grid-template-columns:1fr}.admin-claim-key-row>.button{grid-column:auto}.admin-content-editor__modes button{min-width:140px}}
+
+@media(max-width:900px){.admin-claim-issuer{grid-template-columns:1fr}.admin-claim-issuer .button{width:100%}}
+
+
+/* Independent reward definitions */
+.admin-rewards {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-rewards__header,
+.admin-reward-form > header,
+.admin-reward-keys > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.admin-rewards__header h2,
+.admin-reward-form h3,
+.admin-reward-keys h3 {
+  margin: 4px 0 6px;
+}
+
+.admin-rewards__header p,
+.admin-reward-form header p,
+.admin-reward-keys header p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.admin-rewards__workspace {
+  display: grid;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-rewards__list,
+.admin-rewards__editor,
+.admin-reward-form,
+.admin-reward-keys {
+  min-width: 0;
+}
+
+.admin-rewards__list {
+  display: grid;
+  gap: 8px;
+  position: sticky;
+  top: 18px;
+}
+
+.admin-rewards__list > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-rewards__list > button:hover,
+.admin-rewards__list > button.active {
+  border-color: color-mix(in srgb, var(--color-accent) 54%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface));
+}
+
+.admin-rewards__list > button.is-disabled {
+  opacity: .67;
+}
+
+.admin-rewards__list > button > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-rewards__list strong,
+.admin-rewards__list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-rewards__list small {
+  color: var(--color-text-muted);
+  font-size: .72rem;
+}
+
+.admin-rewards__list-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
+.admin-rewards__list-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-rewards__status {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+  color: var(--color-text-muted);
+  font-size: .62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-rewards__status.active {
+  background: color-mix(in srgb, var(--color-success) 13%, var(--color-surface));
+  color: var(--color-success);
+}
+
+.admin-rewards__empty {
+  margin: 0;
+  padding: 20px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.admin-rewards__editor {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-reward-form,
+.admin-reward-keys {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface-soft);
+}
+
+.admin-reward-form__enabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  white-space: nowrap;
+}
+
+.admin-reward-form__grid,
+.admin-reward-components {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-reward-form__wide {
+  grid-column: 1 / -1;
+}
+
+.admin-reward-form label,
+.admin-reward-components label,
+.admin-claim-issuer label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.admin-reward-form label > span,
+.admin-reward-components label > span,
+.admin-claim-issuer label > span {
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.admin-reward-components {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.admin-reward-components legend {
+  padding: 0 7px;
+  font-weight: 800;
+}
+
+.admin-reward-components label:first-of-type {
+  grid-column: 1 / -1;
+}
+
+.admin-reward-form input,
+.admin-reward-form select,
+.admin-reward-form textarea,
+.admin-reward-keys input,
+.admin-reward-keys select {
+  width: 100%;
+}
+
+.admin-reward-form small,
+.admin-reward-keys small {
+  color: var(--color-text-muted);
+}
+
+.admin-reward-form__validation,
+.admin-reward-form__notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 38%, var(--color-border));
+  border-radius: 10px;
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
+}
+
+.admin-reward-form__notice {
+  border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-border));
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+}
+
+.admin-reward-form > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-reward-keys > header dl {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-reward-keys > header dl > div {
+  min-width: 72px;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.admin-reward-keys dt {
+  color: var(--color-text-muted);
+  font-size: .62rem;
+  text-transform: uppercase;
+}
+
+.admin-reward-keys dd {
+  margin: 0;
+  font-weight: 900;
+}
+
+@media (max-width: 960px) {
+  .admin-rewards__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-rewards__list {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-rewards__header,
+  .admin-reward-form > header,
+  .admin-reward-keys > header {
+    display: grid;
+  }
+
+  .admin-rewards__list,
+  .admin-reward-form__grid,
+  .admin-reward-components {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-reward-components label:first-of-type,
+  .admin-reward-form__wide {
+    grid-column: auto;
+  }
+
+  .admin-reward-form > footer {
+    display: grid;
+  }
+
+  .admin-reward-form > footer .button {
+    width: 100%;
+  }
+}

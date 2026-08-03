@@ -1,7 +1,6 @@
 -- FoxCMS migration 017: mark selected badge claim keys as public claim offers.
--- Public offers authorize the generic claimBadge action to generate and consume a
--- separate one-time key. The public offer stores only an internal SHA-256 digest;
--- no reusable plaintext claim code is exposed to the browser.
+-- Public offers are backed by a cryptographically random server-only key.
+-- The plaintext is discarded immediately; only a SHA-256 digest and hint remain.
 
 SET @fox_sql = IF(
     NOT EXISTS(
@@ -22,8 +21,8 @@ INSERT INTO `badgeClaimKeys`
     (`badgeId`, `tokenHash`, `tokenHint`, `usageMode`, `accessMode`, `usesCount`, `enabled`, `createdAt`, `updatedAt`, `createdByUuid`)
 SELECT
     `id`,
-    'e959a5af7ab0d7307f3881221b2e4fb96a236509df791073c8b7a5fddcb15e57',
-    'VpS-gZAlB8',
+    SHA2(RANDOM_BYTES(32), 256),
+    LOWER(HEX(RANDOM_BYTES(5))),
     'reusable',
     'public',
     0,
@@ -44,6 +43,7 @@ ON DUPLICATE KEY UPDATE
 SELECT `key`.`id`, `key`.`badgeId`, `key`.`tokenHint`, `key`.`usageMode`, `key`.`accessMode`, `key`.`enabled`
 FROM `badgeClaimKeys` AS `key`
 INNER JOIN `badgesList` AS `badge` ON `badge`.`id` = `key`.`badgeId`
-WHERE `key`.`tokenHash` = 'e959a5af7ab0d7307f3881221b2e4fb96a236509df791073c8b7a5fddcb15e57'
+WHERE `key`.`accessMode` = 'public'
   AND `badge`.`badgeName` = 'Знаток правил'
+ORDER BY `key`.`id` DESC
 LIMIT 1;

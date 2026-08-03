@@ -38,11 +38,11 @@ function metadata(entry: LogEntry): LogMeta[] {
   if (entry.httpMethod || entry.httpPath) {
     result.push({ label: 'HTTP', value: `${entry.httpMethod || '?'} ${entry.httpPath || '/'}`, kind: 'request' })
   }
-  if (entry.operation) result.push({ label: 'РћРїРµСЂР°С†РёСЏ', value: entry.operation, kind: 'operation' })
-  if (entry.component) result.push({ label: 'РљРѕРјРїРѕРЅРµРЅС‚', value: entry.component })
+  if (entry.operation) result.push({ label: 'Операция', value: entry.operation, kind: 'operation' })
+  if (entry.component) result.push({ label: 'Компонент', value: entry.component })
 
   const channel = entry.requestChannel || scalar(contextValue(entry, 'requestChannel'))
-  if (channel) result.push({ label: 'РљР°РЅР°Р»', value: channel })
+  if (channel) result.push({ label: 'Канал', value: channel })
   const action = entry.action || scalar(contextValue(entry, 'action'))
   if (action) result.push({ label: 'Action', value: action, kind: 'action' })
   const handler = entry.handler || scalar(contextValue(entry, 'handler'))
@@ -50,19 +50,19 @@ function metadata(entry: LogEntry): LogMeta[] {
 
   const moduleName = scalar(contextValue(entry, 'moduleName'))
   const modulePriority = scalar(contextValue(entry, 'modulePriority'))
-  if (moduleName) result.push({ label: 'РњРѕРґСѓР»СЊ', value: modulePriority ? `${moduleName} В· ${modulePriority}` : moduleName })
+  if (moduleName) result.push({ label: 'Модуль', value: modulePriority ? `${moduleName} · ${modulePriority}` : moduleName })
 
   if (entry.actorLogin || entry.actorGroup) {
     const login = entry.actorLogin && entry.actorLogin !== 'anonymous' ? entry.actorLogin : 'guest'
-    result.push({ label: 'РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ', value: `${login}${entry.actorGroup ? ` [${entry.actorGroup}]` : ''}`, kind: 'actor' })
+    result.push({ label: 'Пользователь', value: `${login}${entry.actorGroup ? ` [${entry.actorGroup}]` : ''}`, kind: 'actor' })
   }
-  if (entry.httpStatus != null) result.push({ label: 'РЎС‚Р°С‚СѓСЃ', value: String(entry.httpStatus), kind: entry.httpStatus >= 400 ? 'status-error' : 'status-ok' })
-  if (entry.durationMs != null) result.push({ label: 'Р’СЂРµРјСЏ', value: `${entry.durationMs.toFixed(3)} ms`, kind: entry.durationMs >= 2000 ? 'slow' : '' })
-  if (entry.outcome) result.push({ label: 'Р РµР·СѓР»СЊС‚Р°С‚', value: entry.outcome })
+  if (entry.httpStatus != null) result.push({ label: 'Статус', value: String(entry.httpStatus), kind: entry.httpStatus >= 400 ? 'status-error' : 'status-ok' })
+  if (entry.durationMs != null) result.push({ label: 'Время', value: `${entry.durationMs.toFixed(3)} ms`, kind: entry.durationMs >= 2000 ? 'slow' : '' })
+  if (entry.outcome) result.push({ label: 'Результат', value: entry.outcome })
 
   const loaded = contextValue(entry, 'loadedModules')
   if (Array.isArray(loaded) && loaded.length) {
-    result.push({ label: 'Р—Р°РіСЂСѓР¶РµРЅРѕ', value: loaded.map(String).join(', '), kind: 'modules' })
+    result.push({ label: 'Загружено', value: loaded.map(String).join(', '), kind: 'modules' })
   }
   return result
 }
@@ -99,7 +99,7 @@ function entryKey(entry: LogEntry, index: number): string {
 <template>
   <section class="admin-section admin-log-section">
     <div class="admin-toolbar">
-      <select :value="file" aria-label="Р¤Р°Р№Р» Р¶СѓСЂРЅР°Р»Р°" @change="updateFile">
+      <select :value="file" aria-label="Файл журнала" @change="updateFile">
         <option value="lastlog">lastlog.log</option>
         <option value="error">error.log</option>
         <option value="access">access.log</option>
@@ -109,16 +109,16 @@ function entryKey(entry: LogEntry, index: number): string {
         class="admin-auto-refresh"
         variant="switch"
         compact
-        label="РђРІС‚РѕРѕР±РЅРѕРІР»РµРЅРёРµ"
-        description="РљР°Р¶РґС‹Рµ 10 СЃРµРєСѓРЅРґ"
+        label="Автообновление"
+        description="Каждые 10 секунд"
         @update:model-value="updateAuto"
       />
-      <button class="button button--ghost" type="button" @click="emit('reload')">РћР±РЅРѕРІРёС‚СЊ</button>
-      <button class="button button--ghost" type="button" @click="emit('clear')">РћС‡РёСЃС‚РёС‚СЊ</button>
+      <button class="button button--ghost" type="button" @click="emit('reload')">Обновить</button>
+      <button class="button button--ghost" type="button" @click="emit('clear')">Очистить</button>
     </div>
 
     <div class="admin-log">
-      <p v-if="!props.entries.length" class="admin-log__empty">Р–СѓСЂРЅР°Р» РїСѓСЃС‚.</p>
+      <p v-if="!props.entries.length" class="admin-log__empty">Журнал пуст.</p>
       <article
         v-for="(entry, index) in props.entries"
         :key="entryKey(entry, index)"
@@ -147,7 +147,7 @@ function entryKey(entry: LogEntry, index: number): string {
         </div>
 
         <details v-if="hasDetails(entry)" class="admin-log-line__details">
-          <summary>Р”РёР°РіРЅРѕСЃС‚РёС‡РµСЃРєРёР№ РєРѕРЅС‚РµРєСЃС‚</summary>
+          <summary>Диагностический контекст</summary>
 
           <div v-if="entry.requestId || entry.correlationId" class="admin-log-identifiers">
             <span v-if="entry.requestId"><small>Request ID</small><code>{{ entry.requestId }}</code></span>
@@ -158,8 +158,8 @@ function entryKey(entry: LogEntry, index: number): string {
             <strong>{{ entry.deviation.code || 'deviation' }}</strong>
             <span>Severity: {{ entry.deviation.severity || 'unknown' }}</span>
             <dl>
-              <div><dt>РћР¶РёРґР°Р»РѕСЃСЊ</dt><dd><pre>{{ formatValue(entry.deviation.expected) }}</pre></dd></div>
-              <div><dt>РџРѕР»СѓС‡РµРЅРѕ</dt><dd><pre>{{ formatValue(entry.deviation.actual) }}</pre></dd></div>
+              <div><dt>Ожидалось</dt><dd><pre>{{ formatValue(entry.deviation.expected) }}</pre></dd></div>
+              <div><dt>Получено</dt><dd><pre>{{ formatValue(entry.deviation.actual) }}</pre></dd></div>
             </dl>
           </section>
 

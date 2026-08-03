@@ -15,6 +15,76 @@
     z-index: 1;
 }
 
+.welcome-reward {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    margin: -4px 0 22px;
+    padding: 15px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+    border-radius: 16px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--color-accent) 11%, var(--color-surface)), var(--color-surface-soft));
+    box-shadow: inset 0 1px color-mix(in srgb, #fff 10%, transparent);
+}
+
+.welcome-reward--claimed {
+    border-color: color-mix(in srgb, var(--color-success) 44%, var(--color-border));
+    background: linear-gradient(145deg, color-mix(in srgb, var(--color-success) 10%, var(--color-surface)), var(--color-surface-soft));
+}
+
+.welcome-reward--error {
+    border-color: color-mix(in srgb, var(--color-danger) 46%, var(--color-border));
+}
+
+.welcome-reward__icon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
+    border-radius: 14px;
+    background: var(--color-surface);
+}
+
+.welcome-reward__icon img {
+    width: 36px;
+    height: 36px;
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 7px 8px rgba(0, 0, 0, .28));
+}
+
+.welcome-reward__copy {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.welcome-reward__copy > strong {
+    color: var(--color-text);
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+}
+
+.welcome-reward__copy > span {
+    color: var(--color-text-muted);
+    font-size: .78rem;
+    line-height: 1.45;
+}
+
+.welcome-reward__feedback {
+    margin: 3px 0 0;
+    font-size: .76rem;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.welcome-reward__feedback--success { color: var(--color-success) !important; }
+.welcome-reward__feedback--warning { color: var(--color-warning) !important; }
+.welcome-reward__feedback--error { color: var(--color-danger) !important; }
+.welcome-reward__button { min-width: 166px; white-space: nowrap; }
+
 .welcome-native h2, .prose-page h1 {
     margin-bottom: 18px;
     font-size: clamp(2.1rem, 5vw, 4.2rem);
@@ -337,6 +407,28 @@
     .welcome-native {
         min-height: 0;
         padding: 22px;
+    }
+
+    .welcome-reward {
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 11px;
+        padding: 13px;
+    }
+
+    .welcome-reward__icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+    }
+
+    .welcome-reward__icon img {
+        width: 32px;
+        height: 32px;
+    }
+
+    .welcome-reward__button {
+        grid-column: 1 / -1;
+        width: 100%;
     }
 
     .manifest-grid {
@@ -2736,4 +2828,69 @@ body,.app-shell,.site-header,.content-surface,.sidebar-card,.site-footer,.cookie
     .admin-upload-editor__header { align-items: flex-start; flex-direction: column; }
     .admin-upload-editor__header .button { width: 100%; }
     .admin-upload-editor__mount { min-height: 400px; height: min(66dvh, 600px); }
+}
+
+
+.admin-badge-catalog-form {
+    display: grid;
+    gap: 14px;
+}
+
+.admin-badge-catalog-form > label,
+.admin-badge-reward-editor label {
+    display: grid;
+    gap: 6px;
+}
+
+.admin-badge-catalog-form > label > span,
+.admin-badge-reward-editor label > span {
+    color: var(--color-text-muted);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.admin-badge-catalog-form textarea {
+    min-height: 112px;
+    padding: 11px 12px;
+    resize: vertical;
+}
+
+.admin-badge-catalog-form select {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    color: var(--color-text);
+    background: var(--color-input);
+}
+
+.admin-badge-reward-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, .55fr);
+    gap: 12px;
+    margin: 4px 0;
+    padding: 15px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+}
+
+.admin-badge-reward-editor legend {
+    padding: 0 7px;
+    font-weight: 800;
+}
+
+.admin-badge-reward-editor > p,
+.admin-badge-reward-editor > small {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: .74rem;
+    line-height: 1.5;
+}
+
+@media (max-width: 680px) {
+    .admin-badge-reward-editor { grid-template-columns: 1fr; }
 }

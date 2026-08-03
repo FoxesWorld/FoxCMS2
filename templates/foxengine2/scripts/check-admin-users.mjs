@@ -6,155 +6,83 @@ const failures = []
 const files = {
   editor: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserEditor.vue'),
   badgeEditor: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserBadgeEditor.vue'),
+  users: join(themeRoot, 'src', 'foxEngine', 'admin', 'Users.vue'),
+  panel: join(themeRoot, 'src', 'userOptions', 'userOptions', 'AdminPanel.vue'),
   table: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserTable.vue'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   backend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
   badges: join(repositoryRoot, 'engine', 'client', 'domain', 'userBadges.ts'),
   styles: join(themeRoot, 'src', 'styles', 'admin-users.css'),
 }
+const [editor, badgeEditor, users, panel, table, client, backend, badges, styles] = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
+const requireText = (label, text, tokens) => { for (const token of tokens) if (!text.includes(token)) failures.push(`${label} is missing ${token}`) }
+const rejectText = (label, text, tokens) => { for (const token of tokens) if (text.includes(token)) failures.push(`${label} must not contain ${token}`) }
 
-const [editor, badgeEditor, table, client, backend, badges, styles] = await Promise.all(
-  Object.values(files).map((path) => readFile(path, 'utf8')),
-)
-
-for (const token of [
+requireText('User editor badge operations', editor, [
   "import UserBadgeEditor from './UserBadgeEditor.vue'",
   '<h3>Персональные бейджи</h3>',
-  ':model-value="draft.badges"',
-  ':options="badgeOptions"',
+  'Администратор может выдать или отозвать знак профиля напрямую.',
   '@grant="emit(\'grantBadge\', $event)"',
-]) {
-  if (!editor.includes(token)) failures.push(`UserEditor visual badge section is missing ${token}`)
-}
-if (/JsonFormEditor[\s\S]{0,300}:model-value="draft\.badges"/.test(editor)) {
-  failures.push('UserEditor still renders user badges through JsonFormEditor')
-}
-
-for (const token of [
-  'admin-badge-editor__tabs',
-  'Полученные',
-  'Каталог',
-  ':class="{ active: !showAll }"',
-  ':class="{ active: showAll }"',
-  'showAll.value || badge.selected',
-  'admin-badge-editor__search',
-  'admin-badge-grid',
-  ':aria-pressed="badge.selected"',
-  "emit('grant', badgeId)",
-  'userBadgeAssignments',
-  'badge.description',
-  'badge.image',
-  'Выдать разовым кодом',
-]) {
-  if (!badgeEditor.includes(token)) failures.push(`Visual badge editor is missing ${token}`)
-}
-
-if (!badgeEditor.includes('<img v-if="imageUrl(badge.image)"')
-    || !badgeEditor.includes('<span v-else>{{ initial(badge.title) }}</span>')) {
-  failures.push('Badge initial must render only when no image is available')
-}
-if (/<span>\{\{ initial\(badge\.title\) \}\}<\/span>\s*<img v-if=/.test(badgeEditor)) {
-  failures.push('Badge initial is still rendered underneath an existing image')
-}
-
-for (const token of [
-  'export function userBadgeAssignments',
-  'export function toggleUserBadgeAssignment',
-  'record.badgeName ?? record.name ?? record.title ?? record.id',
-  'Object.keys(record)',
-  'seen.has(key)',
-]) {
-  if (!badges.includes(token)) failures.push(`Badge display normalizer is missing ${token}`)
-}
-
-for (const token of [
-  'window.setTimeout(() => emit(\'search\'), 320)',
-  'userBadgeAssignments(user.badges).length',
-  'Логин, email, имя, UUID или бейдж',
-  'admin-user-search__status',
-]) {
-  if (!table.includes(token)) failures.push(`User search display is missing ${token}`)
-}
-for (const token of [
-  "CONCAT_WS(' ',",
-  "$searchSql = $this->db->safesql('%' . $search . '%')",
-  '$statement = $this->db->query($sql)',
-  'users.directory query failed:',
-  'users.groups query failed:',
-  'users.badges query failed:',
-  "'backendVersion' => 'users-directory-v4-direct-query'",
-  "$badgeExpression = '`user`.`badges`';",
-  "$row['badges'] = $this->decodeAdminJsonField",
-  "SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`",
-  "'badgeName' => $badgeName",
-  "'description' => trim((string)($row['description'] ?? ''))",
-  "'image' => $image !== '' ? $image : null",
-]) {
-  if (!backend.includes(token)) failures.push(`Admin users backend contract is missing ${token}`)
-}
-for (const legacyIdentity of [
-  'legacyBadges',
-  'syncLegacyUserBadges',
-  'userBadgeReadSource',
-  'syncUserBadgesProjection',
-  'JOIN `userBadges`',
-  '`userLogin`',
-  '`userMd5`',
-]) {
-  if (backend.includes(legacyIdentity)) failures.push(`Admin users backend still contains legacy identity contract ${legacyIdentity}`)
-}
-
-const usersMethod = backend.slice(backend.indexOf('private function users(): void'), backend.indexOf('private function updateUser(): void'))
-for (const forbidden of ['->prepare(', '->execute(', ':search', ' LIKE ?']) {
-  if (usersMethod.includes(forbidden)) failures.push(`users() read path must not contain ${forbidden}`)
-}
-if (!usersMethod.includes('->query($sql)')) failures.push('users() must execute its directory SQL through query()')
-if (!usersMethod.includes("'badgeOptions' => $badgeOptions")) failures.push('users() must return badgeOptions')
-
-for (const token of [
-  'export interface AdminBadgeOption',
-  'badgeOptions: AdminBadgeOption[]',
-  'badgeOptions.value = response.badgeOptions.map',
-  'async function searchUsers()',
-  'await loadUsers({ autoSelect: false })',
-  'if (options.autoSelect === false) return',
-]) {
-  if (!client.includes(token)) failures.push(`Admin users client display flow is missing ${token}`)
-}
-
-for (const token of [
-  'id: number',
-  'async function grantBadgeToSelectedUser',
-  "admPanel: 'grantBadgeToUser'",
-  'badgeClaimKeys.value = [',
-]) {
-  if (!client.includes(token)) failures.push(`Admin badge grant client is missing ${token}`)
-}
-for (const token of [
-  "'grantBadgeToUser' => 'grantBadgeToUser'",
-  'private function grantBadgeToUser(): void',
-  '$this->badgeClaims->grantToUser(',
-  "if (array_key_exists('badges', $payload))",
-]) {
-  if (!backend.includes(token)) failures.push(`Admin badge grant backend is missing ${token}`)
-}
-if (client.includes('badges: userDraft.badges')) failures.push('Admin user save still directly submits badges')
-if (badgeEditor.includes('toggleUserBadgeAssignment')) failures.push('Visual badge editor still directly toggles badge assignments')
-
-for (const token of [
-  '.admin-badge-editor{',
-  '.admin-badge-editor__tabs{',
-  '.admin-badge-editor__tabs .active{',
-  '.admin-badge-card.is-assigned',
-  '.admin-badge-card.is-legacy',
-]) {
-  if (!styles.includes(token)) failures.push(`Admin users visual styling is missing ${token}`)
-}
+  '@revoke="emit(\'revokeBadge\', $event)"',
+])
+requireText('Badge management UI', badgeEditor, [
+  'Административное управление бейджами',
+  'Причина операции',
+  "const tab = ref<'assigned' | 'available'>('assigned')",
+  'Полученные <b>{{ assignedBadges.length }}</b>',
+  'Доступные <b>{{ availableBadges.length }}</b>',
+  "emit('grant', { badgeId: badge.id, reason: reasonValue.value })",
+  "emit('revoke', { badgeName: badge.badgeName, reason: reasonValue.value })",
+  'Валютные начисления и история наград останутся без изменений.',
+  "assignment.source === 'admin'",
+])
+rejectText('Badge UI reward coupling', badgeEditor, ['currencyAmount', 'currencyCode', 'rewardAmount', 'rewardCurrency', 'issueRewardClaimKey'])
+requireText('Badge action validation', badgeEditor, [
+  'function validateReason()',
+  'reasonField.value?.focus()',
+  'Укажите причину операции: минимум 3 символа.',
+  ':disabled="disabled"',
+  ':disabled="disabled || badge.id <= 0"',
+])
+rejectText('Badge buttons blocked by empty reason', badgeEditor, [
+  ':disabled="disabled || !canAct"',
+  ':disabled="disabled || !canAct || badge.id <= 0"',
+])
+requireText('Badge operation wiring', `${users}\n${panel}`, [
+  'grantBadge: [badgeId: number, reason: string]',
+  'revokeBadge: [badgeName: string, reason: string]',
+  '@grant-badge="grantUserBadge"',
+  '@revoke-badge="revokeUserBadge"',
+])
+requireText('Administrative badge backend', backend, [
+  "'grantUserBadge' => 'grantUserBadge'",
+  "'revokeUserBadge' => 'revokeUserBadge'",
+  'private function mutateUserBadge(bool $grant): void',
+  "'SELECT `uuid`, `login`, `badges` FROM `users` WHERE `uuid` = :uuid LIMIT 1 FOR UPDATE'",
+  "'UPDATE `users` SET `badges` = :badges WHERE `uuid` = :uuid'",
+  "'source' => 'admin'",
+  "'admin.user_badge.' . $operation",
+  "'reason' => $reason",
+  "'rewardClaimChanged' => false",
+  "'balanceChanged' => false",
+])
+const mutationBackend = backend.slice(backend.indexOf('private function grantUserBadge'), backend.indexOf('private function servers'))
+rejectText('Administrative badge mutation side effects', mutationBackend, ['RewardClaimService', 'rewardClaims', 'BalanceMatrix::increment', '`balance` =', 'currencyAmount'])
+requireText('Administrative badge client', client, [
+  'async function grantUserBadge(badgeId: number, reason: string)',
+  "admPanel: 'grantUserBadge'",
+  'async function revokeUserBadge(badgeName: string, reason: string)',
+  "admPanel: 'revokeUserBadge'",
+  'applySelectedUserBadges(userUuid, response.badges)',
+])
+if (client.includes('badges: userDraft.badges')) failures.push('General user save directly submits badges')
+requireText('Badge assignment metadata', badges, ['acquiredAt?: number', 'source?: string', 'record.acquiredAt', 'record.source'])
+requireText('User search UI', table, ['userBadgeAssignments(user.badges).length', 'admin-user-search__status'])
+requireText('Badge management styles', styles, ['/* Administrative badge assignment */', '.admin-badge-editor__reason', '.admin-badge-card__operation--revoke'])
 
 if (failures.length) {
-  console.error('Admin users display contract failed:')
+  console.error('Admin users badge management contract failed:')
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
-
-console.log('Admin users display contract passed: badge grants use one-time claim keys and direct badge mutation is blocked.')
+console.log('Admin users badge management passed: administrators can grant and revoke profile badges with a reason, audit logging and no reward or balance side effects.')

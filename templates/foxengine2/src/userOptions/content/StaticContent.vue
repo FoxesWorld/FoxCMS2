@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import type { StaticPageDefinition } from '@engine/content/contentData'
+import type { PublicRewardOffer } from '@engine/domain/publicRewardOffers'
+import type { RewardOfferFeedback } from '@engine/rewards/usePublicRewardOffer'
+import { formatBalanceAmount } from '@engine/domain/userBalance'
 import StaticPage from './StaticPage.vue'
-
-interface BadgeClaimFeedback {
-  type: 'success' | 'warning' | 'error'
-  message: string
-}
 
 defineProps<{
   pageId: string
@@ -13,13 +11,14 @@ defineProps<{
   error: boolean
   page: StaticPageDefinition | null
   authenticated: boolean
-  claimingBadge: boolean
-  claimedBadgeOwned: boolean
-  badgeClaimFeedback: BadgeClaimFeedback | null
+  rewardOffer: PublicRewardOffer | null
+  rewardOfferIcon: string
+  rewardOfferLoading: boolean
+  rewardOfferClaiming: boolean
+  rewardOfferFeedback: RewardOfferFeedback | null
 }>()
 
-const emit = defineEmits<{ claimBadge: [badgeName: string] }>()
-const rulesBadgeName = 'Знаток правил'
+const emit = defineEmits<{ claimReward: [] }>()
 </script>
 
 <template>
@@ -34,39 +33,48 @@ const rulesBadgeName = 'Знаток правил'
     >
       <section class="rules-badge-claim" aria-labelledby="rules-badge-title">
         <div class="rules-badge-claim__mark" aria-hidden="true">
-          <i class="fa-solid fa-award" />
+          <img v-if="rewardOfferIcon" :src="rewardOfferIcon" alt="">
+          <i v-else class="fa-solid fa-award" />
         </div>
         <div class="rules-badge-claim__content">
           <p class="rules-badge-claim__eyebrow">Награда за ознакомление</p>
-          <h2 id="rules-badge-title">{{ rulesBadgeName }}</h2>
-          <p>Подтвердите ознакомление с правилами и получите бейдж в профиль. Сервер создаст и немедленно применит одноразовый код получения.</p>
+          <h2 id="rules-badge-title">{{ rewardOffer?.reward.title || 'Награда за правила' }}</h2>
+          <p v-if="rewardOffer">
+            {{ rewardOffer.reward.description || rewardOffer.reward.badge?.description || 'Подтвердите ознакомление с правилами и получите бейдж в профиль.' }}
+            <template v-if="rewardOffer.reward.currency">
+              Награда: {{ formatBalanceAmount(rewardOffer.reward.currency.amount) }} {{ rewardOffer.reward.currency.currencyName }}.
+            </template>
+          </p>
+          <p v-else-if="rewardOfferLoading">Проверяем выпущенный криптографический ключ награды…</p>
+          <p v-else>Для этого раздела пока не выпущен активный placement-ключ.</p>
         </div>
         <button
           class="button button--primary rules-badge-claim__button"
           type="button"
-          :disabled="!authenticated || claimingBadge || claimedBadgeOwned"
-          @click="emit('claimBadge', rulesBadgeName)"
+          :disabled="!authenticated || rewardOfferLoading || rewardOfferClaiming || !rewardOffer?.claimable"
+          @click="emit('claimReward')"
         >
           <i
             class="fa-solid"
-            :class="claimingBadge ? 'fa-spinner' : claimedBadgeOwned ? 'fa-circle-check' : 'fa-award'"
+            :class="rewardOfferClaiming ? 'fa-spinner' : rewardOffer?.acquired ? 'fa-circle-check' : 'fa-key'"
             aria-hidden="true"
           />
-          <span v-if="claimingBadge">Получаем…</span>
-          <span v-else-if="claimedBadgeOwned">Бейдж получен</span>
-          <span v-else>Получить бейдж</span>
+          <span v-if="rewardOfferLoading">Проверяем ключ…</span>
+          <span v-else-if="rewardOfferClaiming">Погашаем ключ…</span>
+          <span v-else-if="rewardOffer?.acquired">Награда получена</span>
+          <span v-else>Получить по ключу</span>
         </button>
         <p
-          v-if="badgeClaimFeedback"
+          v-if="rewardOfferFeedback"
           class="rules-badge-claim__feedback"
-          :class="`rules-badge-claim__feedback--${badgeClaimFeedback.type}`"
-          role="status"
+          :class="`rules-badge-claim__feedback--${rewardOfferFeedback.type}`"
+          :role="rewardOfferFeedback.type === 'error' ? 'alert' : 'status'"
           aria-live="polite"
         >
-          {{ badgeClaimFeedback.message }}
+          {{ rewardOfferFeedback.message }}
         </p>
         <p v-else-if="!authenticated" class="rules-badge-claim__hint">
-          Для получения бейджа необходимо войти в аккаунт.
+          Для получения награды необходимо войти в аккаунт.
         </p>
       </section>
     </Teleport>

@@ -41,7 +41,10 @@ final class UserActions
             'updateProfilePhoto' => 'updateProfilePhoto',
             'getUserData' => 'getUserData',
             'getUserSettings' => 'getUserSettings',
-            'claimBadge' => 'claimBadge',
+            'getRewardOffer' => 'getRewardOffer',
+            'getBadgeOffer' => 'getRewardOffer',
+            'claimReward' => 'claimReward',
+            'claimBadge' => 'claimReward',
             'lostpassword' => 'lostPassword',
             'resetpassword' => 'resetPassword',
             default => 'unresolved',
@@ -57,7 +60,10 @@ final class UserActions
             'updateProfilePhoto' => $this->updateProfilePhoto(),
             'getUserData' => $this->getUserData(),
             'getUserSettings' => $this->getUserSettings(),
-            'claimBadge' => $this->claimBadge(),
+            'getRewardOffer' => $this->getRewardOffer(),
+            'getBadgeOffer' => $this->getRewardOffer(),
+            'claimReward' => $this->claimReward(),
+            'claimBadge' => $this->claimReward(),
             'lostpassword' => $this->lostPassword(),
             'resetpassword' => $this->resetPassword(),
             default => $this->respond(['message' => 'Unknown user request.', 'type' => 'error'], 400),
@@ -98,45 +104,102 @@ final class UserActions
     }
 
 
-    private function claimBadge(): never
+    private function getRewardOffer(): never
     {
         if (!$this->session->isLogged()) {
             $this->respond(['message' => 'Нужно войти в аккаунт.', 'type' => 'error'], 401);
         }
-        CsrfToken::requireValid($this->request->csrfToken());
-
-        $claimCode = trim($this->request->string('claimCode'));
-        $badgeName = trim($this->request->string('badgeName'));
-        if (($claimCode === '') === ($badgeName === '')) {
-            $this->respond([
-                'message' => 'Передайте либо код получения, либо название публичного бейджа.',
-                'type' => 'error',
-            ], 400);
+        if ($this->session->group() === 'guest') {
+            $this->respond(['message' => 'Гостевой профиль не может получать награды.', 'type' => 'error'], 403);
         }
 
-        $service = new BadgeClaimService($this->db, $this->logger);
+        $placement = trim($this->request->string('placement'));
+        $service = new RewardClaimService($this->db, $this->logger);
         try {
-            $result = $claimCode !== ''
-                ? $service->claim($claimCode, $this->session->uuid())
-                : $service->claimPublic($badgeName, $this->session->uuid());
+            $offer = $service->publicOffer($placement, $this->session->uuid());
         } catch (HttpException $error) {
             $this->respond([
                 'message' => $error->getMessage(),
                 'type' => 'error',
             ], $error->status());
         }
-        $this->session->set('badges', $result['badgesJson'], true);
 
-        $badge = is_array($result['badge'] ?? null) ? $result['badge'] : [];
-        $badgeName = trim((string)($badge['badgeName'] ?? 'Бейдж'));
-        $alreadyOwned = ($result['alreadyOwned'] ?? false) === true;
+        $this->respond(['offer' => $offer]);
+    }
+
+
+    private function claimReward(): never
+    {
+        if (!$this->session->isLogged()) {
+            $this->respond(['message' => 'Нужно войти в аккаунт.', 'type' => 'error'], 401);
+        }
+        if ($this->session->group() === 'guest') {
+            $this->respond(['message' => 'Гостевой профиль не может получать награды.', 'type' => 'error'], 403);
+        }
+        CsrfToken::requireValid($this->request->csrfToken());
+
+        $claimCode = trim($this->request->string('claimCode'));
+        $offerPlacement = trim($this->request->string('offerPlacement'));
+        $provided = (int)($claimCode !== '') + (int)($offerPlacement !== '');
+        if ($provided !== 1) {
+            $this->respond([
+                'message' => 'Передайте криптографический код или расположение предложения с выпущенным placement-ключом.',
+                'type' => 'error',
+            ], 400);
+        }
+
+        $service = new RewardClaimService($this->db, $this->logger);
+        try {
+            $result = $claimCode !== ''
+                ? $service->claim($claimCode, $this->session->uuid())
+                : $service->claimPublicOffer($offerPlacement, $this->session->uuid());
+        } catch (HttpException $error) {
+            $this->respond([
+                'message' => $error->getMessage(),
+                'type' => 'error',
+            ], $error->status());
+        }
+
+        $this->session->set('badges', $result['badgesJson'], true);
+        if (isset($result['balanceJson'])) {
+            $this->session->set('balance', $result['balanceJson'], true);
+        }
+
+        $reward = is_array($result['reward'] ?? null) ? $result['reward'] : [];
+        $rewardTitle = trim((string)($reward['title'] ?? $reward['rewardName'] ?? 'Награда'));
+        $alreadyClaimed = ($result['alreadyClaimed'] ?? false) === true;
+        if ($alreadyClaimed) {
+            $message = 'Награда «' . $rewardTitle . '» уже была получена этим профилем.';
+        } else {
+            $parts = [];
+            $badge = is_array($result['badge'] ?? null) ? $result['badge'] : null;
+            if (($result['badgeApplied'] ?? false) === true && $badge !== null) {
+                $parts[] = 'добавлен бейдж «' . trim((string)($badge['badgeName'] ?? '')) . '»';
+            }
+            $currency = is_array($result['currency'] ?? null) ? $result['currency'] : null;
+            if (($result['currencyApplied'] ?? false) === true && $currency !== null) {
+                $parts[] = 'начислено ' . (int)($currency['amount'] ?? 0)
+                    . ' ' . trim((string)($currency['currencyName'] ?? ''));
+            }
+            $message = 'Награда «' . $rewardTitle . '» получена.';
+            if ($parts !== []) {
+                $message .= ' ' . ucfirst(implode('; ', $parts)) . '.';
+            }
+        }
+
+        $badges = json_decode((string)$result['badgesJson'], true);
         $this->respond([
-            'message' => $alreadyOwned
-                ? 'Бейдж «' . $badgeName . '» уже есть в вашем профиле.'
-                : 'Бейдж «' . $badgeName . '» добавлен в ваш профиль.',
-            'type' => $alreadyOwned ? 'warning' : 'success',
-            'alreadyOwned' => $alreadyOwned,
-            'badge' => $badge,
+            'message' => $message,
+            'type' => $alreadyClaimed ? 'warning' : 'success',
+            'alreadyClaimed' => $alreadyClaimed,
+            'badgeApplied' => ($result['badgeApplied'] ?? false) === true,
+            'currencyApplied' => ($result['currencyApplied'] ?? false) === true,
+            'reward' => $reward,
+            'badge' => $result['badge'] ?? null,
+            'currency' => $result['currency'] ?? null,
+            'offer' => $offer,
+            'badges' => is_array($badges) ? $badges : [],
+            'balance' => $result['balance'] ?? null,
         ]);
     }
 

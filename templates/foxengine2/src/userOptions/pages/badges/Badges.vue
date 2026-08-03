@@ -3,17 +3,31 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { BadgeDefinition } from '@engine/content/contentData'
 
-interface BadgeClaimFeedback {
+interface RewardClaimFeedback {
   type: 'success' | 'warning' | 'error'
   message: string
 }
-interface ClaimedBadge {
+interface ClaimedRewardBadge {
   id: number
   badgeName: string
   title: string
   description: string
   image: string | null
   acquiredAt: number
+}
+interface ClaimedRewardCurrency {
+  currencyCode: string
+  currencyName: string
+  currencySymbol: string
+  amount: number
+}
+interface ClaimedReward {
+  id: number
+  rewardName: string
+  title: string
+  description: string
+  badge: ClaimedRewardBadge | null
+  currency: ClaimedRewardCurrency | null
 }
 
 const props = defineProps<{
@@ -23,8 +37,8 @@ const props = defineProps<{
   claimCode: string
   authenticated: boolean
   claiming: boolean
-  claimFeedback: BadgeClaimFeedback | null
-  claimedBadge: ClaimedBadge | null
+  claimFeedback: RewardClaimFeedback | null
+  claimedReward: ClaimedReward | null
 }>()
 
 const emit = defineEmits<{
@@ -84,16 +98,16 @@ function handleRowKeydown(event: KeyboardEvent, badge: BadgeDefinition): void {
       <div class="badge-claim-panel__intro">
         <span class="badge-claim-panel__icon" aria-hidden="true"><i class="fa-solid fa-key" /></span>
         <div>
-          <span class="eyebrow">Получение бейджа</span>
+          <span class="eyebrow">Получение награды</span>
           <h2>Активировать код</h2>
-          <p v-if="authenticated">Введите одноразовый или многоразовый код. Бейдж будет добавлен только в текущий авторизованный профиль.</p>
+          <p v-if="authenticated">Введите одноразовый или многоразовый криптографический код. Награда может содержать бейдж, валюту либо оба компонента.</p>
           <p v-else>Для применения кода необходимо войти в аккаунт.</p>
         </div>
       </div>
 
       <form class="badge-claim-panel__form" @submit.prevent="emit('claim')">
         <label>
-          <span class="visually-hidden">Код получения бейджа</span>
+          <span class="visually-hidden">Код получения награды</span>
           <i class="fa-solid fa-key" aria-hidden="true" />
           <input
             :value="claimCode"
@@ -101,14 +115,14 @@ function handleRowKeydown(event: KeyboardEvent, badge: BadgeDefinition): void {
             inputmode="text"
             autocomplete="off"
             spellcheck="false"
-            placeholder="fcb_..."
+            placeholder="fcr_..."
             :disabled="!authenticated || claiming"
             @input="updateClaimCode"
           >
         </label>
         <button class="button button--primary" type="submit" :disabled="!authenticated || claiming || !claimCode.trim()">
-          <i class="fa-solid" :class="claiming ? 'fa-spinner' : 'fa-award'" aria-hidden="true" />
-          <span>{{ claiming ? 'Проверяем код' : 'Получить бейдж' }}</span>
+          <i class="fa-solid" :class="claiming ? 'fa-spinner' : 'fa-coins'" aria-hidden="true" />
+          <span>{{ claiming ? 'Проверяем код' : 'Получить награду' }}</span>
         </button>
       </form>
 
@@ -126,15 +140,20 @@ function handleRowKeydown(event: KeyboardEvent, badge: BadgeDefinition): void {
         <span>{{ claimFeedback.message }}</span>
       </div>
 
-      <article v-if="claimedBadge" class="badge-claim-result">
+      <article v-if="claimedReward" class="badge-claim-result">
         <span class="badge-claim-result__image">
-          <img v-if="claimedBadge.image" :src="claimedBadge.image" :alt="claimedBadge.title" decoding="async">
-          <i v-else class="fa-solid fa-award" aria-hidden="true" />
+          <img v-if="claimedReward.badge?.image" :src="claimedReward.badge.image" :alt="claimedReward.badge.title" decoding="async">
+          <i v-else-if="claimedReward.badge" class="fa-solid fa-award" aria-hidden="true" />
+          <i v-else class="fa-solid fa-coins" aria-hidden="true" />
         </span>
         <div>
-          <small>Бейдж профиля</small>
-          <strong>{{ claimedBadge.title }}</strong>
-          <p>{{ claimedBadge.description || 'Особая отметка участника Лисьего Мира.' }}</p>
+          <small>Полученная награда</small>
+          <strong>{{ claimedReward.title }}</strong>
+          <p>{{ claimedReward.description || 'Награда успешно применена к профилю.' }}</p>
+          <ul class="badge-claim-result__components">
+            <li v-if="claimedReward.badge"><i class="fa-solid fa-award" aria-hidden="true" /> Бейдж «{{ claimedReward.badge.title }}»</li>
+            <li v-if="claimedReward.currency"><i class="fa-solid fa-coins" aria-hidden="true" /> +{{ claimedReward.currency.amount }} {{ claimedReward.currency.currencyName }}</li>
+          </ul>
         </div>
       </article>
     </section>
