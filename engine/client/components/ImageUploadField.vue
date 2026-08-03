@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from 'vue'
 import { editImageWithPintura } from '@/media/pinturaImageEditor'
 
@@ -43,7 +45,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   description: '',
   preview: '',
-  previewAlt: 'Предпросмотр изображения',
+  previewAlt: t('engine.imageuploadfield.016'),
   previewMode: 'wide',
   previewFit: 'cover',
   accept: 'image/jpeg,image/png,image/webp',
@@ -57,15 +59,15 @@ const props = withDefaults(defineProps<{
   uploading: false,
   error: '',
   hint: '',
-  chooseLabel: 'Выбрать изображение',
-  replaceLabel: 'Выбрать другое',
-  dropLabel: 'Перетащите изображение сюда',
-  clearLabel: 'Очистить',
+  chooseLabel: t('engine.imageuploadfield.017'),
+  replaceLabel: t('engine.imageuploadfield.018'),
+  dropLabel: t('engine.imageuploadfield.019'),
+  clearLabel: t('engine.imageuploadfield.020'),
   allowClear: true,
   showFileDetails: true,
   editorEnabled: true,
   editorQuality: 0.9,
-  editorLabel: 'Редактировать',
+  editorLabel: t('engine.imageuploadfield.021'),
   editorTargetFit: 'cover',
   editorUpscale: false,
   editorMimeType: '',
@@ -172,7 +174,7 @@ async function acceptFile(file: File): Promise<void> {
       if (!edited) return
       selected = edited
     } catch (error) {
-      rejectFile(errorMessage(error, 'Не удалось открыть редактор изображения.'))
+      rejectFile(errorMessage(error, t('engine.imageuploadfield.022')))
       return
     }
   }
@@ -186,7 +188,7 @@ async function editSelected(): Promise<void> {
     const edited = await editImage(localFile.value)
     if (edited) await commitFile(edited)
   } catch (error) {
-    rejectFile(errorMessage(error, 'Не удалось повторно открыть редактор изображения.'))
+    rejectFile(errorMessage(error, t('engine.imageuploadfield.023')))
   }
 }
 
@@ -204,10 +206,10 @@ async function commitFile(file: File): Promise<void> {
 }
 
 function validateInputFile(file: File): string {
-  if (file.size < 1) return 'Пустой файл загрузить нельзя.'
-  if (file.size > props.maximumBytes) return `Файл превышает допустимый размер ${formatBytes(props.maximumBytes)}.`
+  if (file.size < 1) return t('engine.imageuploadfield.024')
+  if (file.size > props.maximumBytes) return t('engine.imageuploadfield.025', [formatBytes(props.maximumBytes)])
   if (props.allowedTypes.length > 0 && !props.allowedTypes.includes(file.type)) {
-    return `Тип файла ${file.type || 'не определён'} не поддерживается.`
+    return t('engine.imageuploadfield.026', [file.type || t('engine.imageuploadfield.039')])
   }
   return ''
 }
@@ -217,12 +219,12 @@ async function validateSourceDimensions(file: File): Promise<string> {
   validating.value = true
   try {
     const dimensions = await imageDimensions(file)
-    if (!dimensions) return 'Не удалось прочитать изображение.'
+    if (!dimensions) return t('engine.imageuploadfield.027')
     if (props.minimumWidth > 0 && dimensions.width < props.minimumWidth) {
-      return `Ширина исходного изображения должна быть не меньше ${props.minimumWidth}px.`
+      return t('engine.imageuploadfield.028', [props.minimumWidth])
     }
     if (props.minimumHeight > 0 && dimensions.height < props.minimumHeight) {
-      return `Высота исходного изображения должна быть не меньше ${props.minimumHeight}px.`
+      return t('engine.imageuploadfield.029', [props.minimumHeight])
     }
     return ''
   } finally {
@@ -236,7 +238,7 @@ async function editImage(file: File): Promise<File | null> {
   const target = editorHost.value
   if (!target) {
     setEditing(false)
-    throw new Error('Контейнер встроенного редактора изображения не найден.')
+    throw new Error(t('engine.imageuploadfield.030'))
   }
 
   const controller = new AbortController()
@@ -285,28 +287,28 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 async function validateFile(file: File): Promise<string> {
-  if (file.size < 1) return 'Пустой файл загрузить нельзя.'
-  if (file.size > props.maximumBytes) return `Файл превышает допустимый размер ${formatBytes(props.maximumBytes)}.`
+  if (file.size < 1) return t('engine.imageuploadfield.024')
+  if (file.size > props.maximumBytes) return t('engine.imageuploadfield.025', [formatBytes(props.maximumBytes)])
   if (props.allowedTypes.length > 0 && !props.allowedTypes.includes(file.type)) {
-    return `Тип файла ${file.type || 'не определён'} не поддерживается.`
+    return t('engine.imageuploadfield.026', [file.type || t('engine.imageuploadfield.039')])
   }
   if (props.minimumWidth <= 0 && props.minimumHeight <= 0 && props.maximumWidth <= 0 && props.maximumHeight <= 0) return ''
 
   validating.value = true
   try {
     const dimensions = await imageDimensions(file)
-    if (!dimensions) return 'Не удалось прочитать изображение.'
+    if (!dimensions) return t('engine.imageuploadfield.027')
     if (props.minimumWidth > 0 && dimensions.width < props.minimumWidth) {
-      return `Ширина изображения должна быть не меньше ${props.minimumWidth}px.`
+      return t('engine.imageuploadfield.031', [props.minimumWidth])
     }
     if (props.minimumHeight > 0 && dimensions.height < props.minimumHeight) {
-      return `Высота изображения должна быть не меньше ${props.minimumHeight}px.`
+      return t('engine.imageuploadfield.032', [props.minimumHeight])
     }
     if (props.maximumWidth > 0 && dimensions.width > props.maximumWidth) {
-      return `Ширина изображения не должна превышать ${props.maximumWidth}px.`
+      return t('engine.imageuploadfield.033', [props.maximumWidth])
     }
     if (props.maximumHeight > 0 && dimensions.height > props.maximumHeight) {
-      return `Высота изображения не должна превышать ${props.maximumHeight}px.`
+      return t('engine.imageuploadfield.034', [props.maximumHeight])
     }
     return ''
   } finally {
@@ -336,8 +338,8 @@ function clear(): void {
 }
 
 function formatBytes(value: number): string {
-  if (value < 1024) return `${value} Б`
-  const units = ['КиБ', 'МиБ', 'ГиБ']
+  if (value < 1024) return t('engine.imageuploadfield.035', [value])
+  const units = [t('engine.imageuploadfield.036'), t('engine.imageuploadfield.037'), t('engine.imageuploadfield.038')]
   let size = value / 1024
   let unit = 0
   while (size >= 1024 && unit < units.length - 1) {
@@ -388,14 +390,11 @@ onBeforeUnmount(() => {
         <small v-if="description">{{ description }}</small>
       </div>
       <span v-if="editing" class="image-upload-field__state">
-        <i class="fa-solid fa-spinner" aria-hidden="true" /> Редактирование…
-      </span>
+        <i class="fa-solid fa-spinner" aria-hidden="true" /> {{ t('engine.imageuploadfield.003') }} </span>
       <span v-else-if="uploading" class="image-upload-field__state">
-        <i class="fa-solid fa-spinner" aria-hidden="true" /> Загрузка…
-      </span>
+        <i class="fa-solid fa-spinner" aria-hidden="true" /> {{ t('engine.imageuploadfield.004') }} </span>
       <span v-else-if="localFile || preview" class="image-upload-field__state is-ready">
-        <i class="fa-solid fa-circle-check" aria-hidden="true" /> Выбрано
-      </span>
+        <i class="fa-solid fa-circle-check" aria-hidden="true" /> {{ t('engine.imageuploadfield.005') }} </span>
     </header>
 
     <div
@@ -415,8 +414,8 @@ onBeforeUnmount(() => {
       >
       <div v-else class="image-upload-field__preview-empty">
         <i class="fa-solid" :class="previewFailed ? 'fa-circle-exclamation' : 'fa-image'" aria-hidden="true" />
-        <strong>{{ previewFailed ? 'Предпросмотр недоступен' : 'Изображение не выбрано' }}</strong>
-        <small>{{ previewFailed ? 'Проверьте источник или выберите другой файл.' : dropLabel }}</small>
+        <strong>{{ previewFailed ? t('engine.imageuploadfield.006') : t('engine.imageuploadfield.007') }}</strong>
+        <small>{{ previewFailed ? t('engine.imageuploadfield.008') : dropLabel }}</small>
       </div>
       <slot name="preview-overlay" :preview="activePreview" :file="localFile" />
     </div>
@@ -441,7 +440,7 @@ onBeforeUnmount(() => {
       <i class="fa-solid" :class="uploading || validating || editing ? 'fa-spinner' : 'fa-upload'" aria-hidden="true" />
       <div>
         <strong>{{ localFile ? localFile.name : dropLabel }}</strong>
-        <span>{{ localFile ? `${selectionSize} · можно заменить или отредактировать` : editorEnabled ? 'после выбора откроется редактор Pintura' : 'или откройте системный диалог выбора' }}</span>
+        <span>{{ localFile ? t('engine.imageuploadfield.009', [selectionSize]) : editorEnabled ? t('engine.imageuploadfield.010') : t('engine.imageuploadfield.011') }}</span>
       </div>
       <button class="button button--ghost" type="button" :disabled="isDisabled" @click.stop="choose">
         <i class="fa-solid fa-folder-open" aria-hidden="true" />
@@ -457,7 +456,7 @@ onBeforeUnmount(() => {
 
     <p v-if="visibleError || previewFailed" class="image-upload-field__feedback" role="alert">
       <i class="fa-solid fa-circle-exclamation" aria-hidden="true" />
-      <span>{{ visibleError || 'Изображение не удалось открыть.' }}</span>
+      <span>{{ visibleError || t('engine.imageuploadfield.012') }}</span>
     </p>
     <p v-else-if="hint" class="image-upload-field__hint">{{ hint }}</p>
 
@@ -490,12 +489,12 @@ onBeforeUnmount(() => {
       <section class="pintura-inline-editor" :class="{ 'pintura-inline-editor--external': Boolean(editorTarget) }">
         <header class="pintura-inline-editor__header">
           <div>
-            <strong>Редактор изображения</strong>
-            <small>Кадрирование, поворот, фильтры и коррекция</small>
+            <strong>{{ t('engine.imageuploadfield.013') }}</strong>
+            <small>{{ t('engine.imageuploadfield.014') }}</small>
           </div>
           <button class="button button--ghost" type="button" @click="cancelEditing">
             <i class="fa-solid fa-xmark" aria-hidden="true" />
-            <span>Отмена</span>
+            <span>{{ t('engine.imageuploadfield.015') }}</span>
           </button>
         </header>
         <div ref="editorHost" class="pintura-inline-editor__mount" />

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed } from 'vue'
 import type { StaticPageDefinition } from '@engine/content/contentData'
 
@@ -34,17 +36,17 @@ const hydratedHtml = computed(() => {
   const windowsIcon = document.querySelector<HTMLImageElement>('[data-start-windows-icon]')
 
   if (accountTitle) {
-    accountTitle.textContent = props.isGuest ? 'Создайте аккаунт' : `Аккаунт ${props.login} готов`
+    accountTitle.textContent = props.isGuest ? t('theme.useroptions.pages.startgame.003') : t('theme.useroptions.pages.startgame.004', [props.login])
   }
   if (accountDescription) {
     accountDescription.textContent = props.isGuest
-      ? 'Регистрация связывает игровой профиль, прогресс и доступ к сервисам сообщества.'
-      : 'Первый этап уже завершён. Можно загружать FoxesCraft.'
+      ? t('theme.useroptions.pages.startgame.005')
+      : t('theme.useroptions.pages.startgame.006')
   }
   if (!props.isGuest) registerAction?.remove()
 
   if (windowsIcon) windowsIcon.src = props.windowsIcon
-  if (downloadLabel) downloadLabel.textContent = props.downloading ? 'Подготовка…' : 'Windows x64'
+  if (downloadLabel) downloadLabel.textContent = props.downloading ? t('theme.useroptions.pages.startgame.007') : 'Windows x64'
   if (downloadAction) {
     downloadAction.setAttribute('aria-disabled', props.downloading ? 'true' : 'false')
     downloadAction.classList.toggle('is-disabled', props.downloading)
@@ -106,7 +108,7 @@ function handleAction(event: MouseEvent): void {
     v-html="hydratedHtml"
   />
   <div v-else-if="error" class="system-message system-message--error">
-    <strong>Страница запуска недоступна</strong>
-    <p>Не удалось загрузить runtime-страницу <code>data/pages/start.html</code>.</p>
+    <strong>{{ t('theme.useroptions.pages.startgame.001') }}</strong>
+    <p>{{ t('theme.useroptions.pages.startgame.002') }} <code>data/pages/start.html</code>.</p>
   </div>
 </template>

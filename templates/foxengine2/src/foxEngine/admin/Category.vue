@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type {
   AdminCategoryDefinition,
   AdminToolDefinition,
@@ -20,14 +22,14 @@ const emit = defineEmits<{ select: [tool: AdminToolId] }>()
 
 function toolMetric(tool: AdminToolDefinition): string {
   if (!props.overview) return ''
-  if (tool.id === 'overview') return `${props.hardware?.summary.totalSystems ?? 0} систем`
-  if (tool.id === 'users') return `${props.overview.users} игроков`
-  if (tool.id === 'servers') return `${props.overview.enabledServers}/${props.overview.servers} активны`
+  if (tool.id === 'overview') return t('theme.foxengine.admin.category.005', [props.hardware?.summary.totalSystems ?? 0])
+  if (tool.id === 'users') return t('theme.foxengine.admin.category.006', [props.overview.users])
+  if (tool.id === 'servers') return t('theme.foxengine.admin.category.007', [props.overview.enabledServers, props.overview.servers])
   if (tool.id === 'logs') return 'Live telemetry'
-  if (tool.catalog === 'infobox') return 'Справочник'
-  if (tool.catalog === 'badges') return 'Каталог профиля'
-  if (tool.catalog === 'groups') return 'Роли и доступ'
-  if (tool.id === 'rewards') return 'Выдача по ключам'
+  if (tool.catalog === 'infobox') return t('theme.foxengine.admin.category.008')
+  if (tool.catalog === 'badges') return t('theme.foxengine.admin.category.009')
+  if (tool.catalog === 'groups') return t('theme.foxengine.admin.category.010')
+  if (tool.id === 'rewards') return t('theme.foxengine.admin.category.011')
   return ''
 }
 </script>
@@ -39,13 +41,13 @@ function toolMetric(tool: AdminToolDefinition): string {
         <i class="fa-solid" :class="category.icon" />
       </span>
       <div>
-        <span class="eyebrow">Группа инструментов</span>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.category.001') }}</span>
         <h1>{{ category.label }}</h1>
         <p>{{ category.description }}</p>
       </div>
       <span class="admin-category-view__count">
         <strong>{{ category.tools.length }}</strong>
-        <small>инструментов</small>
+        <small>{{ t('theme.foxengine.admin.category.002') }}</small>
       </span>
     </header>
 
@@ -55,7 +57,7 @@ function toolMetric(tool: AdminToolDefinition): string {
         :key="tool.id"
         type="button"
         class="admin-category-tool"
-        :aria-label="`Открыть раздел «${tool.label}»`"
+        :aria-label="t('theme.foxengine.admin.category.003', [tool.label])"
         @click="emit('select', tool.id)"
       >
         <span class="admin-category-tool__icon" aria-hidden="true">
@@ -73,8 +75,6 @@ function toolMetric(tool: AdminToolDefinition): string {
     </div>
 
     <p v-if="loading" class="admin-dashboard__loading" role="status">
-      <i class="fa-solid fa-spinner" aria-hidden="true" />
-      Загружается состояние группы
-    </p>
+      <i class="fa-solid fa-spinner" aria-hidden="true" /> {{ t('theme.foxengine.admin.category.004') }} </p>
   </section>
 </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, onBeforeUnmount } from 'vue'
 import type { UserRow } from '@modules/AdminPanel/client/useAdminPanel'
 import UserAvatar from './UserAvatar.vue'
@@ -59,13 +61,13 @@ function groupStyle(user: UserRow): Record<string, string> {
   <aside class="admin-users__master">
     <header class="admin-users__master-header">
       <div>
-        <span class="eyebrow">User directory</span>
-        <h2>Пользователи</h2>
-        <p>Поиск и выбор учётной записи для редактирования.</p>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.users.usertable.001') }}</span>
+        <h2>{{ t('theme.foxengine.admin.users.usertable.002') }}</h2>
+        <p>{{ t('theme.foxengine.admin.users.usertable.003') }}</p>
       </div>
-      <div class="admin-users__counts" aria-label="Статистика результата">
-        <span><strong>{{ users.length }}</strong> найдено</span>
-        <span><strong>{{ groupCount }}</strong> групп</span>
+      <div class="admin-users__counts" :aria-label="t('theme.foxengine.admin.users.usertable.004')">
+        <span><strong>{{ users.length }}</strong> {{ t('theme.foxengine.admin.users.usertable.005') }}</span>
+        <span><strong>{{ groupCount }}</strong> {{ t('theme.foxengine.admin.users.usertable.006') }}</span>
       </div>
     </header>
 
@@ -76,22 +78,22 @@ function groupStyle(user: UserRow): Record<string, string> {
           :value="search"
           type="search"
           autocomplete="off"
-          placeholder="Логин, email, имя, UUID или бейдж"
-          aria-label="Поиск пользователей"
+          :placeholder="t('theme.foxengine.admin.users.usertable.007')"
+          :aria-label="t('theme.foxengine.admin.users.usertable.008')"
           @input="update"
         >
-        <button v-if="search" type="button" title="Очистить поиск" aria-label="Очистить поиск" @click="clearSearch">
+        <button v-if="search" type="button" :title="t('theme.foxengine.admin.users.usertable.009')" :aria-label="t('theme.foxengine.admin.users.usertable.009')" @click="clearSearch">
           <i class="fa-solid fa-xmark" aria-hidden="true" />
         </button>
       </label>
       <button class="button button--primary" type="submit" :disabled="loading">
         <i class="fa-solid" :class="loading ? 'fa-spinner' : 'fa-magnifying-glass'" aria-hidden="true" />
-        <span>{{ loading ? 'Поиск…' : 'Найти' }}</span>
+        <span>{{ loading ? t('theme.foxengine.admin.users.usertable.010') : t('theme.foxengine.admin.users.usertable.011') }}</span>
       </button>
     </form>
     <div class="admin-user-search__status" aria-live="polite">
-      <span v-if="normalizedSearch"><i class="fa-solid fa-magnifying-glass" aria-hidden="true" />По запросу «{{ normalizedSearch }}»</span>
-      <span v-else><i class="fa-solid fa-users" aria-hidden="true" />Последние активные пользователи</span>
+      <span v-if="normalizedSearch"><i class="fa-solid fa-magnifying-glass" aria-hidden="true" />{{ t('theme.foxengine.admin.users.usertable.012') }}{{ normalizedSearch }}»</span>
+      <span v-else><i class="fa-solid fa-users" aria-hidden="true" />{{ t('theme.foxengine.admin.users.usertable.013') }}</span>
       <strong>{{ users.length }}</strong>
     </div>
 
@@ -122,7 +124,7 @@ function groupStyle(user: UserRow): Record<string, string> {
             </span>
           </span>
           <span class="admin-user-card__meta">
-            <span><i class="fa-solid fa-envelope" aria-hidden="true" />{{ user.email || 'Email не указан' }}</span>
+            <span><i class="fa-solid fa-envelope" aria-hidden="true" />{{ user.email || t('theme.foxengine.admin.users.usertable.014') }}</span>
             <span><i class="fa-solid fa-clock" aria-hidden="true" />{{ formatTimestamp(user.last_date) }}</span>
           </span>
         </span>
@@ -132,9 +134,9 @@ function groupStyle(user: UserRow): Record<string, string> {
 
     <div v-else class="admin-users__empty-list">
       <i class="fa-solid fa-users" aria-hidden="true" />
-      <strong>Пользователи не найдены</strong>
-      <p>Измените поисковый запрос или очистите фильтр.</p>
-      <button v-if="search" class="button button--ghost" type="button" @click="clearSearch">Показать всех</button>
+      <strong>{{ t('theme.foxengine.admin.users.usertable.015') }}</strong>
+      <p>{{ t('theme.foxengine.admin.users.usertable.016') }}</p>
+      <button v-if="search" class="button button--ghost" type="button" @click="clearSearch">{{ t('theme.foxengine.admin.users.usertable.017') }}</button>
     </div>
   </aside>
 </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import type { Editor } from '@tiptap/core'
@@ -15,7 +17,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   modelValue: '',
   disabled: false,
-  placeholder: 'Введите текст новости',
+  placeholder: t('theme.news.tiptapeditor.034'),
   maximumLength: 100_000,
 })
 
@@ -139,7 +141,7 @@ function editLink(): void {
   if (!instance || props.disabled) return
 
   const previous = String(instance.getAttributes('link').href || '')
-  const href = window.prompt('Адрес ссылки', previous || 'https://')
+  const href = window.prompt(t('theme.news.tiptapeditor.035'), previous || 'https://')
   if (href === null) return
 
   const normalized = href.trim()
@@ -185,58 +187,58 @@ onBeforeUnmount(() => {
       'tiptap-field--fullscreen': fullscreen,
     }"
   >
-    <div v-if="editor" class="tiptap-toolbar" role="toolbar" aria-label="Форматирование текста">
+    <div v-if="editor" class="tiptap-toolbar" role="toolbar" :aria-label="t('theme.news.tiptapeditor.001')">
       <div class="tiptap-toolbar__group">
         <select
           class="tiptap-toolbar__select"
           :value="currentBlock"
           :disabled="disabled || sourceMode"
-          aria-label="Стиль абзаца"
+          :aria-label="t('theme.news.tiptapeditor.002')"
           @change="setBlock"
         >
-          <option value="paragraph">Обычный текст</option>
-          <option value="h2">Заголовок 2</option>
-          <option value="h3">Заголовок 3</option>
-          <option value="h4">Заголовок 4</option>
+          <option value="paragraph">{{ t('theme.news.tiptapeditor.003') }}</option>
+          <option value="h2">{{ t('theme.news.tiptapeditor.004') }}</option>
+          <option value="h3">{{ t('theme.news.tiptapeditor.005') }}</option>
+          <option value="h4">{{ t('theme.news.tiptapeditor.006') }}</option>
         </select>
       </div>
 
       <div class="tiptap-toolbar__group">
-        <button type="button" title="Полужирный" aria-label="Полужирный" :class="{ 'is-active': isActive('bold') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleBold().run())"><i class="fa-solid fa-bold" /></button>
-        <button type="button" title="Курсив" aria-label="Курсив" :class="{ 'is-active': isActive('italic') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleItalic().run())"><i class="fa-solid fa-italic" /></button>
-        <button type="button" title="Подчёркнутый" aria-label="Подчёркнутый" :class="{ 'is-active': isActive('underline') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleUnderline().run())"><i class="fa-solid fa-underline" /></button>
-        <button type="button" title="Зачёркнутый" aria-label="Зачёркнутый" :class="{ 'is-active': isActive('strike') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleStrike().run())"><i class="fa-solid fa-strikethrough" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.007')" :aria-label="t('theme.news.tiptapeditor.007')" :class="{ 'is-active': isActive('bold') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleBold().run())"><i class="fa-solid fa-bold" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.008')" :aria-label="t('theme.news.tiptapeditor.008')" :class="{ 'is-active': isActive('italic') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleItalic().run())"><i class="fa-solid fa-italic" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.009')" :aria-label="t('theme.news.tiptapeditor.009')" :class="{ 'is-active': isActive('underline') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleUnderline().run())"><i class="fa-solid fa-underline" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.010')" :aria-label="t('theme.news.tiptapeditor.010')" :class="{ 'is-active': isActive('strike') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleStrike().run())"><i class="fa-solid fa-strikethrough" /></button>
       </div>
 
       <div class="tiptap-toolbar__group">
-        <button type="button" title="Маркированный список" aria-label="Маркированный список" :class="{ 'is-active': isActive('bulletList') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleBulletList().run())"><i class="fa-solid fa-list-ul" /></button>
-        <button type="button" title="Нумерованный список" aria-label="Нумерованный список" :class="{ 'is-active': isActive('orderedList') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleOrderedList().run())"><i class="fa-solid fa-list-ol" /></button>
-        <button type="button" title="Цитата" aria-label="Цитата" :class="{ 'is-active': isActive('blockquote') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleBlockquote().run())"><i class="fa-solid fa-quote-left" /></button>
-        <button type="button" title="Горизонтальная линия" aria-label="Горизонтальная линия" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setHorizontalRule().run())"><i class="fa-solid fa-minus" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.011')" :aria-label="t('theme.news.tiptapeditor.011')" :class="{ 'is-active': isActive('bulletList') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleBulletList().run())"><i class="fa-solid fa-list-ul" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.012')" :aria-label="t('theme.news.tiptapeditor.012')" :class="{ 'is-active': isActive('orderedList') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleOrderedList().run())"><i class="fa-solid fa-list-ol" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.013')" :aria-label="t('theme.news.tiptapeditor.013')" :class="{ 'is-active': isActive('blockquote') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().toggleBlockquote().run())"><i class="fa-solid fa-quote-left" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.014')" :aria-label="t('theme.news.tiptapeditor.014')" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setHorizontalRule().run())"><i class="fa-solid fa-minus" /></button>
       </div>
 
       <div class="tiptap-toolbar__group">
-        <button type="button" title="По левому краю" aria-label="По левому краю" :class="{ 'is-active': isAligned('left') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('left').run())"><i class="fa-solid fa-align-left" /></button>
-        <button type="button" title="По центру" aria-label="По центру" :class="{ 'is-active': isAligned('center') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('center').run())"><i class="fa-solid fa-align-center" /></button>
-        <button type="button" title="По правому краю" aria-label="По правому краю" :class="{ 'is-active': isAligned('right') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('right').run())"><i class="fa-solid fa-align-right" /></button>
-        <button type="button" title="По ширине" aria-label="По ширине" :class="{ 'is-active': isAligned('justify') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('justify').run())"><i class="fa-solid fa-align-justify" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.015')" :aria-label="t('theme.news.tiptapeditor.015')" :class="{ 'is-active': isAligned('left') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('left').run())"><i class="fa-solid fa-align-left" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.016')" :aria-label="t('theme.news.tiptapeditor.016')" :class="{ 'is-active': isAligned('center') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('center').run())"><i class="fa-solid fa-align-center" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.017')" :aria-label="t('theme.news.tiptapeditor.017')" :class="{ 'is-active': isAligned('right') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('right').run())"><i class="fa-solid fa-align-right" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.018')" :aria-label="t('theme.news.tiptapeditor.018')" :class="{ 'is-active': isAligned('justify') }" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().setTextAlign('justify').run())"><i class="fa-solid fa-align-justify" /></button>
       </div>
 
       <div class="tiptap-toolbar__group">
-        <button type="button" title="Ссылка" aria-label="Ссылка" :class="{ 'is-active': isActive('link') }" :disabled="disabled || sourceMode" @click="editLink"><i class="fa-solid fa-link" /></button>
-        <button type="button" title="Убрать ссылку" aria-label="Убрать ссылку" :disabled="disabled || sourceMode || !isActive('link')" @click="withEditor((instance) => instance.chain().focus().unsetLink().run())"><i class="fa-solid fa-link-slash" /></button>
-        <button type="button" title="Вставить таблицу" aria-label="Вставить таблицу" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())"><i class="fa-solid fa-table-cells" /></button>
-        <button type="button" title="Добавить строку" aria-label="Добавить строку" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().addRowAfter().run())"><i class="fa-solid fa-table-rows" /></button>
-        <button type="button" title="Добавить столбец" aria-label="Добавить столбец" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().addColumnAfter().run())"><i class="fa-solid fa-table-columns" /></button>
-        <button type="button" title="Удалить таблицу" aria-label="Удалить таблицу" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().deleteTable().run())"><i class="fa-solid fa-table-list" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.019')" :aria-label="t('theme.news.tiptapeditor.019')" :class="{ 'is-active': isActive('link') }" :disabled="disabled || sourceMode" @click="editLink"><i class="fa-solid fa-link" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.020')" :aria-label="t('theme.news.tiptapeditor.020')" :disabled="disabled || sourceMode || !isActive('link')" @click="withEditor((instance) => instance.chain().focus().unsetLink().run())"><i class="fa-solid fa-link-slash" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.021')" :aria-label="t('theme.news.tiptapeditor.021')" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())"><i class="fa-solid fa-table-cells" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.022')" :aria-label="t('theme.news.tiptapeditor.022')" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().addRowAfter().run())"><i class="fa-solid fa-table-rows" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.023')" :aria-label="t('theme.news.tiptapeditor.023')" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().addColumnAfter().run())"><i class="fa-solid fa-table-columns" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.024')" :aria-label="t('theme.news.tiptapeditor.024')" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().deleteTable().run())"><i class="fa-solid fa-table-list" /></button>
       </div>
 
       <div class="tiptap-toolbar__group tiptap-toolbar__group--end">
-        <button type="button" title="Очистить форматирование" aria-label="Очистить форматирование" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().clearNodes().unsetAllMarks().run())"><i class="fa-solid fa-eraser" /></button>
-        <button type="button" title="Отменить" aria-label="Отменить" :disabled="disabled || sourceMode || !editor.can().undo()" @click="withEditor((instance) => instance.chain().focus().undo().run())"><i class="fa-solid fa-rotate-left" /></button>
-        <button type="button" title="Повторить" aria-label="Повторить" :disabled="disabled || sourceMode || !editor.can().redo()" @click="withEditor((instance) => instance.chain().focus().redo().run())"><i class="fa-solid fa-rotate-right" /></button>
-        <button type="button" title="HTML-код" aria-label="HTML-код" :class="{ 'is-active': sourceMode }" :disabled="disabled" @click="toggleSourceMode"><i class="fa-solid fa-code" /></button>
-        <button type="button" title="Полноэкранный режим" aria-label="Полноэкранный режим" :class="{ 'is-active': fullscreen }" @click="toggleFullscreen"><i :class="fullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand'" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.025')" :aria-label="t('theme.news.tiptapeditor.025')" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().clearNodes().unsetAllMarks().run())"><i class="fa-solid fa-eraser" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.026')" :aria-label="t('theme.news.tiptapeditor.026')" :disabled="disabled || sourceMode || !editor.can().undo()" @click="withEditor((instance) => instance.chain().focus().undo().run())"><i class="fa-solid fa-rotate-left" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.027')" :aria-label="t('theme.news.tiptapeditor.027')" :disabled="disabled || sourceMode || !editor.can().redo()" @click="withEditor((instance) => instance.chain().focus().redo().run())"><i class="fa-solid fa-rotate-right" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.028')" :aria-label="t('theme.news.tiptapeditor.028')" :class="{ 'is-active': sourceMode }" :disabled="disabled" @click="toggleSourceMode"><i class="fa-solid fa-code" /></button>
+        <button type="button" :title="t('theme.news.tiptapeditor.029')" :aria-label="t('theme.news.tiptapeditor.029')" :class="{ 'is-active': fullscreen }" @click="toggleFullscreen"><i :class="fullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand'" /></button>
       </div>
     </div>
 
@@ -248,16 +250,16 @@ onBeforeUnmount(() => {
         class="tiptap-editor__source"
         :maxlength="maximumLength"
         spellcheck="false"
-        aria-label="HTML-код новости"
+        :aria-label="t('theme.news.tiptapeditor.030')"
       />
       <div v-else class="tiptap-editor__loading" aria-live="polite">
         <i class="fa-solid fa-spinner" aria-hidden="true" />
-        <span>Загрузка редактора…</span>
+        <span>{{ t('theme.news.tiptapeditor.031') }}</span>
       </div>
     </div>
 
     <footer class="tiptap-editor__status">
-      <span>{{ sourceMode ? 'HTML' : 'Визуальный режим' }}</span>
+      <span>{{ sourceMode ? t('theme.news.tiptapeditor.032') : t('theme.news.tiptapeditor.033') }}</span>
       <span>{{ characterCount.toLocaleString('ru-RU') }} / {{ maximumLength.toLocaleString('ru-RU') }}</span>
     </footer>
   </div>

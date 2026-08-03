@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Tagify from '@yaireo/tagify'
 import '@yaireo/tagify/dist/tagify.css'
@@ -7,7 +9,7 @@ const props = withDefaults(defineProps<{
   modelValue: string
   placeholder?: string
 }>(), {
-  placeholder: 'Добавьте поисковый тег и нажмите Enter',
+  placeholder: t('theme.foxengine.admin.seotagifyinput.001'),
 })
 
 const emit = defineEmits<{
@@ -71,7 +73,7 @@ onMounted(async () => {
     },
     validate(tagData) {
       const value = String(tagData.value ?? '').trim()
-      if (!value) return 'Пустой тег недопустим'
+      if (!value) return t('theme.foxengine.admin.seotagifyinput.002')
       return true
     },
   })

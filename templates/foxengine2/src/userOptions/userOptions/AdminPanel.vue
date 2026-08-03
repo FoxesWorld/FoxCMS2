@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminPanel } from '@modules/AdminPanel/client/useAdminPanel'
@@ -57,9 +59,9 @@ const currentCategory = computed(() => {
 const isHome = computed(() => !currentCategory.value && !currentTool.value)
 const isCategory = computed(() => Boolean(currentCategory.value) && !currentTool.value)
 const isTool = computed(() => Boolean(currentTool.value))
-const pageTitle = computed(() => currentTool.value?.label ?? 'Центр управления')
+const pageTitle = computed(() => currentTool.value?.label ?? t('theme.useroptions.useroptions.adminpanel.012'))
 const pageDescription = computed(() => currentTool.value?.description
-  ?? 'Все возможности FoxesCraft, сгруппированные по назначению.')
+  ?? t('theme.useroptions.useroptions.adminpanel.013'))
 
 async function navigateHome(): Promise<void> {
   await router.push({ query: { ...route.query, group: undefined, section: undefined } })
@@ -97,12 +99,12 @@ watch(
 
 <template>
   <div v-if="!isAdmin" class="system-message system-message--error">
-    <strong>Доступ запрещён</strong>
-    <p>Административный интерфейс доступен только учётным записям с группой admin.</p>
+    <strong>{{ t('theme.useroptions.useroptions.adminpanel.001') }}</strong>
+    <p>{{ t('theme.useroptions.useroptions.adminpanel.002') }}</p>
   </div>
 
   <article v-else class="content-surface admin-page admin-workspace" :class="{ 'admin-workspace--home': isHome, 'admin-workspace--navigation': isHome || isCategory }">
-    <nav class="admin-breadcrumbs" aria-label="Уровень навигации">
+    <nav class="admin-breadcrumbs" :aria-label="t('theme.useroptions.useroptions.adminpanel.003')">
       <button
         type="button"
         :class="{ 'is-current': isHome }"
@@ -110,7 +112,7 @@ watch(
         @click="navigateHome"
       >
         <i class="fa-solid fa-shield-halved" aria-hidden="true" />
-        <span>Админ-панель</span>
+        <span>{{ t('theme.useroptions.useroptions.adminpanel.004') }}</span>
       </button>
       <template v-if="currentCategory">
         <i class="fa-solid fa-chevron-right" aria-hidden="true" />
@@ -134,7 +136,7 @@ watch(
       </template>
       <span class="admin-breadcrumbs__status" :class="{ 'is-loading': loading }">
         <i class="fa-solid" :class="loading ? 'fa-spinner' : 'fa-circle-check'" aria-hidden="true" />
-        {{ loading ? 'Выполняется' : 'API online' }}
+        {{ loading ? t('theme.useroptions.useroptions.adminpanel.005') : t('theme.useroptions.useroptions.adminpanel.006') }}
       </span>
     </nav>
 
@@ -147,7 +149,7 @@ watch(
             @click="currentCategory && navigateCategory(currentCategory.id)"
           >
             <i class="fa-solid fa-arrow-left" aria-hidden="true" />
-            <span>К группе</span>
+            <span>{{ t('theme.useroptions.useroptions.adminpanel.007') }}</span>
           </button>
           <div class="admin-header__identity">
             <span class="admin-header__icon" aria-hidden="true">
@@ -186,19 +188,19 @@ watch(
           </div>
           <dl v-if="feedback.error" class="admin-feedback__details">
             <div>
-              <dt>Операция</dt>
+              <dt>{{ t('theme.useroptions.useroptions.adminpanel.008') }}</dt>
               <dd><code>{{ feedback.error.action }}</code></dd>
             </div>
             <div>
-              <dt>Исключение</dt>
+              <dt>{{ t('theme.useroptions.useroptions.adminpanel.009') }}</dt>
               <dd><code>{{ feedback.error.exception }}</code></dd>
             </div>
             <div class="admin-feedback__details-reason">
-              <dt>Причина</dt>
+              <dt>{{ t('theme.useroptions.useroptions.adminpanel.010') }}</dt>
               <dd>{{ feedback.error.detail }}</dd>
             </div>
             <div>
-              <dt>Код запроса</dt>
+              <dt>{{ t('theme.useroptions.useroptions.adminpanel.011') }}</dt>
               <dd><code>{{ feedback.error.requestId || feedback.requestId || '—' }}</code></dd>
             </div>
           </dl>

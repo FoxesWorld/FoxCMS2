@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { useRouter } from 'vue-router'
 import { appBootstrap } from '@engine/app/context'
 import { bootstrapBoolean, bootstrapString, themeAsset } from '@engine/domain/bootstrap'
@@ -8,7 +10,7 @@ import Welcome from '@theme/userOptions/content/Welcome.vue'
 const router = useRouter()
 const isGuest = !bootstrapBoolean(appBootstrap, 'isLogged', false)
   || bootstrapString(appBootstrap, 'groupTag', 'guest') === 'guest'
-const name = bootstrapString(appBootstrap, 'realname', bootstrapString(appBootstrap, 'login', 'путник'))
+const name = bootstrapString(appBootstrap, 'realname', bootstrapString(appBootstrap, 'login', t('engine.homeview.001')))
 const artwork = themeAsset(appBootstrap, 'img/AbbyAnderson/AbbyAndFoxInviting2.png')
 const rewardOffer = usePublicRewardOffer('welcome-native', !isGuest)
 

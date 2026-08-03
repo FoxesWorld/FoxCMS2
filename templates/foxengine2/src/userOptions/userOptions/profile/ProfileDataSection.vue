@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed } from 'vue'
 import type { ProfileEntry } from '@engine/contracts/user-pages'
 
@@ -15,9 +17,9 @@ const props = withDefaults(defineProps<{
 const isBalance = computed(() => props.variant === 'balance')
 const balanceCounter = computed(() => {
   const count = props.entries.length
-  if (count === 1) return '1 валюта'
-  if (count >= 2 && count <= 4) return `${count} валюты`
-  return `${count} валют`
+  if (count === 1) return t('theme.useroptions.useroptions.profile.profiledatasection.004')
+  if (count >= 2 && count <= 4) return t('theme.useroptions.useroptions.profile.profiledatasection.005', [count])
+  return t('theme.useroptions.useroptions.profile.profiledatasection.006', [count])
 })
 </script>
 
@@ -70,6 +72,6 @@ const balanceCounter = computed(() => {
       </article>
     </div>
 
-    <p v-else class="profile-panel__empty">{{ emptyText || 'Данные пока не опубликованы.' }}</p>
+    <p v-else class="profile-panel__empty">{{ emptyText || t('theme.useroptions.useroptions.profile.profiledatasection.003') }}</p>
   </section>
 </template>

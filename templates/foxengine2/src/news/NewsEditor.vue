@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { reactive, ref, watch } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
@@ -44,7 +46,7 @@ async function selectCover(file: File): Promise<void> {
   } catch (error) {
     coverError.value = error instanceof Error
       ? error.message
-      : 'Не удалось загрузить обложку.'
+      : t('theme.news.newseditor.014')
   } finally {
     uploadingCover.value = false
   }
@@ -58,7 +60,7 @@ function submit(): void {
     .trim()
 
   if (!plain) {
-    contentError.value = 'Добавьте текст публикации.'
+    contentError.value = t('theme.news.newseditor.015')
     return
   }
 
@@ -75,15 +77,15 @@ function submit(): void {
 <template>
   <form class="news-editor" @submit.prevent="submit">
     <header class="news-editor__header">
-      <h2>{{ allowDelete ? 'Редактирование новости' : 'Новая публикация' }}</h2>
+      <h2>{{ allowDelete ? t('theme.news.newseditor.001') : t('theme.news.newseditor.002') }}</h2>
     </header>
 
     <div class="news-editor__overview">
       <aside class="news-editor__cover-panel">
         <ImageUploadField
           class="news-editor__image-upload"
-          title="Фото новости"
-          description="Круглая обложка в ленте и в полной новости"
+          :title="t('theme.news.newseditor.003')"
+          :description="t('theme.news.newseditor.004')"
           :preview="draft.coverImage"
           preview-mode="circle"
           :disabled="saving"
@@ -96,12 +98,12 @@ function submit(): void {
 
       <section class="news-editor__basics">
         <label class="news-editor__field news-editor__field--title">
-          <span>Заголовок</span>
+          <span>{{ t('theme.news.newseditor.005') }}</span>
           <input v-model="draft.title" maxlength="160" required :disabled="saving">
         </label>
 
         <label class="news-editor__field">
-          <span>Краткое описание</span>
+          <span>{{ t('theme.news.newseditor.006') }}</span>
           <textarea v-model="draft.summary" rows="5" maxlength="600" required :disabled="saving" />
           <small>{{ draft.summary.length }} / 600</small>
         </label>
@@ -112,7 +114,7 @@ function submit(): void {
       <TiptapEditor
         v-model="draft.content"
         :disabled="saving"
-        placeholder="Расскажите о событии, обновлении или изменении"
+        :placeholder="t('theme.news.newseditor.007')"
         :maximum-length="100000"
         @update:model-value="contentError = ''"
       />
@@ -127,19 +129,19 @@ function submit(): void {
       v-model="draft.isPublished"
       class="news-editor__publish"
       variant="switch"
-      label="Опубликовать новость"
-      description="Показывать материал в ленте и на главной странице"
+      :label="t('theme.news.newseditor.008')"
+      :description="t('theme.news.newseditor.009')"
     />
 
     <footer class="news-editor__actions">
       <button class="button button--primary" type="submit" :disabled="saving || uploadingCover">
         <i class="fa-solid fa-floppy-disk" aria-hidden="true" />
-        <span>{{ saving ? 'Сохранение…' : 'Сохранить' }}</span>
+        <span>{{ saving ? t('theme.news.newseditor.010') : t('theme.news.newseditor.011') }}</span>
       </button>
 
       <button class="button button--ghost" type="button" :disabled="saving || uploadingCover" @click="emit('cancel')">
         <i class="fa-solid fa-xmark" aria-hidden="true" />
-        <span>Отмена</span>
+        <span>{{ t('theme.news.newseditor.012') }}</span>
       </button>
 
       <button
@@ -150,7 +152,7 @@ function submit(): void {
         @click="emit('remove')"
       >
         <i class="fa-solid fa-trash-can" aria-hidden="true" />
-        <span>Удалить</span>
+        <span>{{ t('theme.news.newseditor.013') }}</span>
       </button>
     </footer>
   </form>

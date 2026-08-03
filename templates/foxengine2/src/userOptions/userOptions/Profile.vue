@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { useRouter } from 'vue-router'
 import type { ProfileBadge, ProfileEntry, ProfileRecord } from '@engine/contracts/user-pages'
 import ProfileBadges from './profile/ProfileBadges.vue'
@@ -41,9 +43,9 @@ function openUserSettings(): void {
 </script>
 
 <template>
-  <div v-if="loading" class="content-skeleton" aria-label="Загрузка профиля"><span /><span /><span /></div>
+  <div v-if="loading" class="content-skeleton" :aria-label="t('theme.useroptions.useroptions.profile.001')"><span /><span /><span /></div>
   <div v-else-if="error || !profile" class="system-message system-message--error">
-    <strong>Профиль недоступен</strong>
+    <strong>{{ t('theme.useroptions.useroptions.profile.002') }}</strong>
     <p>{{ error }}</p>
   </div>
 
@@ -70,29 +72,27 @@ function openUserSettings(): void {
     <aside
       v-if="viewerGroupTag === 'admin' && !isOwner"
       class="profile-admin-context"
-      aria-label="Контекст административного просмотра"
+      :aria-label="t('theme.useroptions.useroptions.profile.003')"
     >
       <span class="profile-admin-context__icon" aria-hidden="true">
         <i class="fa-solid fa-shield-halved" />
       </span>
       <span class="profile-admin-context__copy">
-        <strong>Административный режим</strong>
-        <span>Приватные данные отображаются только в пределах разрешённого API-контракта.</span>
+        <strong>{{ t('theme.useroptions.useroptions.profile.004') }}</strong>
+        <span>{{ t('theme.useroptions.useroptions.profile.005') }}</span>
       </span>
       <span class="profile-admin-context__status">
-        <span aria-hidden="true" />
-        Ограниченный доступ
-      </span>
+        <span aria-hidden="true" /> {{ t('theme.useroptions.useroptions.profile.006') }} </span>
     </aside>
 
     <div class="profile-content-grid">
       <div class="profile-content-grid__main">
         <ProfileInfo :profile="profile" />
         <ProfileDataSection
-          title="Игровая активность"
-          eyebrow="Экспедиции"
+          :title="t('theme.useroptions.useroptions.profile.007')"
+          :eyebrow="t('theme.useroptions.useroptions.profile.008')"
           :entries="servers"
-          empty-text="Сохранённой игровой активности пока нет."
+          :empty-text="t('theme.useroptions.useroptions.profile.009')"
         />
       </div>
 
@@ -100,11 +100,11 @@ function openUserSettings(): void {
         <ProfileBadges :badges="badges" @open="openBadge" />
         <ProfileDataSection
           v-if="isOwner || viewerGroupTag === 'admin'"
-          title="Баланс"
-          eyebrow="Личный счёт"
+          :title="t('theme.useroptions.useroptions.profile.010')"
+          :eyebrow="t('theme.useroptions.useroptions.profile.011')"
           :entries="balances"
           variant="balance"
-          empty-text="Баланс пока пуст."
+          :empty-text="t('theme.useroptions.useroptions.profile.012')"
         />
       </aside>
     </div>
@@ -112,7 +112,7 @@ function openUserSettings(): void {
 
   <ProfilePhotoDialog
     v-if="photoDialogOpen && profile"
-    :target-login="profile.login || 'пользователь'"
+    :target-login="profile.login || t('theme.useroptions.useroptions.profile.013')"
     :preview="profile.profilePhoto"
     :uploading="photoUploading"
     :error="photoError"

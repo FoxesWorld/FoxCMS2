@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { onMounted, ref } from 'vue'
 import { appBootstrap } from '@engine/app/context'
 import { foxesApi } from '@engine/api'
@@ -61,11 +63,11 @@ async function claimReward(): Promise<void> {
   claimFeedback.value = null
   claimedReward.value = null
   if (!authenticated) {
-    claimFeedback.value = { type: 'error', message: 'Войдите в аккаунт, чтобы получить награду.' }
+    claimFeedback.value = { type: 'error', message: t('engine.badgesview.001') }
     return
   }
   if (!/^(?:fcr|fcb)_[A-Za-z0-9_-]{43}$/.test(code)) {
-    claimFeedback.value = { type: 'error', message: 'Введите полный криптографический код награды.' }
+    claimFeedback.value = { type: 'error', message: t('engine.badgesview.002') }
     return
   }
 
@@ -77,7 +79,7 @@ async function claimReward(): Promise<void> {
     })
     claimFeedback.value = {
       type: response.type === 'warning' ? 'warning' : 'success',
-      message: response.message || 'Награда получена.',
+      message: response.message || t('engine.badgesview.003'),
     }
     claimedReward.value = response.reward
       ? {
@@ -95,7 +97,7 @@ async function claimReward(): Promise<void> {
       type: 'error',
       message: requestError instanceof Error && requestError.message.trim()
         ? requestError.message
-        : 'Не удалось применить код награды.',
+        : t('engine.badgesview.004'),
     }
   } finally {
     claiming.value = false
@@ -108,7 +110,7 @@ async function load(): Promise<void> {
   try {
     badges.value = await loadBadges()
     const siteTitle = appBootstrap.site.title || 'FoxesCraft'
-    document.title = `Бейджи — ${siteTitle}`
+    document.title = t('engine.badgesview.005', [siteTitle])
   } catch (requestError) {
     console.error('[FoxesCraft] Badge catalog failed', requestError)
     error.value = true

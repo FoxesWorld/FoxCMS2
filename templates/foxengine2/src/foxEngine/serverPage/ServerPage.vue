@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, ref, watch } from 'vue'
 import { serverImageUrl } from '@/domain/serverImage'
 import ServerMods from './ServerMods.vue'
@@ -13,8 +15,8 @@ watch(coverUrl, () => { coverFailed.value = false })
 </script>
 
 <template>
-  <div v-if="loading" class="content-skeleton" aria-label="Загрузка"><span /><span /><span /></div>
-  <div v-else-if="error || !details" class="system-message system-message--error"><strong>Сервер недоступен</strong><p>{{ error }}</p></div>
+  <div v-if="loading" class="content-skeleton" :aria-label="t('theme.foxengine.serverpage.serverpage.001')"><span /><span /><span /></div>
+  <div v-else-if="error || !details" class="system-message system-message--error"><strong>{{ t('theme.foxengine.serverpage.serverpage.002') }}</strong><p>{{ error }}</p></div>
   <article v-else class="content-surface server-page">
     <section class="server-hero">
       <img v-if="coverUrl && !coverFailed" class="server-hero__cover" :src="coverUrl" :alt="details.serverName" @error="coverFailed = true">
@@ -24,10 +26,10 @@ watch(coverUrl, () => { coverFailed.value = false })
           <div class="server-hero__identity">
             <img v-if="monitor?.favicon" :src="monitor.favicon" :alt="details.serverName">
             <span v-else>F</span>
-            <div><span class="eyebrow">FoxesCraft server</span><h1>{{ details.serverName }}</h1><p>{{ details.serverVersion || monitor?.version || 'Версия уточняется' }}</p></div>
+            <div><span class="eyebrow">{{ t('theme.foxengine.serverpage.serverpage.003') }}</span><h1>{{ details.serverName }}</h1><p>{{ details.serverVersion || monitor?.version || t('theme.foxengine.serverpage.serverpage.004') }}</p></div>
           </div>
           <div class="server-hero__status">
-            <strong>{{ monitor?.status === 'online' ? `Online · ${monitor.playersOnline ?? 0} / ${monitor.playersMax ?? 0}` : 'Offline' }}</strong>
+            <strong>{{ monitor?.status === 'online' ? t('theme.foxengine.serverpage.serverpage.005', [monitor.playersOnline ?? 0, monitor.playersMax ?? 0]) : t('theme.foxengine.serverpage.serverpage.006') }}</strong>
           </div>
         </header>
 
@@ -35,11 +37,11 @@ watch(coverUrl, () => { coverFailed.value = false })
     </section>
 
     <section class="server-panel server-page__about">
-      <header><span class="eyebrow">Информация</span><h2>О сервере</h2></header>
-      <p>{{ details.serverDescription || 'Описание готовится.' }}</p>
+      <header><span class="eyebrow">{{ t('theme.foxengine.serverpage.serverpage.007') }}</span><h2>{{ t('theme.foxengine.serverpage.serverpage.008') }}</h2></header>
+      <p>{{ details.serverDescription || t('theme.foxengine.serverpage.serverpage.009') }}</p>
       <footer>
-        <strong>{{ details.checkLib === 'true' ? 'Проверка библиотек включена' : 'Проверка отключена' }}</strong>
-        <span>{{ details.checkLib === 'true' ? 'Лаунчер проверяет и восстанавливает файлы.' : 'Клиент запускается без проверки.' }}</span>
+        <strong>{{ details.checkLib === 'true' ? t('theme.foxengine.serverpage.serverpage.010') : t('theme.foxengine.serverpage.serverpage.011') }}</strong>
+        <span>{{ details.checkLib === 'true' ? t('theme.foxengine.serverpage.serverpage.012') : t('theme.foxengine.serverpage.serverpage.013') }}</span>
       </footer>
     </section>
 

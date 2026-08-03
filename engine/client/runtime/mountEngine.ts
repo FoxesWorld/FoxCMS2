@@ -1,11 +1,13 @@
+import { setLocale, t } from '@/i18n'
 import { createApp, type Component } from 'vue'
 import { router } from '@/router'
 import { appBootstrap } from '@/app/context'
 
 export function mountEngine(rootComponent: Component): void {
+  setLocale(appBootstrap.site.language || document.documentElement.lang)
   const mountId = appBootstrap.theme.mount || 'foxescraft-app'
   const mountPoint = document.getElementById(mountId)
-  if (!mountPoint) throw new Error(`Theme mount point was not found: ${mountId}`)
+  if (!mountPoint) throw new Error(t('engine.runtime.mountengine.001', [mountId]))
 
   const application = createApp(rootComponent)
   application.config.errorHandler = (error, instance, info) => {

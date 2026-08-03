@@ -1,8 +1,9 @@
+import { t } from '@/i18n'
 import { foxesApi } from '@/api'
 import type { NewsDetailResponse, NewsDraft, NewsListResponse } from './types'
 
-export function loadNews(limit = 6): Promise<NewsListResponse> {
-  return foxesApi.post<NewsListResponse>({ newsAction: 'list', limit })
+export function loadNews(limit = 6, offset = 0): Promise<NewsListResponse> {
+  return foxesApi.post<NewsListResponse>({ newsAction: 'list', limit, offset })
 }
 
 export function loadNewsPost(id: number, trackView = false): Promise<NewsDetailResponse> {
@@ -48,7 +49,7 @@ export function newsDraft(post?: Partial<NewsDraft>): NewsDraft {
 }
 
 export function formatNewsDate(value: string | null | undefined): string {
-  if (!value) return 'Черновик'
+  if (!value) return t('modules.news.newsapi.001')
   const date = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
   return Number.isNaN(date.getTime())
     ? value

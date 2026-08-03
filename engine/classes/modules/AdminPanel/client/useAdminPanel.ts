@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { computed, onUnmounted, reactive, ref, shallowReactive, watch } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { FoxesApiError, foxesApi } from '@/api'
@@ -434,15 +435,15 @@ export function useAdminPanel() {
   const maintenance = reactive<MaintenanceSettings>({
     enabled: false,
     allowedGroups: ['admin'],
-    title: 'Ведутся технические работы',
-    message: 'Мы обновляем систему. Доступ будет восстановлен после завершения работ.',
+    title: t('modules.adminpanel.useadminpanel.001'),
+    message: t('modules.adminpanel.useadminpanel.002'),
     updatedAt: '',
     updatedByUuid: '',
     storageReady: false,
   })
   const sliderSettings = reactive<SliderSettings>({
     schema: 1,
-    eyebrow: 'FoxesCraft — новая глава',
+    eyebrow: t('modules.adminpanel.useadminpanel.003'),
     autoplayMs: 7000,
     slides: [],
   })
@@ -517,43 +518,43 @@ export function useAdminPanel() {
   const categories: AdminCategoryDefinition[] = [
     {
       id: 'observability',
-      label: 'Обзор и контроль',
-      description: 'Состояние проекта, метрики и диагностика',
+      label: t('modules.adminpanel.useadminpanel.004'),
+      description: t('modules.adminpanel.useadminpanel.005'),
       icon: 'fa-chart-line',
     },
     {
       id: 'community',
-      label: 'Сообщество',
-      description: 'Игроки, группы, награды и справочники',
+      label: t('modules.adminpanel.useadminpanel.006'),
+      description: t('modules.adminpanel.useadminpanel.007'),
       icon: 'fa-users',
     },
     {
       id: 'content',
-      label: 'Контент и оформление',
-      description: 'Страницы, слайды, SEO и параметры сайта',
+      label: t('modules.adminpanel.useadminpanel.008'),
+      description: t('modules.adminpanel.useadminpanel.009'),
       icon: 'fa-layer-group',
     },
     {
       id: 'infrastructure',
-      label: 'Инфраструктура',
-      description: 'Серверы, хранилище и режим обслуживания',
+      label: t('modules.adminpanel.useadminpanel.010'),
+      description: t('modules.adminpanel.useadminpanel.011'),
       icon: 'fa-server',
     },
   ]
   const tabs: AdminToolDefinition[] = [
-    { id: 'overview', tab: 'overview', category: 'observability', label: 'Обзор', description: 'Сводка проекта и данные об оборудовании', icon: 'fa-chart-line' },
-    { id: 'logs', tab: 'logs', category: 'observability', label: 'Журналы', description: 'Запросы, ошибки и диагностический контекст', icon: 'fa-rectangle-list' },
-    { id: 'users', tab: 'users', category: 'community', label: 'Пользователи', description: 'Профили, группы, баланс и награды', icon: 'fa-users' },
-    { id: 'infobox', tab: 'catalogs', category: 'community', catalog: 'infobox', label: 'InfoBox', description: 'Информационные блоки и справочные записи', icon: 'fa-circle-info' },
-    { id: 'badges', tab: 'catalogs', category: 'community', catalog: 'badges', label: 'Бейджи', description: 'Каталог визуальных знаков профиля', icon: 'fa-award' },
-    { id: 'rewards', tab: 'rewards', category: 'community', label: 'Награды', description: 'Композиции из бейджа и/или валюты, ключи и история выдачи', icon: 'fa-coins' },
-    { id: 'groups', tab: 'catalogs', category: 'community', catalog: 'groups', label: 'Группы', description: 'Роли, цвета и права групп пользователей', icon: 'fa-user-group' },
-    { id: 'content', tab: 'content', category: 'content', label: 'Страницы', description: 'Проектные страницы и HTML-страницы бейджей', icon: 'fa-newspaper' },
-    { id: 'slides', tab: 'slides', category: 'content', label: 'Слайды', description: 'Главный слайдер, изображения и переходы', icon: 'fa-images' },
-    { id: 'settings', tab: 'settings', category: 'content', label: 'Настройки сайта', description: 'Title, SEO, метаданные и оформление', icon: 'fa-sliders' },
-    { id: 'servers', tab: 'servers', category: 'infrastructure', label: 'Серверы', description: 'Игровая сеть, runtime JDK и параметры запуска', icon: 'fa-server' },
-    { id: 'files', tab: 'files', category: 'infrastructure', label: 'Файлы', description: 'Хранилище uploads, загрузка и каталоги', icon: 'fa-folder-open' },
-    { id: 'maintenance', tab: 'maintenance', category: 'infrastructure', label: 'Обслуживание', description: 'Технический режим и доступ групп', icon: 'fa-screwdriver-wrench' },
+    { id: 'overview', tab: 'overview', category: 'observability', label: t('modules.adminpanel.useadminpanel.012'), description: t('modules.adminpanel.useadminpanel.013'), icon: 'fa-chart-line' },
+    { id: 'logs', tab: 'logs', category: 'observability', label: t('modules.adminpanel.useadminpanel.014'), description: t('modules.adminpanel.useadminpanel.015'), icon: 'fa-rectangle-list' },
+    { id: 'users', tab: 'users', category: 'community', label: t('modules.adminpanel.useadminpanel.016'), description: t('modules.adminpanel.useadminpanel.017'), icon: 'fa-users' },
+    { id: 'infobox', tab: 'catalogs', category: 'community', catalog: 'infobox', label: t('modules.adminpanel.useadminpanel.018'), description: t('modules.adminpanel.useadminpanel.019'), icon: 'fa-circle-info' },
+    { id: 'badges', tab: 'catalogs', category: 'community', catalog: 'badges', label: t('modules.adminpanel.useadminpanel.020'), description: t('modules.adminpanel.useadminpanel.021'), icon: 'fa-award' },
+    { id: 'rewards', tab: 'rewards', category: 'community', label: t('modules.adminpanel.useadminpanel.022'), description: t('modules.adminpanel.useadminpanel.023'), icon: 'fa-coins' },
+    { id: 'groups', tab: 'catalogs', category: 'community', catalog: 'groups', label: t('modules.adminpanel.useadminpanel.024'), description: t('modules.adminpanel.useadminpanel.025'), icon: 'fa-user-group' },
+    { id: 'content', tab: 'content', category: 'content', label: t('modules.adminpanel.useadminpanel.026'), description: t('modules.adminpanel.useadminpanel.027'), icon: 'fa-newspaper' },
+    { id: 'slides', tab: 'slides', category: 'content', label: t('modules.adminpanel.useadminpanel.028'), description: t('modules.adminpanel.useadminpanel.029'), icon: 'fa-images' },
+    { id: 'settings', tab: 'settings', category: 'content', label: t('modules.adminpanel.useadminpanel.030'), description: t('modules.adminpanel.useadminpanel.031'), icon: 'fa-sliders' },
+    { id: 'servers', tab: 'servers', category: 'infrastructure', label: t('modules.adminpanel.useadminpanel.032'), description: t('modules.adminpanel.useadminpanel.033'), icon: 'fa-server' },
+    { id: 'files', tab: 'files', category: 'infrastructure', label: t('modules.adminpanel.useadminpanel.034'), description: t('modules.adminpanel.useadminpanel.035'), icon: 'fa-folder-open' },
+    { id: 'maintenance', tab: 'maintenance', category: 'infrastructure', label: t('modules.adminpanel.useadminpanel.036'), description: t('modules.adminpanel.useadminpanel.037'), icon: 'fa-screwdriver-wrench' },
   ]
   const groupedTabs = computed(() => categories.map((category) => ({
     ...category,
@@ -576,7 +577,7 @@ export function useAdminPanel() {
       console.error('[FoxesCraft] Admin request failed', error)
       const message = error instanceof Error && error.message.trim() !== ''
         ? error.message.trim()
-        : 'Неизвестная ошибка административной операции.'
+        : t('modules.adminpanel.useadminpanel.038')
       if (error instanceof FoxesApiError) {
         const rawDetails = error.payload?.error
         const details = rawDetails && typeof rawDetails === 'object' && !Array.isArray(rawDetails)
@@ -636,7 +637,7 @@ export function useAdminPanel() {
         siteSettings.ogImage = response.image
         feedback.value = response
       } else {
-        siteSocialImageError.value = feedback.value?.message || 'Не удалось загрузить изображение социальной карточки.'
+        siteSocialImageError.value = feedback.value?.message || t('modules.adminpanel.useadminpanel.039')
       }
     } finally {
       siteSocialImageUploading.value = false
@@ -693,18 +694,18 @@ export function useAdminPanel() {
     sliderSettings.slides.push({
       id: `slide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
       enabled: true,
-      title: 'Новый слайд',
+      title: t('modules.adminpanel.useadminpanel.040'),
       description: '',
       image: 'img/slides/slide1.png',
       route: fallbackRoute,
-      action: 'Подробнее',
+      action: t('modules.adminpanel.useadminpanel.041'),
       secondaryRoute: '',
       secondaryAction: '',
     })
   }
   function removeSlide(index: number): void {
     const slide = sliderSettings.slides[index]
-    if (!slide || !window.confirm(`Удалить слайд «${slide.title}»?`)) return
+    if (!slide || !window.confirm(t('modules.adminpanel.useadminpanel.042', [slide.title]))) return
     sliderSettings.slides.splice(index, 1)
   }
   function moveSlide(index: number, direction: number): void {
@@ -757,23 +758,7 @@ export function useAdminPanel() {
   }
   function badgePageTemplate(badge: BadgeCatalogRow, slug: string): string {
     const badgeName = escapeHtml(badge.badgeName)
-    return `<article class="content-surface badge-page badge-page--runtime" data-badge-page="1" data-badge-name="${badgeName}" data-badge-slug="${slug}">
-  <header class="badge-page__header">
-    <div class="badge-page__visual">
-      <img data-badge-image src="" alt="" loading="eager" decoding="async">
-    </div>
-    <div>
-      <span class="eyebrow" data-badge-eyebrow>FoxesCraft badge</span>
-      <h1 data-badge-title></h1>
-      <p class="lead" data-badge-description></p>
-    </div>
-  </header>
-  <section class="badge-story" data-badge-history>
-    <h2>История бейджа</h2>
-    <p>Добавьте полное описание, происхождение и историю этого бейджа.</p>
-  </section>
-</article>
-`
+    return t('modules.adminpanel.useadminpanel.043', [badgeName, slug])
   }
   async function loadContent(): Promise<void> {
     const response = await run(() => foxesApi.post<{
@@ -847,7 +832,7 @@ export function useAdminPanel() {
     applyRewardDraft(rewardDefinitions.value.find((entry) => entry.id === Number(response.reward.id)))
   }
   async function deleteReward(reward: RewardDefinitionRow): Promise<void> {
-    if (!window.confirm(`Удалить награду «${reward.rewardName}»? Награды с историей выдач удалить нельзя.`)) return
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.044', [reward.rewardName]))) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteReward', rewardId: reward.id }))
     if (!response) return
     feedback.value = response
@@ -1095,7 +1080,7 @@ export function useAdminPanel() {
         serverDraft.serverImage = response.image
         feedback.value = response
       } else {
-        serverImageError.value = feedback.value?.message || 'Не удалось загрузить изображение сервера.'
+        serverImageError.value = feedback.value?.message || t('modules.adminpanel.useadminpanel.045')
       }
     } finally {
       serverImageUploading.value = false
@@ -1113,7 +1098,7 @@ export function useAdminPanel() {
     if (response) { feedback.value = response; await loadServers(); newServer() }
   }
   async function deleteServer(server: ServerRow): Promise<void> {
-    if (!window.confirm(`Удалить сервер ${server.serverName}?`)) return
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.046', [server.serverName]))) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteServer', serverName: server.serverName }))
     if (response) { feedback.value = response; await loadServers(); if (selectedServer.value?.serverName === server.serverName) newServer() }
   }
@@ -1159,14 +1144,14 @@ export function useAdminPanel() {
     }
   }
   async function renameFile(entry: FileEntry): Promise<void> {
-    const name = window.prompt('Новое имя', entry.name)?.trim()
+    const name = window.prompt(t('modules.adminpanel.useadminpanel.047'), entry.name)?.trim()
     if (!name || name === entry.name) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'fileRename', path: entry.path, name }))
     if (response) { feedback.value = response; await loadFiles() }
   }
   async function deleteFile(entry: FileEntry): Promise<void> {
-    const label = entry.type === 'directory' ? `каталог ${entry.name} со всем содержимым` : `файл ${entry.name}`
-    if (!window.confirm(`Удалить ${label}?`)) return
+    const label = entry.type === 'directory' ? t('modules.adminpanel.useadminpanel.048', [entry.name]) : t('modules.adminpanel.useadminpanel.049', [entry.name])
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.050', [label]))) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'fileDelete', path: entry.path }))
     if (response) { feedback.value = response; await loadFiles() }
   }
@@ -1180,7 +1165,7 @@ export function useAdminPanel() {
     if (response) logEntries.value = response.entries
   }
   async function clearLogs(): Promise<void> {
-    if (!window.confirm(`Очистить ${logFile.value}.log?`)) return
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.051', [logFile.value]))) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'clearLog', file: logFile.value }))
     if (response) { feedback.value = response; await loadLogs() }
   }
@@ -1216,7 +1201,7 @@ export function useAdminPanel() {
   }
   async function deleteCatalogEntry(row: JsonRow): Promise<void> {
     const key = String(row[catalogKey.value] ?? '')
-    if (!key || !window.confirm(`Удалить запись ${key}?`)) return
+    if (!key || !window.confirm(t('modules.adminpanel.useadminpanel.052', [key]))) return
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'deleteCatalogEntry', catalog: catalogName.value, key }))
     if (response) {
       feedback.value = response

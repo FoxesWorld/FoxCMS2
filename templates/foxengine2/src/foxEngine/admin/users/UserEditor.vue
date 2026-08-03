@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { themeAsset } from '@/domain/bootstrap'
@@ -71,7 +73,7 @@ function groupStyle(color?: string): Record<string, string> {
     <header class="admin-user-editor__hero" :style="groupStyle(selectedGroup?.groupColor || selected.groupColor)">
       <UserAvatar :src="selected.profilePhoto" :name="draft.realname" :login="draft.login" size="large" />
       <div class="admin-user-editor__hero-copy">
-        <span class="eyebrow">Редактирование пользователя</span>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.users.usereditor.001') }}</span>
         <h2>{{ draft.realname || draft.login }}</h2>
         <p>@{{ draft.login }}</p>
         <div class="admin-user-editor__chips">
@@ -79,12 +81,12 @@ function groupStyle(color?: string): Record<string, string> {
             <i class="fa-solid fa-circle" aria-hidden="true" />
             {{ selectedGroup?.groupName || draft.groupTag }}
           </span>
-          <span><i class="fa-solid fa-award" aria-hidden="true" />{{ badgeCount }} бейджей</span>
-          <span><i class="fa-solid fa-server" aria-hidden="true" />{{ serverCount }} серверов</span>
+          <span><i class="fa-solid fa-award" aria-hidden="true" />{{ badgeCount }} {{ t('theme.foxengine.admin.users.usereditor.002') }}</span>
+          <span><i class="fa-solid fa-server" aria-hidden="true" />{{ serverCount }} {{ t('theme.foxengine.admin.users.usereditor.003') }}</span>
         </div>
       </div>
       <div class="admin-user-editor__uuid">
-        <span>UUID</span>
+        <span>{{ t('theme.foxengine.admin.users.usereditor.004') }}</span>
         <code>{{ selected.uuid }}</code>
       </div>
     </header>
@@ -93,29 +95,29 @@ function groupStyle(color?: string): Record<string, string> {
       <header class="admin-user-editor__section-header">
         <span><i class="fa-solid fa-address-card" aria-hidden="true" /></span>
         <div>
-          <h3>Основная информация</h3>
-          <p>Данные учётной записи и публичное отображение пользователя.</p>
+          <h3>{{ t('theme.foxengine.admin.users.usereditor.005') }}</h3>
+          <p>{{ t('theme.foxengine.admin.users.usereditor.006') }}</p>
         </div>
       </header>
 
       <div class="admin-user-editor__fields">
         <label>
-          <span>Логин</span>
+          <span>{{ t('theme.foxengine.admin.users.usereditor.007') }}</span>
           <input v-model.trim="draft.login" type="text" minlength="3" maxlength="64" autocomplete="off" required>
-          <small>Используется для входа и упоминаний.</small>
+          <small>{{ t('theme.foxengine.admin.users.usereditor.008') }}</small>
         </label>
         <label>
-          <span>Отображаемое имя</span>
-          <input v-model.trim="draft.realname" type="text" maxlength="120" autocomplete="off" placeholder="Имя пользователя">
-          <small>Если поле пустое, на сайте отображается логин.</small>
+          <span>{{ t('theme.foxengine.admin.users.usereditor.009') }}</span>
+          <input v-model.trim="draft.realname" type="text" maxlength="120" autocomplete="off" :placeholder="t('theme.foxengine.admin.users.usereditor.010')">
+          <small>{{ t('theme.foxengine.admin.users.usereditor.011') }}</small>
         </label>
         <label>
-          <span>Email</span>
+          <span>{{ t('theme.foxengine.admin.users.usereditor.012') }}</span>
           <input v-model.trim="draft.email" type="email" maxlength="254" autocomplete="off" required>
         </label>
         <label>
-          <span>Статус профиля</span>
-          <input v-model.trim="draft.userStatus" type="text" maxlength="255" placeholder="Публичный статус пользователя">
+          <span>{{ t('theme.foxengine.admin.users.usereditor.013') }}</span>
+          <input v-model.trim="draft.userStatus" type="text" maxlength="255" :placeholder="t('theme.foxengine.admin.users.usereditor.014')">
         </label>
       </div>
     </section>
@@ -124,14 +126,14 @@ function groupStyle(color?: string): Record<string, string> {
       <header class="admin-user-editor__section-header">
         <span><i class="fa-solid fa-user-check" aria-hidden="true" /></span>
         <div>
-          <h3>Группа и права</h3>
-          <p>Группа определяет доступ к функциям сайта и административным возможностям.</p>
+          <h3>{{ t('theme.foxengine.admin.users.usereditor.015') }}</h3>
+          <p>{{ t('theme.foxengine.admin.users.usereditor.016') }}</p>
         </div>
       </header>
 
       <div class="admin-user-editor__group-layout">
         <label class="admin-user-editor__group-select">
-          <span>Группа пользователя</span>
+          <span>{{ t('theme.foxengine.admin.users.usereditor.017') }}</span>
           <select v-model="draft.groupTag" required>
             <option v-for="group in groups" :key="group.groupTag" :value="group.groupTag">
               {{ group.groupName }} — {{ group.groupTag }}
@@ -152,8 +154,8 @@ function groupStyle(color?: string): Record<string, string> {
       <header class="admin-user-editor__section-header">
         <span><i class="fa-solid fa-award" aria-hidden="true" /></span>
         <div>
-          <h3>Персональные бейджи</h3>
-          <p>Администратор может выдать или отозвать знак профиля напрямую. Это действие не начисляет валюту, не создаёт награду и не изменяет журнал погашения ключей.</p>
+          <h3>{{ t('theme.foxengine.admin.users.usereditor.018') }}</h3>
+          <p>{{ t('theme.foxengine.admin.users.usereditor.019') }}</p>
         </div>
       </header>
       <UserBadgeEditor
@@ -169,15 +171,15 @@ function groupStyle(color?: string): Record<string, string> {
       <header class="admin-user-editor__section-header">
         <span><i class="fa-solid fa-table-list" aria-hidden="true" /></span>
         <div>
-          <h3>Системные данные</h3>
-          <p>Баланс и игровая активность сохранены как структурированные данные профиля.</p>
+          <h3>{{ t('theme.foxengine.admin.users.usereditor.020') }}</h3>
+          <p>{{ t('theme.foxengine.admin.users.usereditor.021') }}</p>
         </div>
       </header>
 
       <div class="admin-user-editor__structured-grid">
         <article class="admin-user-data-card admin-user-data-card--balance">
           <header>
-            <div><strong>Матрица баланса</strong><small>Units и Crystals закреплены за UUID пользователя</small></div>
+            <div><strong>{{ t('theme.foxengine.admin.users.usereditor.022') }}</strong><small>{{ t('theme.foxengine.admin.users.usereditor.023') }}</small></div>
             <span>{{ balanceMatrix.currencies.length }}</span>
           </header>
           <div class="admin-balance-matrix">
@@ -192,7 +194,7 @@ function groupStyle(color?: string): Record<string, string> {
               </span>
               <span class="admin-balance-currency__copy">
                 <strong>{{ currency.name }}</strong>
-                <small>{{ currency.primary ? 'Основная валюта' : 'Премиальная валюта' }}</small>
+                <small>{{ currency.primary ? t('theme.foxengine.admin.users.usereditor.025') : t('theme.foxengine.admin.users.usereditor.026') }}</small>
               </span>
               <input
                 :value="currency.amount"
@@ -201,7 +203,7 @@ function groupStyle(color?: string): Record<string, string> {
                 max="9007199254740991"
                 step="1"
                 inputmode="numeric"
-                :aria-label="`Баланс ${currency.name}`"
+                :aria-label="t('theme.foxengine.admin.users.usereditor.027', [currency.name])"
                 @input="updateBalanceAmount(currency.code, $event)"
               >
               <output>{{ formatBalanceAmount(currency.amount) }} {{ currency.symbol }}</output>
@@ -211,13 +213,13 @@ function groupStyle(color?: string): Record<string, string> {
 
         <article class="admin-user-data-card admin-user-data-card--wide">
           <header>
-            <div><strong>Игровая активность</strong><small>{{ serverCount }} записей серверов</small></div>
+            <div><strong>{{ t('theme.foxengine.admin.users.usereditor.028') }}</strong><small>{{ serverCount }} {{ t('theme.foxengine.admin.users.usereditor.029') }}</small></div>
             <span>{{ serverCount }}</span>
           </header>
           <JsonFormEditor
             :model-value="draft.serversOnline"
             :samples="samplesFor('serversOnline')"
-            label="Игровая активность"
+            :label="t('theme.foxengine.admin.users.usereditor.028')"
             @update:model-value="draft.serversOnline = $event"
           />
         </article>
@@ -227,18 +229,18 @@ function groupStyle(color?: string): Record<string, string> {
     <footer class="admin-user-editor__footer">
       <div>
         <i class="fa-solid fa-circle-info" aria-hidden="true" />
-        <span>Изменения применяются только после сохранения.</span>
+        <span>{{ t('theme.foxengine.admin.users.usereditor.030') }}</span>
       </div>
       <button class="button button--primary" type="submit" :disabled="loading">
         <i class="fa-solid" :class="loading ? 'fa-spinner' : 'fa-floppy-disk'" aria-hidden="true" />
-        <span>{{ loading ? 'Сохранение…' : 'Сохранить пользователя' }}</span>
+        <span>{{ loading ? t('theme.foxengine.admin.users.usereditor.031') : t('theme.foxengine.admin.users.usereditor.032') }}</span>
       </button>
     </footer>
   </form>
 
   <div v-else class="admin-user-editor-empty">
     <span><i class="fa-solid fa-user" aria-hidden="true" /></span>
-    <h2>Выберите пользователя</h2>
-    <p>Нажмите на учётную запись в списке слева, чтобы открыть её данные.</p>
+    <h2>{{ t('theme.foxengine.admin.users.usereditor.033') }}</h2>
+    <p>{{ t('theme.foxengine.admin.users.usereditor.034') }}</p>
   </div>
 </template>

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const contracts = [
   ['engine/Application.class.php', [
@@ -68,7 +69,7 @@ for (const [relativePath, signatures] of contracts) {
   const root = relativePath.startsWith('templates/') ? repositoryRoot : repositoryRoot
   const text = await readFile(join(root, relativePath), 'utf8')
   for (const signature of signatures) {
-    if (!text.includes(signature)) failures.push(`${relativePath} missing maintenance contract: ${signature}`)
+    if (!includesLocalized(text, signature)) failures.push(`${relativePath} missing maintenance contract: ${signature}`)
   }
 }
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import CodeMirror from 'codemirror'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -58,7 +60,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   language: 'plaintext',
   disabled: false,
-  ariaLabel: 'Редактор кода',
+  ariaLabel: t('theme.foxengine.editor.codeeditor.003'),
   minHeight: '280px',
 })
 
@@ -235,8 +237,8 @@ onBeforeUnmount(() => {
     :data-language="language"
   >
     <header class="code-editor-toolbar">
-      <span><i aria-hidden="true" />CodeMirror <b>{{ editorVersion }}</b></span>
-      <small>{{ languageLabel }} · Ctrl-Space — подсказки · Ctrl-Q — свернуть · F11 — полный экран</small>
+      <span><i aria-hidden="true" />{{ t('theme.foxengine.editor.codeeditor.001') }} <b>{{ editorVersion }}</b></span>
+      <small>{{ languageLabel }} {{ t('theme.foxengine.editor.codeeditor.002') }}</small>
     </header>
     <div ref="host" class="code-editor code-editor--codemirror5" />
   </div>

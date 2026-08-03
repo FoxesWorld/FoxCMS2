@@ -648,6 +648,7 @@ final class AdminOptions {
             $this->respond(['message' => 'Некорректное имя сервера.', 'type' => 'error'], 400);
         }
 
+        $this->ensureServerStructuredStorage();
         $booleanStorage = $this->serverBooleanStorageModes();
         $data = [];
         foreach (self::SERVER_FIELDS as $field) {
@@ -1788,6 +1789,91 @@ final class AdminOptions {
             $this->respond(['message' => 'Пользователь не найден.', 'type' => 'error'], 404);
         }
         return $storedUuid;
+    }
+
+    private function ensureServerStructuredStorage(): void
+    {
+        $definitions = [
+            'serverGroups' => '[]',
+            'ignoreDirs' => '[]',
+            'modsInfo' => '[]',
+        ];
+        try {
+            $statement = $this->db->prepare(
+                "SELECT `COLUMN_NAME`, `DATA_TYPE`, `CHARACTER_MAXIMUM_LENGTH`, `IS_NULLABLE`, `COLUMN_DEFAULT` "
+                . "FROM information_schema.COLUMNS "
+                . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'servers' "
+                . "AND COLUMN_NAME IN ('serverGroups', 'ignoreDirs', 'modsInfo')"
+            );
+            $statement->execute();
+            $columns = [];
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $column) {
+                $name = (string)($column['COLUMN_NAME'] ?? '');
+                if (array_key_exists($name, $definitions)) {
+                    $columns[$name] = $column;
+                }
+            }
+
+            $changed = [];
+            foreach ($definitions as $name => $fallback) {
+                $column = $columns[$name] ?? null;
+                $requiresNotNull = false;
+                if (!is_array($column)) {
+                    $this->db->exec(
+                        'ALTER TABLE `servers` ADD COLUMN `' . $name . '` LONGTEXT NULL'
+                    );
+                    $requiresNotNull = true;
+                    $changed[] = $name;
+                } else {
+                    $type = strtolower((string)($column['DATA_TYPE'] ?? ''));
+                    $capacity = (int)($column['CHARACTER_MAXIMUM_LENGTH'] ?? 0);
+                    $requiresNotNull = strtoupper((string)($column['IS_NULLABLE'] ?? 'YES')) !== 'NO'
+                        || ($column['COLUMN_DEFAULT'] ?? null) === null;
+                    if ($type !== 'longtext' || $capacity < 65535) {
+                        $this->db->exec(
+                            'ALTER TABLE `servers` MODIFY COLUMN `' . $name . '` LONGTEXT NULL'
+                        );
+                        $requiresNotNull = true;
+                        $changed[] = $name;
+                    }
+                }
+                if ($requiresNotNull) {
+                    $update = $this->db->prepare(
+                        'UPDATE `servers` SET `' . $name . '` = :fallback WHERE `' . $name . '` IS NULL'
+                    );
+                    $update->execute([':fallback' => $fallback]);
+                    $this->db->exec(
+                        "ALTER TABLE `servers` MODIFY COLUMN `" . $name . "` LONGTEXT NOT NULL DEFAULT '[]'"
+                    );
+                }
+            }
+
+            if ($changed !== []) {
+                $this->logger->event(
+                    'admin.server.structured_storage_repaired',
+                    'Legacy server structured-data columns were expanded before persistence.',
+                    [
+                        'component' => 'admin_servers',
+                        'operation' => 'repair_schema',
+                        'columns' => array_values(array_unique($changed)),
+                    ],
+                    'WARNING',
+                    'success',
+                );
+            }
+        } catch (Throwable $error) {
+            $this->logger->exception(
+                'admin.server.structured_storage_repair_failed',
+                $error,
+                'Legacy server structured-data columns could not be expanded.',
+                ['component' => 'admin_servers', 'operation' => 'repair_schema'],
+            );
+            $this->respond([
+                'message' => 'Не удалось подготовить хранилище списков сервера. Примените миграцию 022 и повторите сохранение.',
+                'type' => 'error',
+                'field' => 'serverGroups',
+            ], 503);
+        }
     }
 
     /** @return array{enabled:string,checkLib:string} */

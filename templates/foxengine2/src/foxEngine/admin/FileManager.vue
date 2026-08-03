@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { FileEntry } from '@modules/AdminPanel/client/useAdminPanel'
 import { editImageWithPintura, isPinturaEditableImage } from '@/media/pinturaImageEditor'
@@ -54,20 +56,20 @@ const selectedUploadEmpty = computed(() => props.selectedUpload !== null && prop
 const selectedUploadValid = computed(() => props.selectedUpload !== null && !selectedUploadTooLarge.value && !selectedUploadEmpty.value)
 const selectedUploadEditable = computed(() => props.selectedUpload ? isPinturaEditableImage(props.selectedUpload) : false)
 const uploadBlockedReason = computed(() => {
-  if (props.uploading) return 'Файл уже загружается. Дождитесь завершения операции.'
-  if (editingImage.value) return 'Изображение открыто в редакторе Pintura.'
-  if (props.loading) return 'Содержимое каталога обновляется. Загрузка станет доступна после завершения перехода.'
-  if (!props.writable) return 'Текущий каталог недоступен для записи процессу PHP. Проверьте владельца, группу и права каталога на сервере.'
-  if (!props.selectedUpload) return 'Сначала выберите файл или перетащите его в область загрузки.'
-  if (selectedUploadTooLarge.value) return 'Выбранный файл превышает допустимый размер 64 МиБ.'
-  if (selectedUploadEmpty.value) return 'Пустой файл загрузить нельзя.'
+  if (props.uploading) return t('theme.foxengine.admin.filemanager.051')
+  if (editingImage.value) return t('theme.foxengine.admin.filemanager.052')
+  if (props.loading) return t('theme.foxengine.admin.filemanager.053')
+  if (!props.writable) return t('theme.foxengine.admin.filemanager.054')
+  if (!props.selectedUpload) return t('theme.foxengine.admin.filemanager.055')
+  if (selectedUploadTooLarge.value) return t('theme.foxengine.admin.filemanager.056')
+  if (selectedUploadEmpty.value) return t('theme.foxengine.admin.filemanager.022')
   return ''
 })
 const selectedUploadType = computed(() => {
   const file = props.selectedUpload
   if (!file) return ''
   const extension = file.name.includes('.') ? file.name.split('.').pop()?.toUpperCase() : ''
-  return file.type || extension || 'Неизвестный тип'
+  return file.type || extension || t('theme.foxengine.admin.filemanager.057')
 })
 const selectedUploadIsActive = computed(() => {
   const name = props.selectedUpload?.name.toLocaleLowerCase('ru') ?? ''
@@ -134,7 +136,7 @@ async function editRasterImage(file: File): Promise<void> {
   const target = imageEditorHost.value
   if (!target) {
     editingImage.value = false
-    imageEditError.value = 'Контейнер встроенного редактора изображения не найден.'
+    imageEditError.value = t('theme.foxengine.admin.filemanager.058')
     return
   }
 
@@ -153,7 +155,7 @@ async function editRasterImage(file: File): Promise<void> {
     })
     if (edited) emit('selectUpload', edited)
   } catch (error) {
-    imageEditError.value = error instanceof Error ? error.message : 'Не удалось отредактировать изображение.'
+    imageEditError.value = error instanceof Error ? error.message : t('theme.foxengine.admin.filemanager.059')
   } finally {
     if (imageEditorAbortController === controller) imageEditorAbortController = null
     editingImage.value = false
@@ -201,8 +203,8 @@ function updateDirectoryName(event: Event): void {
 }
 
 function formatBytes(value: number): string {
-  if (value < 1024) return `${value} Б`
-  const units = ['КБ', 'МБ', 'ГБ', 'ТБ']
+  if (value < 1024) return t('theme.foxengine.admin.filemanager.060', [value])
+  const units = [t('theme.foxengine.admin.filemanager.061'), t('theme.foxengine.admin.filemanager.062'), t('theme.foxengine.admin.filemanager.063'), t('theme.foxengine.admin.filemanager.064')]
   let size = value / 1024
   let unit = 0
   while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit++ }
@@ -224,17 +226,17 @@ onBeforeUnmount(() => {
   <section class="admin-section admin-files">
     <header class="admin-files__header">
       <div>
-        <span class="eyebrow">File Manager</span>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.filemanager.001') }}</span>
         <h2>/uploads</h2>
-        <p>Полный административный доступ к файлам и каталогам внутри uploads: загрузка, переименование, открытие, создание и удаление.</p>
+        <p>{{ t('theme.foxengine.admin.filemanager.002') }}</p>
       </div>
       <div class="admin-files__summary">
-        <span>{{ entries.length }} объектов</span>
+        <span>{{ entries.length }} {{ t('theme.foxengine.admin.filemanager.003') }}</span>
         <strong>{{ formatBytes(totalBytes) }}</strong>
       </div>
     </header>
 
-    <nav class="admin-files__breadcrumbs" aria-label="Путь к каталогу">
+    <nav class="admin-files__breadcrumbs" :aria-label="t('theme.foxengine.admin.filemanager.004')">
       <button
         v-for="crumb in breadcrumbs"
         :key="crumb.path || 'root'"
@@ -249,20 +251,20 @@ onBeforeUnmount(() => {
         <header class="admin-upload-panel__header">
           <span class="admin-upload-panel__icon"><i class="fa-solid fa-upload" aria-hidden="true" /></span>
           <div>
-            <strong>Загрузка файла</strong>
-            <small>{{ editingImage ? 'Открыт редактор Pintura…' : 'Растровые изображения редактируются перед загрузкой · до 64 МиБ' }}</small>
+            <strong>{{ t('theme.foxengine.admin.filemanager.005') }}</strong>
+            <small>{{ editingImage ? t('theme.foxengine.admin.filemanager.006') : t('theme.foxengine.admin.filemanager.007') }}</small>
           </div>
         </header>
 
         <section v-if="editingImage" class="admin-upload-editor">
           <header class="admin-upload-editor__header">
             <div>
-              <strong>Редактор изображения</strong>
-              <small>Pintura встроена в область загрузки файлов</small>
+              <strong>{{ t('theme.foxengine.admin.filemanager.008') }}</strong>
+              <small>{{ t('theme.foxengine.admin.filemanager.009') }}</small>
             </div>
             <button class="button button--ghost" type="button" @click="cancelImageEditing">
               <i class="fa-solid fa-xmark" aria-hidden="true" />
-              <span>Отмена</span>
+              <span>{{ t('theme.foxengine.admin.filemanager.010') }}</span>
             </button>
           </header>
           <div ref="imageEditorHost" class="admin-upload-editor__mount" />
@@ -286,12 +288,12 @@ onBeforeUnmount(() => {
           <input ref="fileInput" type="file" :disabled="editingImage" @change="onFileInput">
           <i class="fa-solid fa-upload" aria-hidden="true" />
           <div>
-            <strong>{{ editingImage ? 'Редактирование изображения' : selectedUpload ? 'Файл выбран' : 'Перетащите файл сюда' }}</strong>
-            <span>{{ editingImage ? 'Завершите обработку в Pintura или закройте редактор' : selectedUpload ? 'Можно заменить его другим файлом' : 'для растрового изображения автоматически откроется Pintura' }}</span>
+            <strong>{{ editingImage ? t('theme.foxengine.admin.filemanager.011') : selectedUpload ? t('theme.foxengine.admin.filemanager.012') : t('theme.foxengine.admin.filemanager.013') }}</strong>
+            <span>{{ editingImage ? t('theme.foxengine.admin.filemanager.014') : selectedUpload ? t('theme.foxengine.admin.filemanager.015') : t('theme.foxengine.admin.filemanager.016') }}</span>
           </div>
           <button class="button button--ghost" type="button" :disabled="!writable || loading || editingImage" @click="chooseFile">
             <i class="fa-solid fa-folder-open" aria-hidden="true" />
-            <span>{{ selectedUpload ? 'Выбрать другой' : 'Выбрать файл' }}</span>
+            <span>{{ selectedUpload ? t('theme.foxengine.admin.filemanager.017') : t('theme.foxengine.admin.filemanager.018') }}</span>
           </button>
         </div>
 
@@ -306,36 +308,36 @@ onBeforeUnmount(() => {
             <button
               v-if="selectedUploadEditable"
               type="button"
-              title="Повторно открыть в Pintura"
+              :title="t('theme.foxengine.admin.filemanager.019')"
               :disabled="loading || editingImage"
               @click="editSelectedUpload"
             >
               <i class="fa-solid fa-crop-simple" aria-hidden="true" />
             </button>
-            <button type="button" title="Очистить выбор" :disabled="loading || editingImage" @click="clearUpload">
+            <button type="button" :title="t('theme.foxengine.admin.filemanager.020')" :disabled="loading || editingImage" @click="clearUpload">
               <i class="fa-solid fa-xmark" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         <p v-if="imageEditError" class="admin-upload-panel__error">{{ imageEditError }}</p>
-        <p v-else-if="selectedUploadTooLarge" class="admin-upload-panel__error">Файл превышает лимит 64 МиБ.</p>
-        <p v-else-if="selectedUploadEmpty" class="admin-upload-panel__error">Пустой файл загрузить нельзя.</p>
-        <p v-else-if="selectedUploadIsActive" class="admin-upload-panel__warning">Активный формат разрешён. Файл будет публично доступен в /uploads; исполняемость и Content-Type определяются конфигурацией веб-сервера.</p>
-        <p v-else class="admin-upload-panel__note">Обычные файлы сохраняются без преобразования. JPEG, PNG, WebP, GIF, AVIF и BMP проходят через Pintura; SVG и Minecraft skin/cape редактором не обрабатываются.</p>
+        <p v-else-if="selectedUploadTooLarge" class="admin-upload-panel__error">{{ t('theme.foxengine.admin.filemanager.021') }}</p>
+        <p v-else-if="selectedUploadEmpty" class="admin-upload-panel__error">{{ t('theme.foxengine.admin.filemanager.022') }}</p>
+        <p v-else-if="selectedUploadIsActive" class="admin-upload-panel__warning">{{ t('theme.foxengine.admin.filemanager.023') }}</p>
+        <p v-else class="admin-upload-panel__note">{{ t('theme.foxengine.admin.filemanager.024') }}</p>
 
         <button
           class="button button--primary admin-upload-submit"
           type="button"
           :disabled="Boolean(uploadBlockedReason)"
-          :title="uploadBlockedReason || 'Загрузить выбранный файл'"
+          :title="uploadBlockedReason || t('theme.foxengine.admin.filemanager.025')"
           :aria-describedby="uploadBlockedReason ? 'admin-upload-disabled-reason' : undefined"
           @click="emit('upload')"
         >
           <i class="fa-solid" :class="uploading ? 'fa-spinner' : 'fa-upload'" aria-hidden="true" />
-          <span>{{ uploading ? 'Загрузка…' : 'Загрузить в текущий каталог' }}</span>
+          <span>{{ uploading ? t('theme.foxengine.admin.filemanager.026') : t('theme.foxengine.admin.filemanager.027') }}</span>
         </button>
-        <span v-if="uploading && selectedUpload" class="admin-upload-progress" aria-label="Файл загружается"><i /></span>
+        <span v-if="uploading && selectedUpload" class="admin-upload-progress" :aria-label="t('theme.foxengine.admin.filemanager.028')"><i /></span>
         <p
           v-if="uploadBlockedReason"
           id="admin-upload-disabled-reason"
@@ -343,7 +345,7 @@ onBeforeUnmount(() => {
           role="status"
         >
           <i class="fa-solid fa-circle-exclamation" aria-hidden="true" />
-          <span><strong>Загрузка недоступна.</strong> {{ uploadBlockedReason }}</span>
+          <span><strong>{{ t('theme.foxengine.admin.filemanager.029') }}</strong> {{ uploadBlockedReason }}</span>
         </p>
         </div>
       </section>
@@ -351,40 +353,40 @@ onBeforeUnmount(() => {
       <form class="admin-file-tool admin-file-tool--directory" @submit.prevent="emit('createDirectory')">
         <span class="admin-file-tool__icon"><i class="fa-solid fa-folder-open" aria-hidden="true" /></span>
         <div>
-          <strong>Создать каталог</strong>
-          <p>Новый каталог появится внутри текущего пути.</p>
+          <strong>{{ t('theme.foxengine.admin.filemanager.030') }}</strong>
+          <p>{{ t('theme.foxengine.admin.filemanager.031') }}</p>
         </div>
-        <input :value="newDirectoryName" type="text" maxlength="180" placeholder="Название каталога" @input="updateDirectoryName">
+        <input :value="newDirectoryName" type="text" maxlength="180" :placeholder="t('theme.foxengine.admin.filemanager.032')" @input="updateDirectoryName">
         <button class="button button--ghost" type="submit" :disabled="!newDirectoryName.trim() || !writable || loading">
-          <i class="fa-solid fa-plus" aria-hidden="true" /><span>Создать</span>
+          <i class="fa-solid fa-plus" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.filemanager.033') }}</span>
         </button>
       </form>
     </div>
 
     <div class="admin-toolbar admin-files__toolbar">
-      <button class="button button--ghost" type="button" :disabled="parent === null || loading" @click="emit('navigate', parent || '')">← Выше</button>
-      <button class="button button--ghost" type="button" :disabled="loading" @click="emit('reload')">Обновить</button>
+      <button class="button button--ghost" type="button" :disabled="parent === null || loading" @click="emit('navigate', parent || '')">{{ t('theme.foxengine.admin.filemanager.034') }}</button>
+      <button class="button button--ghost" type="button" :disabled="loading" @click="emit('reload')">{{ t('theme.foxengine.admin.filemanager.035') }}</button>
       <label class="admin-files__search">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />
-        <input v-model="searchQuery" type="search" placeholder="Найти файл или каталог">
+        <input v-model="searchQuery" type="search" :placeholder="t('theme.foxengine.admin.filemanager.036')">
         <span v-if="searchQuery">{{ filteredEntries.length }}/{{ entries.length }}</span>
       </label>
       <code>/uploads{{ path ? `/${path}` : '' }}</code>
     </div>
 
-    <div class="admin-files__list" role="table" aria-label="Файлы каталога">
+    <div class="admin-files__list" role="table" :aria-label="t('theme.foxengine.admin.filemanager.038')">
       <div class="admin-files__row admin-files__row--head" role="row">
-        <span>Имя</span><span>Тип</span><span>Размер</span><span>Изменён</span><span>Действия</span>
+        <span>{{ t('theme.foxengine.admin.filemanager.039') }}</span><span>{{ t('theme.foxengine.admin.filemanager.040') }}</span><span>{{ t('theme.foxengine.admin.filemanager.041') }}</span><span>{{ t('theme.foxengine.admin.filemanager.042') }}</span><span>{{ t('theme.foxengine.admin.filemanager.043') }}</span>
       </div>
-      <p v-if="!entries.length" class="admin-files__empty">Каталог пуст.</p>
-      <p v-else-if="!filteredEntries.length" class="admin-files__empty">По запросу ничего не найдено.</p>
+      <p v-if="!entries.length" class="admin-files__empty">{{ t('theme.foxengine.admin.filemanager.044') }}</p>
+      <p v-else-if="!filteredEntries.length" class="admin-files__empty">{{ t('theme.foxengine.admin.filemanager.045') }}</p>
       <div v-for="entry in filteredEntries" :key="entry.path" class="admin-files__row" role="row">
         <button class="admin-files__name" type="button" @click="emit('open', entry)">
           <span class="admin-files__preview" :class="{ 'admin-files__preview--image': isPreviewable(entry) }">
             <img
               v-if="isPreviewable(entry)"
               :src="previewUrl(entry)"
-              :alt="`Превью ${entry.name}`"
+              :alt="t('theme.foxengine.admin.filemanager.046', [entry.name])"
               loading="lazy"
               decoding="async"
               @error="markPreviewFailed(entry)"
@@ -393,13 +395,13 @@ onBeforeUnmount(() => {
           </span>
           <span><strong>{{ entry.name }}</strong><small>{{ entry.path }}</small></span>
         </button>
-        <span class="admin-files__mime">{{ entry.type === 'directory' ? 'Каталог' : entry.mime }}</span>
+        <span class="admin-files__mime">{{ entry.type === 'directory' ? t('theme.foxengine.admin.filemanager.047') : entry.mime }}</span>
         <span>{{ entry.type === 'directory' ? '—' : formatBytes(entry.size) }}</span>
         <span>{{ formatDate(entry.modified) }}</span>
         <span class="admin-files__actions">
-          <button type="button" title="Открыть" @click="emit('open', entry)">↗</button>
-          <button type="button" title="Переименовать" :disabled="!writable || loading" @click="emit('rename', entry)">✎</button>
-          <button class="danger" type="button" title="Удалить" :disabled="!writable || loading" @click="emit('remove', entry)">×</button>
+          <button type="button" :title="t('theme.foxengine.admin.filemanager.048')" @click="emit('open', entry)">↗</button>
+          <button type="button" :title="t('theme.foxengine.admin.filemanager.049')" :disabled="!writable || loading" @click="emit('rename', entry)">✎</button>
+          <button class="danger" type="button" :title="t('theme.foxengine.admin.filemanager.050')" :disabled="!writable || loading" @click="emit('remove', entry)">×</button>
         </span>
       </div>
     </div>

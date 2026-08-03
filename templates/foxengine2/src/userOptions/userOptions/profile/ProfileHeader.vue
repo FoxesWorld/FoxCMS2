@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { ref, type CSSProperties } from 'vue'
 import type { ProfileRecord } from '@engine/contracts/user-pages'
 
@@ -22,31 +24,31 @@ const groupStyle = {
         v-if="canEditPhoto"
         class="profile-cover__avatar-edit"
         type="button"
-        aria-label="Загрузить фото профиля"
+        :aria-label="t('theme.useroptions.useroptions.profile.profileheader.001')"
         @click="emit('editPhoto')"
       >
         <b aria-hidden="true">＋</b>
-        <span>Загрузить фото</span>
+        <span>{{ t('theme.useroptions.useroptions.profile.profileheader.002') }}</span>
       </button>
     </div>
 
     <div class="profile-cover__identity">
-      <span class="profile-cover__overline">Профиль участника</span>
+      <span class="profile-cover__overline">{{ t('theme.useroptions.useroptions.profile.profileheader.003') }}</span>
       <h1>{{ profile.login }}</h1>
       <p v-if="profile.realname && profile.realname !== profile.login">{{ profile.realname }}</p>
       <span class="profile-cover__group" :style="groupStyle">
-        {{ profile.groupName || profile.groupTag || 'Гости' }}
+        {{ profile.groupName || profile.groupTag || t('theme.useroptions.useroptions.profile.profileheader.004') }}
       </span>
     </div>
 
     <div v-if="isOwner || canEditUser" class="profile-cover__actions">
       <button v-if="isOwner" class="button button--primary profile-cover__settings" type="button" @click="emit('settings')">
         <i class="fa-solid fa-user-gear" aria-hidden="true" />
-        <span>Настроить профиль</span>
+        <span>{{ t('theme.useroptions.useroptions.profile.profileheader.005') }}</span>
       </button>
       <button v-if="canEditUser" class="button button--glass profile-cover__settings" type="button" @click="emit('editUser')">
         <i class="fa-solid fa-pen-to-square" aria-hidden="true" />
-        <span>Редактировать</span>
+        <span>{{ t('theme.useroptions.useroptions.profile.profileheader.006') }}</span>
       </button>
     </div>
   </header>

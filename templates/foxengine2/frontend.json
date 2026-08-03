@@ -8,6 +8,13 @@
       "title": "FoxesCraft"
     },
     {
+      "path": "/news",
+      "name": "news-list",
+      "view": "NewsListView",
+      "title": "Все публикации",
+      "module": "News"
+    },
+    {
       "path": "/news/:id",
       "name": "news",
       "view": "NewsView",

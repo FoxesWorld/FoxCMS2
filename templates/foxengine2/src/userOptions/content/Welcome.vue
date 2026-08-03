@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type { PublicRewardOffer } from '@engine/domain/publicRewardOffers'
 import type { RewardOfferFeedback } from '@engine/rewards/usePublicRewardOffer'
 import { formatBalanceAmount } from '@engine/domain/userBalance'
@@ -23,14 +25,14 @@ const emit = defineEmits<{
 <template>
   <article class="content-surface welcome-native">
     <div class="welcome-native__copy">
-      <span class="eyebrow">Лисий Мир 3.0</span>
-      <h2>Привет, {{ name }}!</h2>
-      <p v-if="isGuest" class="lead">Добро пожаловать в мир приключений, сюжетных выборов и технологических экспериментов.</p>
-      <p v-else class="lead">Рада видеть тебя снова. Твой путь, достижения и открытия сохранены.</p>
+      <span class="eyebrow">{{ t('theme.useroptions.content.welcome.001') }}</span>
+      <h2>{{ t('theme.useroptions.content.welcome.002') }} {{ name }}!</h2>
+      <p v-if="isGuest" class="lead">{{ t('theme.useroptions.content.welcome.003') }}</p>
+      <p v-else class="lead">{{ t('theme.useroptions.content.welcome.004') }}</p>
       <div class="feature-grid">
-        <div><strong>Живой мир</strong><span>Истории, выборы и события сообщества.</span></div>
-        <div><strong>Прогресс</strong><span>Достижения, игровые профили и уникальные бейджи.</span></div>
-        <div><strong>Своя атмосфера</strong><span>Лисы, технологии и самостоятельные игровые миры.</span></div>
+        <div><strong>{{ t('theme.useroptions.content.welcome.005') }}</strong><span>{{ t('theme.useroptions.content.welcome.006') }}</span></div>
+        <div><strong>{{ t('theme.useroptions.content.welcome.007') }}</strong><span>{{ t('theme.useroptions.content.welcome.008') }}</span></div>
+        <div><strong>{{ t('theme.useroptions.content.welcome.009') }}</strong><span>{{ t('theme.useroptions.content.welcome.010') }}</span></div>
       </div>
 
       <section
@@ -48,15 +50,14 @@ const emit = defineEmits<{
         </span>
         <div class="welcome-reward__copy">
           <strong id="welcome-reward-title">
-            {{ rewardOffer?.reward.title || 'Загрузка предложения…' }}
+            {{ rewardOffer?.reward.title || t('theme.useroptions.content.welcome.011') }}
           </strong>
           <span v-if="rewardOffer">
-            {{ rewardOffer.reward.description || rewardOffer.reward.badge?.description || 'Получите памятный бейдж проекта.' }}
-            <template v-if="rewardOffer.reward.currency">
-              Награда: {{ formatBalanceAmount(rewardOffer.reward.currency.amount) }} {{ rewardOffer.reward.currency.currencyName }}.
+            {{ rewardOffer.reward.description || rewardOffer.reward.badge?.description || t('theme.useroptions.content.welcome.012') }}
+            <template v-if="rewardOffer.reward.currency"> {{ t('theme.useroptions.content.welcome.013') }} {{ formatBalanceAmount(rewardOffer.reward.currency.amount) }} {{ rewardOffer.reward.currency.currencyName }}.
             </template>
           </span>
-          <span v-else>Проверяем доступную награду.</span>
+          <span v-else>{{ t('theme.useroptions.content.welcome.014') }}</span>
           <p
             v-if="rewardOfferFeedback"
             class="welcome-reward__feedback"
@@ -73,22 +74,22 @@ const emit = defineEmits<{
           :disabled="rewardOfferLoading || rewardOfferClaiming || !rewardOffer?.claimable"
           @click="emit('claimRewardOffer')"
         >
-          <span v-if="rewardOfferLoading">Загрузка…</span>
-          <span v-else-if="rewardOfferClaiming">Получение…</span>
-          <span v-else-if="rewardOffer?.acquired">Получено</span>
-          <span v-else>Получить награду</span>
+          <span v-if="rewardOfferLoading">{{ t('theme.useroptions.content.welcome.016') }}</span>
+          <span v-else-if="rewardOfferClaiming">{{ t('theme.useroptions.content.welcome.017') }}</span>
+          <span v-else-if="rewardOffer?.acquired">{{ t('theme.useroptions.content.welcome.018') }}</span>
+          <span v-else>{{ t('theme.useroptions.content.welcome.019') }}</span>
         </button>
       </section>
 
       <div class="hero__actions">
-        <button class="button button--primary button--large" type="button" @click="emit('navigate', 'start')">В путь</button>
-        <button class="button button--ghost button--large" type="button" @click="emit('navigate', 'about')">Оглядеться</button>
+        <button class="button button--primary button--large" type="button" @click="emit('navigate', 'start')">{{ t('theme.useroptions.content.welcome.020') }}</button>
+        <button class="button button--ghost button--large" type="button" @click="emit('navigate', 'about')">{{ t('theme.useroptions.content.welcome.021') }}</button>
       </div>
     </div>
     <ArtworkShowcase
       :src="artwork"
-      alt="Эбби и лиса приглашают в Лисий Мир"
-      caption="Добро пожаловать в Лисий Мир 3.0"
+      :alt="t('theme.useroptions.content.welcome.022')"
+      :caption="t('theme.useroptions.content.welcome.023')"
       variant="invite"
       eager
     />

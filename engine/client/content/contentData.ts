@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { appBootstrap } from '@/app/context'
 import { bootstrapEndpoint } from '@/domain/bootstrap'
 
@@ -23,7 +24,7 @@ const badgePagePromises = new Map<string, Promise<BadgeDefinition>>()
 
 function registryUrl(registry: string): string {
   const endpoint = bootstrapEndpoint(appBootstrap, 'content')
-  if (!endpoint) throw new Error('Engine content endpoint is unavailable')
+  if (!endpoint) throw new Error(t('engine.content.contentdata.001'))
   const url = new URL(endpoint, window.location.origin)
   url.searchParams.set('registry', registry)
   return url.toString()
@@ -39,7 +40,7 @@ function loadRegistry<T>(registry: string): Promise<T> {
       const payload = await response.json().catch(() => null) as { requestId?: unknown; error?: unknown } | null
       const requestId = typeof payload?.requestId === 'string' ? `, request ${payload.requestId}` : ''
       const code = typeof payload?.error === 'string' ? `, ${payload.error}` : ''
-      throw new Error(`Content registry request failed: ${response.status}${code}${requestId}`)
+      throw new Error(t('engine.content.contentdata.002', [response.status, code, requestId]))
     }
     return response.json() as Promise<T>
   })
@@ -57,7 +58,7 @@ export function loadBadges(): Promise<readonly BadgeDefinition[]> {
 export function loadBadge(slug: string): Promise<BadgeDefinition> {
   const normalized = slug.trim().toLowerCase()
   if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(normalized)) {
-    return Promise.reject(new Error('Invalid badge page slug'))
+    return Promise.reject(new Error(t('engine.content.contentdata.003')))
   }
   const existing = badgePagePromises.get(normalized)
   if (existing) return existing
@@ -73,7 +74,7 @@ export function loadBadge(slug: string): Promise<BadgeDefinition> {
       const payload = await response.json().catch(() => null) as { requestId?: unknown; error?: unknown } | null
       const requestId = typeof payload?.requestId === 'string' ? `, request ${payload.requestId}` : ''
       const code = typeof payload?.error === 'string' ? `, ${payload.error}` : ''
-      throw new Error(`Badge page request failed: ${response.status}${code}${requestId}`)
+      throw new Error(t('engine.content.contentdata.004', [response.status, code, requestId]))
     }
     return response.json() as Promise<BadgeDefinition>
   }).catch((error: unknown) => {

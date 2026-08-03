@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { reactive } from 'vue'
 import type { CSSProperties } from 'vue'
 import { dismissToast, pauseToast, resumeToast, toasts } from '@engine/notifications/toasts'
@@ -7,7 +9,7 @@ import type { ToastItem, ToastStatus } from '@engine/notifications/toasts'
 const offsets = reactive<Record<number, number>>({})
 const dragging = reactive(new Set<number>())
 const starts = new Map<number, { x: number; time: number; width: number }>()
-const labels: Record<ToastStatus, string> = { success: 'Готово', error: 'Ошибка', warning: 'Внимание', info: 'Информация' }
+const labels: Record<ToastStatus, string> = { success: t('theme.toastviewport.004'), error: t('theme.toastviewport.005'), warning: t('theme.toastviewport.006'), info: t('theme.toastviewport.007') }
 const marks: Record<ToastStatus, string> = { success: '✓', error: '!', warning: '!', info: 'i' }
 
 function styleFor(toast: ToastItem): CSSProperties {
@@ -58,7 +60,7 @@ function cancel(toast: ToastItem): void {
 </script>
 
 <template>
-  <aside class="toast-viewport" aria-label="Уведомления">
+  <aside class="toast-viewport" :aria-label="t('theme.toastviewport.001')">
     <TransitionGroup name="toast" tag="div" class="toast-stack">
       <div v-for="toast in toasts" :key="toast.id" class="toast-slot">
         <article
@@ -75,7 +77,7 @@ function cancel(toast: ToastItem): void {
         >
           <span class="toast__mark" aria-hidden="true">{{ marks[toast.status] }}</span>
           <span class="toast__content"><strong>{{ labels[toast.status] }}</strong><span>{{ toast.message }}</span></span>
-          <button type="button" class="toast__close" aria-label="Закрыть уведомление" @pointerdown.stop @click="dismissToast(toast.id)">×</button>
+          <button type="button" class="toast__close" :aria-label="t('theme.toastviewport.003')" @pointerdown.stop @click="dismissToast(toast.id)">×</button>
         </article>
       </div>
     </TransitionGroup>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
 
@@ -57,22 +59,22 @@ onBeforeUnmount(revokePreview)
     @cancel="uploading && $event.preventDefault()"
   >
     <header class="profile-photo-dialog__header">
-      <h2 id="profile-photo-dialog-title">Фото профиля · {{ targetLogin }}</h2>
-      <button class="profile-photo-dialog__close" type="button" aria-label="Закрыть окно" :disabled="uploading" @click="close">×</button>
+      <h2 id="profile-photo-dialog-title">{{ t('theme.useroptions.useroptions.profile.profilephotodialog.001') }} {{ targetLogin }}</h2>
+      <button class="profile-photo-dialog__close" type="button" :aria-label="t('theme.useroptions.useroptions.profile.profilephotodialog.002')" :disabled="uploading" @click="close">×</button>
     </header>
 
     <div class="profile-photo-dialog__body" :class="{ 'is-editor-active': editorActive }">
       <div v-show="!editorActive" class="profile-photo-dialog__body-content">
         <div class="profile-photo-dialog__preview">
-          <img v-if="selectedPreview || preview" :src="selectedPreview || preview" :alt="`Фото ${targetLogin}`">
+          <img v-if="selectedPreview || preview" :src="selectedPreview || preview" :alt="t('theme.useroptions.useroptions.profile.profilephotodialog.003', [targetLogin])">
           <span v-else>{{ targetLogin.slice(0, 1).toUpperCase() || '?' }}</span>
-          <div v-if="uploading" class="profile-photo-dialog__busy" aria-label="Загрузка изображения"><span class="profile-photo-spinner" /></div>
+          <div v-if="uploading" class="profile-photo-dialog__busy" :aria-label="t('theme.useroptions.useroptions.profile.profilephotodialog.004')"><span class="profile-photo-spinner" /></div>
         </div>
 
         <div class="profile-photo-dialog__controls">
           <ImageUploadField
-            title="Фото профиля"
-            description="После выбора редактор откроется в этом окне"
+            :title="t('theme.useroptions.useroptions.profile.profilephotodialog.005')"
+            :description="t('theme.useroptions.useroptions.profile.profilephotodialog.006')"
             preview-mode="none"
             :editor-target="editorTarget"
             :editor-aspect-ratio="1"
@@ -93,9 +95,9 @@ onBeforeUnmount(revokePreview)
             :uploading="uploading"
             :error="localError || error"
             :allow-clear="false"
-            hint="Итог: WebP 512×512 · исходник 64×64–4096×4096 · до 5 МБ"
-            :choose-label="selectedFile ? 'Выбрать другое изображение' : 'Выбрать изображение'"
-            replace-label="Выбрать другое"
+            :hint="t('theme.useroptions.useroptions.profile.profilephotodialog.007')"
+            :choose-label="selectedFile ? t('theme.useroptions.useroptions.profile.profilephotodialog.008') : t('theme.useroptions.useroptions.profile.profilephotodialog.009')"
+            :replace-label="t('theme.useroptions.useroptions.profile.profilephotodialog.010')"
             @select="selectFile"
             @clear="clearSelectedFile"
             @invalid="localError = $event"
@@ -108,14 +110,14 @@ onBeforeUnmount(revokePreview)
         v-show="editorActive"
         ref="editorTarget"
         class="profile-photo-dialog__editor-target"
-        aria-label="Встроенный редактор фотографии"
+        :aria-label="t('theme.useroptions.useroptions.profile.profilephotodialog.011')"
       />
     </div>
 
     <footer class="profile-photo-dialog__footer">
-      <button class="button button--ghost" type="button" :disabled="uploading" @click="close">Закрыть</button>
+      <button class="button button--ghost" type="button" :disabled="uploading" @click="close">{{ t('theme.useroptions.useroptions.profile.profilephotodialog.012') }}</button>
       <button class="button button--primary" type="button" :disabled="!selectedFile || uploading || editorActive" @click="upload">
-        <span v-if="uploading" class="profile-photo-spinner profile-photo-spinner--small" aria-hidden="true" />{{ uploading ? 'Загрузка…' : 'Загрузить фото' }}
+        <span v-if="uploading" class="profile-photo-spinner profile-photo-spinner--small" aria-hidden="true" />{{ uploading ? t('theme.useroptions.useroptions.profile.profilephotodialog.013') : t('theme.useroptions.useroptions.profile.profilephotodialog.014') }}
       </button>
     </footer>
   </dialog>

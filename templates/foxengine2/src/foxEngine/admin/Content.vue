@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { BadgeDefinition, StaticPageDefinition } from '@engine/content/contentData'
 import type {
@@ -124,23 +126,7 @@ function escapeHtml(value: string): string {
 }
 
 function badgeTemplate(badge: BadgeCatalogRow, slug: string): string {
-  return `<article class="content-surface badge-page badge-page--runtime" data-badge-page="1" data-badge-name="${escapeHtml(badge.badgeName)}" data-badge-slug="${slug}">
-  <header class="badge-page__header">
-    <div class="badge-page__visual">
-      <img data-badge-image src="" alt="" loading="eager" decoding="async">
-    </div>
-    <div>
-      <span class="eyebrow" data-badge-eyebrow>FoxesCraft badge</span>
-      <h1 data-badge-title></h1>
-      <p class="lead" data-badge-description></p>
-    </div>
-  </header>
-  <section class="badge-story" data-badge-history>
-    <h2>История бейджа</h2>
-    <p>Добавьте полное описание, происхождение и историю этого бейджа.</p>
-  </section>
-</article>
-`
+  return t('theme.foxengine.admin.content.045', [escapeHtml(badge.badgeName), slug])
 }
 
 function createBadgePage(): void {
@@ -156,7 +142,7 @@ function createBadgePage(): void {
 
 function deleteBadgePage(): void {
   const page = selectedBadgePage.value
-  if (!page || !window.confirm(`Удалить HTML-файл data/badges/${page.slug}.html? Запись в БД останется.`)) return
+  if (!page || !window.confirm(t('theme.foxengine.admin.content.046', [page.slug]))) return
   emit('deleteBadgePage', page)
 }
 
@@ -166,17 +152,17 @@ function deleteBadgePage(): void {
   <section class="admin-content-editor">
     <header class="admin-content-editor__header">
       <div>
-        <span class="eyebrow">Runtime content</span>
-        <h2>{{ mode === 'project' ? 'Страницы проекта' : 'HTML-страницы бейджей' }}</h2>
-        <p v-if="mode === 'project'">Страницы проекта хранятся отдельными HTML-файлами и редактируются через CodeMirror 5.</p>
-        <p v-else>Полные представления бейджей хранятся отдельно от каталога и редактируются через CodeMirror 5.</p>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.content.001') }}</span>
+        <h2>{{ mode === 'project' ? t('theme.foxengine.admin.content.002') : t('theme.foxengine.admin.content.003') }}</h2>
+        <p v-if="mode === 'project'">{{ t('theme.foxengine.admin.content.004') }}</p>
+        <p v-else>{{ t('theme.foxengine.admin.content.005') }}</p>
       </div>
       <div class="admin-content-editor__modes">
         <button type="button" :class="{ active: mode === 'project' }" @click="mode = 'project'">
-          <i class="fa-solid fa-newspaper" aria-hidden="true" /><span>Страницы проекта</span>
+          <i class="fa-solid fa-newspaper" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.002') }}</span>
         </button>
         <button type="button" :class="{ active: mode === 'badges' }" @click="mode = 'badges'">
-          <i class="fa-solid fa-award" aria-hidden="true" /><span>HTML-страницы бейджей</span>
+          <i class="fa-solid fa-award" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.003') }}</span>
         </button>
       </div>
     </header>
@@ -197,40 +183,40 @@ function deleteBadgePage(): void {
 
       <form v-if="selectedProject" class="admin-badge-html-editor admin-project-html-editor" @submit.prevent="emit('saveProjectPages')">
         <header class="admin-content-form__title">
-          <div><span class="eyebrow">HTML-страница проекта</span><h3>{{ selectedProject.title }}</h3><p><code>data/pages/{{ selectedProject.id }}.html</code></p></div>
-          <a class="button button--ghost" :href="`/#/${selectedProject.id}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>Открыть страницу</span></a>
+          <div><span class="eyebrow">{{ t('theme.foxengine.admin.content.006') }}</span><h3>{{ selectedProject.title }}</h3><p><code>data/pages/{{ selectedProject.id }}.html</code></p></div>
+          <a class="button button--ghost" :href="`/#/${selectedProject.id}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
         </header>
 
         <div class="admin-content-form__grid">
-          <label><span>ID маршрута</span><input :value="selectedProject.id" type="text" readonly></label>
-          <label><span>HTML-файл</span><input :value="`data/pages/${selectedProject.id}.html`" type="text" readonly></label>
+          <label><span>{{ t('theme.foxengine.admin.content.009') }}</span><input :value="selectedProject.id" type="text" readonly></label>
+          <label><span>{{ t('theme.foxengine.admin.content.010') }}</span><input :value="`data/pages/${selectedProject.id}.html`" type="text" readonly></label>
         </div>
 
-        <div class="admin-html-workbench__tabs" role="tablist" aria-label="Режим страницы проекта">
+        <div class="admin-html-workbench__tabs" role="tablist" :aria-label="t('theme.foxengine.admin.content.012')">
           <button type="button" role="tab" :aria-selected="projectWorkspaceTab === 'editor'" :class="{ active: projectWorkspaceTab === 'editor' }" @click="projectWorkspaceTab = 'editor'">
-            <i class="fa-solid fa-code" aria-hidden="true" /><span>Редактор</span>
+            <i class="fa-solid fa-code" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.013') }}</span>
           </button>
           <button type="button" role="tab" :aria-selected="projectWorkspaceTab === 'preview'" :class="{ active: projectWorkspaceTab === 'preview' }" @click="projectWorkspaceTab = 'preview'">
-            <i class="fa-solid fa-eye" aria-hidden="true" /><span>Превью</span>
+            <i class="fa-solid fa-eye" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.014') }}</span>
           </button>
         </div>
 
         <div v-if="projectWorkspaceTab === 'editor'" class="admin-badge-html-editor__source" role="tabpanel">
-          <span>Полная HTML-разметка страницы проекта</span>
+          <span>{{ t('theme.foxengine.admin.content.015') }}</span>
           <CodeEditor
             :key="`project-${selectedProject.id}`"
             v-model="selectedProject.html"
             language="html"
-            :aria-label="`HTML-разметка страницы проекта ${selectedProject.id}`"
+            :aria-label="t('theme.foxengine.admin.content.017', [selectedProject.id])"
             min-height="620px"
           />
-          <small>Обязательны один корневой <code>&lt;article data-project-page&gt;</code> и непустой <code>&lt;h1&gt;</code>. Скрипты, style, iframe, формы и inline-события запрещены серверной политикой.</small>
+          <small>{{ t('theme.foxengine.admin.content.018') }} <code>{{ t('theme.foxengine.admin.content.019') }}</code> {{ t('theme.foxengine.admin.content.020') }} <code>&lt;h1&gt;</code>{{ t('theme.foxengine.admin.content.021') }}</small>
         </div>
 
         <section v-else class="admin-html-preview" role="tabpanel" @click.capture="preventPreviewNavigation">
           <header class="admin-html-preview__header">
-            <div><strong>Прямое превью</strong><small>Используются реальные компоненты и CSS активной темы.</small></div>
-            <span class="admin-html-preview__status"><i class="fa-solid fa-bolt" aria-hidden="true" /> Live</span>
+            <div><strong>{{ t('theme.foxengine.admin.content.022') }}</strong><small>{{ t('theme.foxengine.admin.content.023') }}</small></div>
+            <span class="admin-html-preview__status"><i class="fa-solid fa-bolt" aria-hidden="true" /> {{ t('theme.foxengine.admin.content.024') }}</span>
           </header>
           <div class="admin-html-preview__stage admin-html-preview__stage--project">
             <StaticPage v-if="projectPreviewPage" :page="projectPreviewPage" />
@@ -238,7 +224,7 @@ function deleteBadgePage(): void {
         </section>
 
         <footer class="admin-content-form__footer">
-          <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>Сохранить {{ selectedProject.id }}.html</span></button>
+          <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.025') }} {{ selectedProject.id }}.html</span></button>
         </footer>
       </form>
     </div>
@@ -254,58 +240,58 @@ function deleteBadgePage(): void {
         >
           <img v-if="badge.img" :src="badge.img" alt="">
           <i v-else class="fa-solid fa-award" aria-hidden="true" />
-          <span><strong>{{ badge.badgeName }}</strong><small>{{ badge.pageConfigured ? `HTML: ${badge.pageSlug}.html` : `Ожидается: ${badge.pageSlug}.html` }}</small></span>
+          <span><strong>{{ badge.badgeName }}</strong><small>{{ badge.pageConfigured ? t('theme.foxengine.admin.content.026', [badge.pageSlug]) : t('theme.foxengine.admin.content.027', [badge.pageSlug]) }}</small></span>
         </button>
       </aside>
 
       <div v-if="selectedBadge" class="admin-content-form">
         <header class="admin-content-form__title">
-          <div><span class="eyebrow">Данные из MySQL</span><h3>{{ selectedBadge.badgeName }}</h3><p>{{ selectedBadge.description }}</p></div>
+          <div><span class="eyebrow">{{ t('theme.foxengine.admin.content.028') }}</span><h3>{{ selectedBadge.badgeName }}</h3><p>{{ selectedBadge.description }}</p></div>
           <img v-if="selectedBadge.img" class="admin-content-form__badge-image" :src="selectedBadge.img" alt="">
         </header>
 
         <div v-if="!selectedBadgePage" class="admin-content-empty-page">
           <i class="fa-solid fa-plus" aria-hidden="true" />
-          <strong>Полная HTML-страница ещё не создана</strong>
-          <p>Название, краткое описание и изображение уже находятся в badgesList. Создайте отдельное полное представление с историей бейджа.</p>
-          <button class="button button--primary" type="button" @click="createBadgePage"><i class="fa-solid fa-plus" aria-hidden="true" /><span>Создать HTML-страницу</span></button>
+          <strong>{{ t('theme.foxengine.admin.content.029') }}</strong>
+          <p>{{ t('theme.foxengine.admin.content.030') }}</p>
+          <button class="button button--primary" type="button" @click="createBadgePage"><i class="fa-solid fa-plus" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.031') }}</span></button>
         </div>
 
         <form v-else class="admin-badge-html-editor" @submit.prevent="emit('saveBadgePage', selectedBadgePage)">
           <div class="admin-content-form__grid">
-            <label><span>Привязка к badgesList.badgeName</span><input :value="selectedBadgePage.badgeName" type="text" readonly></label>
-            <label><span>Файл и маршрут</span><input :value="`data/badges/${selectedBadgePage.slug}.html`" type="text" readonly><small><code>/#/badges/{{ selectedBadgePage.slug }}</code></small></label>
+            <label><span>{{ t('theme.foxengine.admin.content.032') }}</span><input :value="selectedBadgePage.badgeName" type="text" readonly></label>
+            <label><span>{{ t('theme.foxengine.admin.content.033') }}</span><input :value="`data/badges/${selectedBadgePage.slug}.html`" type="text" readonly><small><code>/#/badges/{{ selectedBadgePage.slug }}</code></small></label>
           </div>
 
           <div class="admin-badge-html-editor__actions">
-            <a class="button button--ghost" :href="`/#/badges/${selectedBadgePage.slug}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>Открыть страницу</span></a>
+            <a class="button button--ghost" :href="`/#/badges/${selectedBadgePage.slug}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
           </div>
 
-          <div class="admin-html-workbench__tabs" role="tablist" aria-label="Режим страницы бейджа">
+          <div class="admin-html-workbench__tabs" role="tablist" :aria-label="t('theme.foxengine.admin.content.036')">
             <button type="button" role="tab" :aria-selected="badgeWorkspaceTab === 'editor'" :class="{ active: badgeWorkspaceTab === 'editor' }" @click="badgeWorkspaceTab = 'editor'">
-              <i class="fa-solid fa-code" aria-hidden="true" /><span>Редактор</span>
+              <i class="fa-solid fa-code" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.013') }}</span>
             </button>
             <button type="button" role="tab" :aria-selected="badgeWorkspaceTab === 'preview'" :class="{ active: badgeWorkspaceTab === 'preview' }" @click="badgeWorkspaceTab = 'preview'">
-              <i class="fa-solid fa-eye" aria-hidden="true" /><span>Превью</span>
+              <i class="fa-solid fa-eye" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.014') }}</span>
             </button>
           </div>
 
           <div v-if="badgeWorkspaceTab === 'editor'" class="admin-badge-html-editor__source" role="tabpanel">
-            <span>Полная HTML-разметка страницы</span>
+            <span>{{ t('theme.foxengine.admin.content.037') }}</span>
             <CodeEditor
               :key="`badge-${selectedBadgePage.slug}`"
               v-model="selectedBadgePage.html"
               language="html"
-              aria-label="HTML-разметка страницы бейджа"
+              :aria-label="t('theme.foxengine.admin.content.039')"
               min-height="560px"
             />
-            <small>Обязательны: <code>data-badge-page</code>, <code>data-badge-title</code>, <code>data-badge-description</code>, <code>data-badge-image</code> и <code>data-badge-history</code>. Данные из БД подставляются сервером. Скрипты, style, iframe, формы и inline-события запрещены.</small>
+            <small>{{ t('theme.foxengine.admin.content.040') }} <code>data-badge-page</code>, <code>data-badge-title</code>, <code>data-badge-description</code>, <code>data-badge-image</code> {{ t('theme.foxengine.admin.content.041') }} <code>data-badge-history</code>{{ t('theme.foxengine.admin.content.042') }}</small>
           </div>
 
           <section v-else class="admin-html-preview" role="tabpanel" @click.capture="preventPreviewNavigation">
             <header class="admin-html-preview__header">
-              <div><strong>Прямое превью</strong><small>Используются реальные компоненты, данные бейджа и CSS активной темы.</small></div>
-              <span class="admin-html-preview__status"><i class="fa-solid fa-bolt" aria-hidden="true" /> Live</span>
+              <div><strong>{{ t('theme.foxengine.admin.content.022') }}</strong><small>{{ t('theme.foxengine.admin.content.043') }}</small></div>
+              <span class="admin-html-preview__status"><i class="fa-solid fa-bolt" aria-hidden="true" /> {{ t('theme.foxengine.admin.content.024') }}</span>
             </header>
             <div class="admin-html-preview__stage admin-html-preview__stage--badge">
               <BadgePage :loading="false" :error="false" :badge="badgePreviewPage" />
@@ -313,8 +299,8 @@ function deleteBadgePage(): void {
           </section>
 
           <footer class="admin-content-form__footer admin-content-form__footer--split">
-            <button class="button admin-content-delete-page" type="button" @click="deleteBadgePage"><i class="fa-solid fa-trash-can" aria-hidden="true" /><span>Удалить {{ selectedBadgePage.slug }}.html</span></button>
-            <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>Сохранить {{ selectedBadgePage.slug }}.html</span></button>
+            <button class="button admin-content-delete-page" type="button" @click="deleteBadgePage"><i class="fa-solid fa-trash-can" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.044') }} {{ selectedBadgePage.slug }}.html</span></button>
+            <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.025') }} {{ selectedBadgePage.slug }}.html</span></button>
           </footer>
         </form>
       </div>

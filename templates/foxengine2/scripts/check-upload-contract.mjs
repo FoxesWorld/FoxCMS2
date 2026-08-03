@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { repositoryRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const engineRoot = join(repositoryRoot, 'engine')
 const uploadService = join(engineRoot, 'classes', 'uploads', 'UploadService.class.php')
@@ -46,7 +47,7 @@ const consumers = new Map([
 for (const [file, required] of consumers) {
   const source = await readFile(join(repositoryRoot, file), 'utf8')
   for (const token of required) {
-    if (!source.includes(token)) violations.push(`${file}: missing ${token}`)
+    if (!includesLocalized(source, token)) violations.push(`${file}: missing ${token}`)
   }
 }
 
@@ -92,13 +93,13 @@ for (const token of [
   "$trace->failed($error, 'Upload failed unexpectedly.')",
   'CsrfToken::validate',
 ]) {
-  if (!service.includes(token)) violations.push(`UploadService orchestration is missing ${token}`)
+  if (!includesLocalized(service, token)) violations.push(`UploadService orchestration is missing ${token}`)
 }
 for (const token of ['move_uploaded_file(', 'rejectSymlinkPath', 'verifyPublishedFile', "'.upload-'"]) {
-  if (!uploadFilesystem.includes(token)) violations.push(`UploadFilesystem is missing ${token}`)
+  if (!includesLocalized(uploadFilesystem, token)) violations.push(`UploadFilesystem is missing ${token}`)
 }
 for (const token of ['is_uploaded_file(', 'UPLOAD_ERR_', 'getimagesize(', 'new finfo(', 'hash_file(']) {
-  if (!uploadInspector.includes(token)) violations.push(`UploadFileInspector is missing ${token}`)
+  if (!includesLocalized(uploadInspector, token)) violations.push(`UploadFileInspector is missing ${token}`)
 }
 for (const token of [
   'UploadPermission::ADMIN_FILES',
@@ -110,7 +111,7 @@ for (const token of [
   'UploadPermission::PROFILE_ANY',
   'allowAnyType: true',
 ]) {
-  if (!uploadPolicyFactory.includes(token)) violations.push(`UploadPolicyFactory is missing ${token}`)
+  if (!includesLocalized(uploadPolicyFactory, token)) violations.push(`UploadPolicyFactory is missing ${token}`)
 }
 for (const forbidden of ['ADMIN_BLOCKED_EXTENSIONS', 'ADMIN_BLOCKED_MIME']) {
   if (uploadPolicyFactory.includes(forbidden) || service.includes(forbidden)) {
@@ -121,7 +122,7 @@ if (adminFileManager.includes('BLOCKED_UPLOAD_EXTENSIONS')) {
   violations.push('AdminFileManager: File Manager rename still restricts file extensions')
 }
 for (const token of ['function selectUpload(file: File | null)', "body.set('file', file, file.name)"]) {
-  if (!adminClient.includes(token)) violations.push(`Admin File Manager client is missing ${token}`)
+  if (!includesLocalized(adminClient, token)) violations.push(`Admin File Manager client is missing ${token}`)
 }
 for (const token of [
   'selectUpload: [file: File | null]',
@@ -135,7 +136,7 @@ for (const token of [
   'admin-upload-disabled-reason',
   'Текущий каталог недоступен для записи процессу PHP',
 ]) {
-  if (!fileManager.includes(token)) violations.push(`Admin File Manager UI is missing ${token}`)
+  if (!includesLocalized(fileManager, token)) violations.push(`Admin File Manager UI is missing ${token}`)
 }
 if (/\baccept\s*=/.test(fileManager)) {
   violations.push('Admin File Manager file input must not restrict selectable file types through accept')
@@ -147,13 +148,13 @@ for (const token of [
   "'_siteSocialImageUpload'",
   'private function uploadSiteSocialImage()',
 ]) {
-  if (!adminOptions.includes(token)) violations.push(`Admin social-card image backend is missing ${token}`)
+  if (!includesLocalized(adminOptions, token)) violations.push(`Admin social-card image backend is missing ${token}`)
 }
 for (const token of [
   "'uploadSiteSocialImage'",
   "$payload['_siteSocialImageUpload'] = $request->file('image')",
 ]) {
-  if (!adminPanel.includes(token)) violations.push(`AdminPanel social-card multipart bridge is missing ${token}`)
+  if (!includesLocalized(adminPanel, token)) violations.push(`AdminPanel social-card multipart bridge is missing ${token}`)
 }
 for (const token of [
   'async function uploadSiteSocialImage(file: File)',
@@ -162,13 +163,13 @@ for (const token of [
   'siteSocialImageUploading',
   'siteSocialImageError',
 ]) {
-  if (!adminClient.includes(token)) violations.push(`Admin social-card image client is missing ${token}`)
+  if (!includesLocalized(adminClient, token)) violations.push(`Admin social-card image client is missing ${token}`)
 }
 for (const token of [
   "public const SITE_SOCIAL_IMAGE = 'site.social_image'",
   'self::SITE_SOCIAL_IMAGE',
 ]) {
-  if (!uploadPurpose.includes(token)) violations.push(`UploadPurpose social-card contract is missing ${token}`)
+  if (!includesLocalized(uploadPurpose, token)) violations.push(`UploadPurpose social-card contract is missing ${token}`)
 }
 for (const token of [
   'UploadPurpose::SITE_SOCIAL_IMAGE => $this->siteSocialImagePolicy($authorize)',
@@ -178,7 +179,7 @@ for (const token of [
   'minimumHeight: 315',
   "'image/webp' => 'webp'",
 ]) {
-  if (!uploadPolicyFactory.includes(token)) violations.push(`Social-card upload policy is missing ${token}`)
+  if (!includesLocalized(uploadPolicyFactory, token)) violations.push(`Social-card upload policy is missing ${token}`)
 }
 for (const token of [
   'ImageUploadField',
@@ -191,10 +192,10 @@ for (const token of [
   `@clear="emit('clearImage')"`,
   '&lt;meta property=&quot;og:image&quot;&gt;',
 ]) {
-  if (!siteSettingsEditor.includes(token)) violations.push(`Site social-card shared upload is missing ${token}`)
+  if (!includesLocalized(siteSettingsEditor, token)) violations.push(`Site social-card shared upload is missing ${token}`)
 }
 for (const token of ["'og:image'", "'twitter:image'", "$site['ogImage']"]) {
-  if (!themeRenderer.includes(token)) violations.push(`ThemeRenderer social-card metadata is missing ${token}`)
+  if (!includesLocalized(themeRenderer, token)) violations.push(`ThemeRenderer social-card metadata is missing ${token}`)
 }
 
 for (const token of [
@@ -205,13 +206,13 @@ for (const token of [
   "normalizeServerImageReference",
   "validateReference(UploadPurpose::SERVER_IMAGE",
 ]) {
-  if (!adminOptions.includes(token)) violations.push(`Admin server image backend is missing ${token}`)
+  if (!includesLocalized(adminOptions, token)) violations.push(`Admin server image backend is missing ${token}`)
 }
 for (const token of [
   "'uploadServerImage'",
   "$payload['_serverImageUpload'] = $request->file('image')",
 ]) {
-  if (!adminPanel.includes(token)) violations.push(`AdminPanel multipart bridge is missing ${token}`)
+  if (!includesLocalized(adminPanel, token)) violations.push(`AdminPanel multipart bridge is missing ${token}`)
 }
 for (const token of [
   'async function uploadServerImage(file: File)',
@@ -220,7 +221,7 @@ for (const token of [
   'serverDraft.serverImage = response.image',
   'serverImageUploading',
 ]) {
-  if (!adminClient.includes(token)) violations.push(`Admin server image client is missing ${token}`)
+  if (!includesLocalized(adminClient, token)) violations.push(`Admin server image client is missing ${token}`)
 }
 for (const token of [
   'ImageUploadField',
@@ -232,7 +233,7 @@ for (const token of [
   `@clear="emit('clearImage')"`,
   '/uploads/servers/',
 ]) {
-  if (!serverEditor.includes(token)) violations.push(`Server image shared form is missing ${token}`)
+  if (!includesLocalized(serverEditor, token)) violations.push(`Server image shared form is missing ${token}`)
 }
 
 for (const token of [
@@ -258,7 +259,7 @@ for (const token of [
   'ref="editorHost"',
   'pintura-inline-editor__mount',
 ]) {
-  if (!imageUploadField.includes(token)) violations.push(`Shared ImageUploadField is missing ${token}`)
+  if (!includesLocalized(imageUploadField, token)) violations.push(`Shared ImageUploadField is missing ${token}`)
 }
 for (const token of [
   "import('@pqina/pintura')",
@@ -274,7 +275,7 @@ for (const token of [
   "editor.on('process'",
   "'image/bmp'",
 ]) {
-  if (!pinturaImageEditor.includes(token)) violations.push(`Pintura image editor service is missing ${token}`)
+  if (!includesLocalized(pinturaImageEditor, token)) violations.push(`Pintura image editor service is missing ${token}`)
 }
 for (const forbidden of ['openDefaultEditor', 'PinturaModal']) {
   if (pinturaImageEditor.includes(forbidden)) violations.push(`Pintura must remain embedded; forbidden modal token found: ${forbidden}`)
@@ -292,7 +293,7 @@ for (const token of [
   'cancelImageEditing',
   'SVG и Minecraft skin/cape редактором не обрабатываются',
 ]) {
-  if (!fileManager.includes(token)) violations.push(`Admin File Manager Pintura integration is missing ${token}`)
+  if (!includesLocalized(fileManager, token)) violations.push(`Admin File Manager Pintura integration is missing ${token}`)
 }
 
 if (packageJson.dependencies?.['@pqina/pintura'] !== '^8.99.0') {
@@ -305,7 +306,7 @@ for (const token of [
   '.image-upload-field--circle .image-upload-field__preview',
   '.image-upload-field.has-error',
 ]) {
-  if (!imageUploadCss.includes(token)) violations.push(`Shared image upload styles are missing ${token}`)
+  if (!includesLocalized(imageUploadCss, token)) violations.push(`Shared image upload styles are missing ${token}`)
 }
 
 const sharedImageConsumers = new Map([
@@ -321,7 +322,7 @@ for (const [name, source] of sharedImageConsumers) {
   if (/<input\b[^>]*type="file"/i.test(source)) violations.push(`${name}: direct image file input remains outside ImageUploadField`)
 }
 for (const token of ['@select="selectFile"', '@clear="clearSelectedFile"', 'preview-mode="none"', ':editor-target="editorTarget"', '@editing-change="editorActive = $event"', 'profile-photo-dialog__editor-target', ':editor-aspect-ratio="1"', ':editor-target-width="512"', ':editor-target-height="512"', 'editor-mime-type="image/webp"']) {
-  if (!profilePhotoDialog.includes(token)) violations.push(`Profile photo dialog shared upload is missing ${token}`)
+  if (!includesLocalized(profilePhotoDialog, token)) violations.push(`Profile photo dialog shared upload is missing ${token}`)
 }
 for (const [name, source] of [['SkinOption.vue', skinOption], ['CloakOption.vue', cloakOption]]) {
   if (!source.includes('<input type="file" accept="image/png"')) violations.push(`${name}: direct PNG selector must remain for Minecraft texture uploads`)
@@ -331,27 +332,27 @@ for (const [name, source] of [['SkinOption.vue', skinOption], ['CloakOption.vue'
 }
 
 for (const token of ['preview-mode="circle"', "@select=\"emit('selectAvatar', $event)\"", '#actions']) {
-  if (!appearanceOption.includes(token)) violations.push(`Profile appearance shared upload is missing ${token}`)
+  if (!includesLocalized(appearanceOption, token)) violations.push(`Profile appearance shared upload is missing ${token}`)
 }
 for (const token of ['preview-mode="circle"', '@select="selectCover"', "@clear=\"draft.coverImage = ''\""]) {
-  if (!newsEditor.includes(token)) violations.push(`News cover shared upload is missing ${token}`)
+  if (!includesLocalized(newsEditor, token)) violations.push(`News cover shared upload is missing ${token}`)
 }
 for (const token of ['preview-mode="none"', ':editor-aspect-ratio="false"', '@select="selectImage(selectedIndex, $event)"', "@clear=\"selectedSlide.image = ''\""]) {
-  if (!slidesEditor.includes(token)) violations.push(`Slide shared upload is missing ${token}`)
+  if (!includesLocalized(slidesEditor, token)) violations.push(`Slide shared upload is missing ${token}`)
 }
 
 for (const token of ['export function serverImageUrl', "themeAsset(", "img/servers/${themeRelative}"]) {
-  if (!serverImageDomain.includes(token)) violations.push(`Server image URL resolver is missing ${token}`)
+  if (!includesLocalized(serverImageDomain, token)) violations.push(`Server image URL resolver is missing ${token}`)
 }
 for (const token of ['serverImageUrl', 'coverUrl', '@error="coverFailed = true"']) {
-  if (!serverPage.includes(token)) violations.push(`Public server image preview is missing ${token}`)
+  if (!includesLocalized(serverPage, token)) violations.push(`Public server image preview is missing ${token}`)
 }
 for (const token of [
   "str_starts_with($reference, '/uploads/servers/')",
   "ROOT_DIR . UPLOADS_DIR . 'servers'",
   "['image/jpeg', 'image/png', 'image/webp']",
 ]) {
-  if (!systemRequests.includes(token)) violations.push(`Launcher server image endpoint is missing ${token}`)
+  if (!includesLocalized(systemRequests, token)) violations.push(`Launcher server image endpoint is missing ${token}`)
 }
 
 if (violations.length > 0) {

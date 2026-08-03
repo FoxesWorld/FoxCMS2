@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import type { GroupOption, MaintenanceSettings } from '@modules/AdminPanel/client/useAdminPanel'
 import { appBootstrap } from '@engine/app/context'
@@ -22,12 +24,12 @@ function toggleGroup(groupTag: string, checked: boolean): void {
   <section class="admin-section maintenance-admin">
     <header class="maintenance-admin__header">
       <div>
-        <span class="eyebrow">Access control</span>
-        <h2>Режим технических работ</h2>
-        <p>Серверная заглушка блокирует сайт и API для групп без доступа. Администраторы и отмеченные ниже группы могут войти через форму на заглушке.</p>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.maintenance.001') }}</span>
+        <h2>{{ t('theme.foxengine.admin.maintenance.002') }}</h2>
+        <p>{{ t('theme.foxengine.admin.maintenance.003') }}</p>
       </div>
       <span class="maintenance-admin__status" :class="{ active: settings.enabled }">
-        {{ settings.enabled ? 'Режим активен' : 'Сайт открыт' }}
+        {{ settings.enabled ? t('theme.foxengine.admin.maintenance.004') : t('theme.foxengine.admin.maintenance.005') }}
       </span>
     </header>
 
@@ -37,24 +39,24 @@ function toggleGroup(groupTag: string, checked: boolean): void {
           v-model="settings.enabled"
           class="maintenance-switch"
           variant="switch"
-          label="Включить заглушку"
-          description="Изменение применяется сразу после сохранения."
+          :label="t('theme.foxengine.admin.maintenance.006')"
+          :description="t('theme.foxengine.admin.maintenance.007')"
         />
         <label class="maintenance-field">
-          <span>Заголовок</span>
-          <input v-model="settings.title" maxlength="160" placeholder="Ведутся технические работы">
+          <span>{{ t('theme.foxengine.admin.maintenance.008') }}</span>
+          <input v-model="settings.title" maxlength="160" :placeholder="t('theme.foxengine.admin.maintenance.009')">
         </label>
         <label class="maintenance-field">
-          <span>Сообщение</span>
-          <textarea v-model="settings.message" maxlength="1200" rows="5" placeholder="Опишите причину и ожидаемый срок работ." />
+          <span>{{ t('theme.foxengine.admin.maintenance.010') }}</span>
+          <textarea v-model="settings.message" maxlength="1200" rows="5" :placeholder="t('theme.foxengine.admin.maintenance.011')" />
           <small>{{ settings.message.length }}/1200</small>
         </label>
       </section>
 
       <section class="maintenance-admin__panel">
         <div class="maintenance-admin__panel-heading">
-          <strong>Группы с доступом</strong>
-          <span>Отмеченные группы смогут авторизоваться прямо на странице технических работ. Гостевой доступ определяется тегом guest.</span>
+          <strong>{{ t('theme.foxengine.admin.maintenance.012') }}</strong>
+          <span>{{ t('theme.foxengine.admin.maintenance.013') }}</span>
         </div>
         <div class="maintenance-groups">
           <UiCheckbox
@@ -73,10 +75,10 @@ function toggleGroup(groupTag: string, checked: boolean): void {
     </div>
 
     <div class="maintenance-admin__footer">
-      <span v-if="settings.updatedAt">Последнее изменение: {{ settings.updatedAt }}</span>
-      <span v-else>Настройки ещё не сохранялись.</span>
+      <span v-if="settings.updatedAt">{{ t('theme.foxengine.admin.maintenance.014') }} {{ settings.updatedAt }}</span>
+      <span v-else>{{ t('theme.foxengine.admin.maintenance.015') }}</span>
       <button type="button" class="button button--primary" :disabled="loading" @click="emit('save')">
-        {{ loading ? 'Сохранение…' : 'Сохранить режим' }}
+        {{ loading ? t('theme.foxengine.admin.maintenance.016') : t('theme.foxengine.admin.maintenance.017') }}
       </button>
     </div>
   </section>

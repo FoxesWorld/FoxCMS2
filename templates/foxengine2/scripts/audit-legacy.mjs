@@ -10,7 +10,7 @@ const writeBaseline = process.argv.includes('--write-baseline')
 const textExtensions = new Set(['.php', '.tpl', '.ftpl', '.js', '.ts', '.vue', '.css', '.html'])
 const excludedDirectories = new Set(['.git', '.vite', 'node_modules', 'app', 'runtime'])
 const patterns = {
-  inlineHandlers: /\son[a-z]+\s*=/gi,
+  inlineHandlers: /<[A-Za-z][^>]*\son[a-z]+\s*=/gi,
   inlineStyles: /\sstyle\s*=/gi,
   jqueryCalls: /\b(?:jQuery|\$)\s*\(/g,
   bootstrapHooks: /\b(?:data-bs-|navbar-|container-fluid|col-(?:sm-|md-|lg-|xl-)?\d)/gi,

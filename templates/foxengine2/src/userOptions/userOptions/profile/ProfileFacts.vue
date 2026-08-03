@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type { ProfileBadge, ProfileRecord } from '@engine/contracts/user-pages'
 import ProfileBadges from './ProfileBadges.vue'
 
@@ -12,21 +14,21 @@ const emit = defineEmits<{ openBadge: [id: string] }>()
 </script>
 
 <template>
-  <section class="profile-statbar" aria-label="Сводка профиля">
+  <section class="profile-statbar" :aria-label="t('theme.useroptions.useroptions.profile.profilefacts.001')">
     <div class="profile-statbar__status">
-      <span>Статус</span>
-      <strong>{{ profile.userStatus || 'Путешествует по Лисьему Миру' }}</strong>
+      <span>{{ t('theme.useroptions.useroptions.profile.profilefacts.002') }}</span>
+      <strong>{{ profile.userStatus || t('theme.useroptions.useroptions.profile.profilefacts.003') }}</strong>
     </div>
     <div>
-      <span>Регистрация</span>
+      <span>{{ t('theme.useroptions.useroptions.profile.profilefacts.004') }}</span>
       <strong>{{ registration }}</strong>
     </div>
     <div>
-      <span>Последнее посещение</span>
+      <span>{{ t('theme.useroptions.useroptions.profile.profilefacts.005') }}</span>
       <strong>{{ lastActivity }}</strong>
     </div>
     <div v-if="badges.length" class="profile-statbar__badges">
-      <span>Бейджи</span>
+      <span>{{ t('theme.useroptions.useroptions.profile.profilefacts.006') }}</span>
       <ProfileBadges :badges="badges" compact @open="emit('openBadge', $event)" />
     </div>
   </section>

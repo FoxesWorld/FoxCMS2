@@ -100,14 +100,24 @@ final class NewsModule extends Module
 
     private function listPosts(): never
     {
+        $limit = max(1, min(50, $this->request->integer('limit', 6)));
+        $offset = max(0, $this->request->integer('offset', 0));
+        $includeDrafts = $this->session->isAdmin();
+        $total = $this->repository->countPosts($includeDrafts);
         $items = $this->repository->listPosts(
-            $this->request->integer('limit', 6),
+            $limit,
+            $offset,
             $this->viewerUuid(),
-            $this->session->isAdmin(),
+            $includeDrafts,
         );
+        $loaded = $offset + count($items);
         JsonResponse::send([
             'items' => array_map([$this, 'normalizePost'], $items),
-            'canCreate' => $this->session->isAdmin(),
+            'canCreate' => $includeDrafts,
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'hasMore' => $loaded < $total,
         ]);
     }
 

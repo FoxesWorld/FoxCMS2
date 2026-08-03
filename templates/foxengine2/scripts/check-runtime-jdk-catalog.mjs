@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 const paths = {
@@ -30,7 +31,7 @@ for (const token of [
   "'versionSource' => 'archive-file-name-major'",
   'public function normalizeVersion(',
 ]) {
-  if (!service.includes(token)) failures.push(`RuntimeJdkCatalog is missing ${token}`)
+  if (!includesLocalized(service, token)) failures.push(`RuntimeJdkCatalog is missing ${token}`)
 }
 for (const forbidden of [
   'ZipArchive',
@@ -55,7 +56,7 @@ for (const token of [
   "'type' => $runtimeWarning !== '' ? 'warning' : 'success'",
   'сохранён без проверки каталога runtime',
 ]) {
-  if (!backend.includes(token)) failures.push(`Admin server runtime backend is missing ${token}`)
+  if (!includesLocalized(backend, token)) failures.push(`Admin server runtime backend is missing ${token}`)
 }
 for (const forbidden of [
   "'Не удалось проверить Java runtime в каталоге '",
@@ -74,7 +75,7 @@ for (const token of [
   'option.versions.includes(rawRuntime)',
   'jreVersion: runtimeFamily',
 ]) {
-  if (!client.includes(token)) failures.push(`Admin runtime client is missing ${token}`)
+  if (!includesLocalized(client, token)) failures.push(`Admin runtime client is missing ${token}`)
 }
 
 const editor = await readFile(paths.editor, 'utf8')
@@ -92,7 +93,7 @@ for (const token of [
   'Сохранение конфигурации доступно',
   'Отключённый сервер можно сохранить как черновик',
 ]) {
-  if (!editor.includes(token)) failures.push(`ServerEditor major-family select is missing ${token}`)
+  if (!includesLocalized(editor, token)) failures.push(`ServerEditor major-family select is missing ${token}`)
 }
 for (const token of [
   'class="admin-editor admin-user-editor admin-server-editor"',
@@ -105,7 +106,7 @@ for (const token of [
   "@click=\"emit('remove', selected)\"",
   "'fa-spinner' : 'fa-floppy-disk'",
 ]) {
-  if (!editor.includes(token)) failures.push(`ServerEditor structured floating form is missing ${token}`)
+  if (!includesLocalized(editor, token)) failures.push(`ServerEditor structured floating form is missing ${token}`)
 }
 if (/<button[\s\S]{0,300}>[\s\S]{0,80}Сохранить сервер[\s\S]{0,80}<\/button>[\s\S]{0,40}<\/form>/.test(editor)
     && !editor.includes('admin-server-editor__footer')) {
@@ -125,7 +126,7 @@ for (const token of [
   "$versionMode = strpos($version, '.') === false ? 'major' : 'exact'",
   "'version_mode' => $versionMode",
 ]) {
-  if (!request.includes(token)) failures.push(`Bootstrap runtime request is missing ${token}`)
+  if (!includesLocalized(request, token)) failures.push(`Bootstrap runtime request is missing ${token}`)
 }
 
 const platform = await readFile(paths.platform, 'utf8')
@@ -134,7 +135,7 @@ for (const token of [
   "array('unix', 'x64')",
   "array('unix', 'arm64')",
 ]) {
-  if (!platform.includes(token)) failures.push(`Bootstrap Linux aliases are missing ${token}`)
+  if (!includesLocalized(platform, token)) failures.push(`Bootstrap Linux aliases are missing ${token}`)
 }
 
 const selection = await readFile(paths.selection, 'utf8')
@@ -144,7 +145,7 @@ for (const token of [
   'Java major and platform match.',
   'Selected newest Java %s.x',
 ]) {
-  if (!selection.includes(token)) failures.push(`Bootstrap selection is missing ${token}`)
+  if (!includesLocalized(selection, token)) failures.push(`Bootstrap selection is missing ${token}`)
 }
 
 const resolver = await readFile(paths.resolver, 'utf8')
@@ -153,7 +154,7 @@ for (const token of [
   "version_compare((string)$right['version_core'], (string)$left['version_core'])",
   "'version_mode' => $request['version_mode'] ?? 'exact'",
 ]) {
-  if (!resolver.includes(token)) failures.push(`Bootstrap resolver is missing ${token}`)
+  if (!includesLocalized(resolver, token)) failures.push(`Bootstrap resolver is missing ${token}`)
 }
 
 const archive = await readFile(paths.archive, 'utf8')
@@ -163,7 +164,7 @@ for (const token of [
   "str_replace('-metadata', '-layout', $inspection)",
   'The Java version cannot be derived from release metadata or the archive filename.',
 ]) {
-  if (!archive.includes(token)) failures.push(`Release-less bootstrap archive fallback is missing ${token}`)
+  if (!includesLocalized(archive, token)) failures.push(`Release-less bootstrap archive fallback is missing ${token}`)
 }
 if (archive.includes('Runtime archive has no release metadata beside the selected Java home.')) {
   failures.push('Bootstrap archive scanner still requires release metadata')

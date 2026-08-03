@@ -15,5 +15,6 @@ import './styles/admin-servers.css'
 import './styles/admin-panel.css'
 import './styles/admin-content.css'
 import './styles/admin-site-settings.css'
+import './styles/shell-chrome.css'
 
 mountEngine(ThemeRoot)

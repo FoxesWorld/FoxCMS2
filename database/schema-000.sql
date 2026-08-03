@@ -85,7 +85,7 @@ CREATE TABLE `servers` (
     `ignoreDirs` LONGTEXT NOT NULL DEFAULT '[]',
     `enabled` VARCHAR(5) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'false',
     `checkLib` VARCHAR(5) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'false',
-    `serverGroups` VARCHAR(255) NOT NULL DEFAULT '["user","guest","tester"]',
+    `serverGroups` LONGTEXT NOT NULL DEFAULT '[]',
     `serverDescription` TEXT NOT NULL,
     `serverVersion` VARCHAR(64) NOT NULL DEFAULT '',
     `jreVersion` VARCHAR(64) NOT NULL DEFAULT '',

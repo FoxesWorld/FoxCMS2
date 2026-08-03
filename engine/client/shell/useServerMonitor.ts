@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { foxesApi } from '@/api'
@@ -15,7 +16,7 @@ export function useServerMonitor() {
     max: data.value?.totalPlayersMax ?? servers.value.reduce((sum, server) => sum + (server.playersMax ?? 0), 0),
   }))
   const emptyMessage = computed(() => data.value?.message?.trim()
-    || 'Для вашей группы сейчас нет доступных серверов.')
+    || t('engine.shell.useservermonitor.001'))
   async function refresh(): Promise<void> {
     try { data.value = await foxesApi.post<MonitorResponse>({ sysRequest: 'parseMonitor' }); error.value = false }
     catch (requestError) { console.warn('[FoxesCraft] Monitor request failed', requestError); error.value = true }

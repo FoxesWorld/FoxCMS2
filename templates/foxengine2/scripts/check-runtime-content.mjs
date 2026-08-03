@@ -1,6 +1,7 @@
 import { access, readFile, readdir } from 'node:fs/promises'
 import { extname, join, parse } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 async function exists(path) { try { await access(path); return true } catch { return false } }
@@ -110,11 +111,11 @@ if (/<button/i.test(startHtml)) failures.push('start.html must use safe action 
 
 const startController = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'GameScanner', 'client', 'views', 'StartGameView.vue'), 'utf8')
 for (const token of ['loadStaticPages', "pageId: 'start'", 'StartGamePage', 'downloadBootstrapper', 'openExternal']) {
-  if (!startController.includes(token)) failures.push(`StartGameView is missing runtime page contract ${token}`)
+  if (!includesLocalized(startController, token)) failures.push(`StartGameView is missing runtime page contract ${token}`)
 }
 const startTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'StartGame.vue'), 'utf8')
 for (const token of ['StaticPageDefinition', 'hydratedHtml', 'DOMParser', 'data-start-action', 'v-html="hydratedHtml"']) {
-  if (!startTemplate.includes(token)) failures.push(`StartGame.vue is missing runtime hydration contract ${token}`)
+  if (!includesLocalized(startTemplate, token)) failures.push(`StartGame.vue is missing runtime hydration contract ${token}`)
 }
 for (const forbidden of ['<h1>Начать игру</h1>', '<ol class="journey-steps">']) {
   if (startTemplate.includes(forbidden)) failures.push(`StartGame.vue still hardcodes page content: ${forbidden}`)
@@ -128,7 +129,7 @@ for (const route of frontend.routes ?? []) {
 
 const api = await readFile(join(repositoryRoot, 'api', 'content.php'), 'utf8')
 for (const token of ['BadgeSlug::assign', 'ThemeBadgePageRepository', 'FROM `badgesList`', 'contentBadgeCatalog', 'contentBadgePage', "registry === 'badges'", "registry === 'badge'", '$repository->exists($slug)', "'pageConfigured' => $repository->exists($slug)"]) {
-  if (!api.includes(token)) failures.push(`content API is missing contract ${token}`)
+  if (!includesLocalized(api, token)) failures.push(`content API is missing contract ${token}`)
 }
 for (const forbidden of ['imageKey', 'pageNameKey', 'badgeNameKey === $slugKey', 'WHERE `badgeName` = :badgeName LIMIT 1']) {
   if (api.includes(forbidden)) failures.push(`badge page discovery still uses obsolete matching rule ${forbidden}`)
@@ -139,7 +140,7 @@ for (const forbidden of ['badge-pages.json', 'engine/data/content', 'readBadgePa
 
 const badgeSlug = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'BadgeSlug.class.php'), 'utf8')
 for (const token of ['final class BadgeSlug', 'CYRILLIC_TRANSLITERATION', 'public static function fromName', 'public static function assign', "'ж' => 'zh'", "'я' => 'ya'", "preg_replace('/[^a-z0-9]+/'"]) {
-  if (!badgeSlug.includes(token)) failures.push(`BadgeSlug is missing ${token}`)
+  if (!includesLocalized(badgeSlug, token)) failures.push(`BadgeSlug is missing ${token}`)
 }
 
 const transliteration = Object.fromEntries(
@@ -164,7 +165,7 @@ for (const [name, expected] of [
 
 const projectRepository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeContentRepository.class.php'), 'utf8')
 for (const token of ['readProjectPages', 'saveProjectPages', "DIRECTORY_SEPARATOR . 'data'", "DIRECTORY_SEPARATOR . 'pages'", "'.html'", 'private function sanitize(', 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
-  if (!projectRepository.includes(token)) failures.push(`ThemeContentRepository is missing ${token}`)
+  if (!includesLocalized(projectRepository, token)) failures.push(`ThemeContentRepository is missing ${token}`)
 }
 for (const forbidden of ['readBadgePage', 'saveBadgePage', 'badgePagesDirectory']) {
   if (projectRepository.includes(forbidden)) failures.push(`ThemeContentRepository still owns badge pages through ${forbidden}`)
@@ -172,7 +173,7 @@ for (const forbidden of ['readBadgePage', 'saveBadgePage', 'badgePagesDirectory'
 
 const badgeRepository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeBadgePageRepository.class.php'), 'utf8')
 for (const token of ['final class ThemeBadgePageRepository', "'q'", 'public function exists(', 'public function read(', 'public function save(', 'public function move(', 'public function render(', 'private function sanitize(', "'.html'", 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
-  if (!badgeRepository.includes(token)) failures.push(`ThemeBadgePageRepository is missing ${token}`)
+  if (!includesLocalized(badgeRepository, token)) failures.push(`ThemeBadgePageRepository is missing ${token}`)
 }
 const application = await readFile(join(repositoryRoot, 'engine', 'Application.class.php'), 'utf8')
 for (const repository of ['ThemeContentRepository.class.php', 'BadgeSlug.class.php', 'ThemeBadgePageRepository.class.php']) {
@@ -185,10 +186,10 @@ for (const method of ['logWarn(', 'logError(', 'logInfo(']) {
   if (!adminBackend.includes(method)) failures.push(`Admin content logging is missing ${method}`)
 }
 for (const token of ["case 'content'", "case 'saveProjectPages'", "case 'saveBadgePage'", "case 'deleteBadgePage'", 'ThemeBadgePageRepository', 'BadgeSlug::assign', '$this->badgePageRepository->exists($slug)', "'.html'", 'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`']) {
-  if (!adminBackend.includes(token)) failures.push(`Admin content backend is missing ${token}`)
+  if (!includesLocalized(adminBackend, token)) failures.push(`Admin content backend is missing ${token}`)
 }
 for (const token of ["mb_strlen($badgeName) > 120", "preg_match('/[\\x00-\\x1F\\x7F]/u', $badgeName)", 'renameBadgeAssignments', '$this->badgePageRepository->move($oldSlug, $newSlug, $badgeName)']) {
-  if (!adminBackend.includes(token)) failures.push(`Unicode badge settings contract is missing ${token}`)
+  if (!includesLocalized(adminBackend, token)) failures.push(`Unicode badge settings contract is missing ${token}`)
 }
 const badgeSettingsStart = adminBackend.indexOf('private function saveBadgeCatalogEntry')
 const badgeSettingsEnd = adminBackend.indexOf('private function saveGroupCatalogEntry', badgeSettingsStart)
@@ -199,23 +200,23 @@ if (/preg_match\('\/\^\[A-Za-z/.test(badgeSettingsMethod) || /preg_match\('\/\^\
 
 const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
 for (const token of ["'content'", "admPanel: 'content'", "admPanel: 'saveProjectPages'", "admPanel: 'saveBadgePage'", "admPanel: 'deleteBadgePage'", 'html: string', 'schema: 2']) {
-  if (!adminClient.includes(token)) failures.push(`Admin content client is missing ${token}`)
+  if (!includesLocalized(adminClient, token)) failures.push(`Admin content client is missing ${token}`)
 }
 const editor = await readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'Content.vue'), 'utf8')
 for (const token of ['HTML-страницы бейджей', 'Полная HTML-разметка страницы проекта', 'data/pages/', 'CodeEditor', 'projectWorkspaceTab', 'badgeWorkspaceTab', 'StaticPage', 'BadgePage', 'Прямое превью', 'sanitizePreviewHtml', 'data-badge-history']) {
-  if (!editor.includes(token)) failures.push(`Admin HTML editor is missing ${token}`)
+  if (!includesLocalized(editor, token)) failures.push(`Admin HTML editor is missing ${token}`)
 }
 for (const forbidden of ['projectPreviewDocument', 'badgePreviewDocument', 'srcdoc=', 'sandbox=""', '<iframe']) {
   if (editor.includes(forbidden)) failures.push(`Admin HTML preview must be direct, not standalone: ${forbidden}`)
 }
 
 const catalogView = await readFile(join(repositoryRoot, 'engine', 'client', 'views', 'BadgesView.vue'), 'utf8')
-for (const token of ['loadBadges', "document.title = `Бейджи", '@theme/userOptions/pages/badges/Badges.vue']) {
-  if (!catalogView.includes(token)) failures.push(`BadgesView is missing ${token}`)
+for (const token of ['loadBadges', 'Бейджи — {0}', '@theme/userOptions/pages/badges/Badges.vue']) {
+  if (!includesLocalized(catalogView, token)) failures.push(`BadgesView is missing ${token}`)
 }
 const catalogTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badges.vue'), 'utf8')
 for (const token of ['badges-table', 'badge.image', 'badge.title', 'badge.description', "name: 'badge'", 'badge.pageConfigured']) {
-  if (!catalogTemplate.includes(token)) failures.push(`Badge catalog presentation is missing ${token}`)
+  if (!includesLocalized(catalogTemplate, token)) failures.push(`Badge catalog presentation is missing ${token}`)
 }
 const badgeTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badge.vue'), 'utf8')
 if (!badgeTemplate.includes('v-html="badge.html"')) failures.push('Badge.vue must render the server-sanitized standalone HTML page')

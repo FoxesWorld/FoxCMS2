@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, defineAsyncComponent } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import {
@@ -171,15 +173,15 @@ function updateBoolean(value: boolean): void {
 
     <template v-else-if="kind === 'array'">
       <div class="json-array-header">
-        <strong>{{ label || 'Список' }}</strong>
+        <strong>{{ label || t('engine.forms.json-form.jsonvalueeditor.001') }}</strong>
         <span>{{ arrayValue.length }}</span>
       </div>
 
       <div v-if="arrayValue.length" class="json-array-items">
         <div v-for="(item, index) in arrayValue" :key="index" class="json-array-item">
           <div class="json-array-item__header">
-            <span>Элемент {{ index + 1 }}</span>
-            <button type="button" :disabled="disabled" aria-label="Удалить элемент" @click="removeArrayItem(index)">×</button>
+            <span>{{ t('engine.forms.json-form.jsonvalueeditor.002') }} {{ index + 1 }}</span>
+            <button type="button" :disabled="disabled" :aria-label="t('engine.forms.json-form.jsonvalueeditor.003')" @click="removeArrayItem(index)">×</button>
           </div>
           <JsonValueEditor
             :model-value="item"
@@ -192,11 +194,9 @@ function updateBoolean(value: boolean): void {
           />
         </div>
       </div>
-      <div v-else class="json-array-empty">Пока нет элементов.</div>
+      <div v-else class="json-array-empty">{{ t('engine.forms.json-form.jsonvalueeditor.004') }}</div>
 
-      <button class="button button--ghost json-array-add" type="button" :disabled="disabled" @click="addArrayItem">
-        Добавить
-      </button>
+      <button class="button button--ghost json-array-add" type="button" :disabled="disabled" @click="addArrayItem"> {{ t('engine.forms.json-form.jsonvalueeditor.005') }} </button>
     </template>
 
     <template v-else-if="kind === 'string' || kind === 'null'">
@@ -207,7 +207,7 @@ function updateBoolean(value: boolean): void {
           type="color"
           :value="colorPickerValue"
           :disabled="disabled"
-          :aria-label="`${fieldName || label || 'Цвет'}: выбор цвета`"
+          :aria-label="t('engine.forms.json-form.jsonvalueeditor.006', [fieldName || label || t('engine.forms.json-form.jsonvalueeditor.012')])"
           @input="updateString"
         >
         <input
@@ -220,13 +220,13 @@ function updateBoolean(value: boolean): void {
           autocomplete="off"
           spellcheck="false"
           :aria-invalid="!isColorValueValid"
-          :aria-label="`${fieldName || label || 'Цвет'}: HEX`"
+          :aria-label="t('engine.forms.json-form.jsonvalueeditor.007', [fieldName || label || t('engine.forms.json-form.jsonvalueeditor.012')])"
           placeholder="#000000"
           @input="updateString"
         >
       </div>
       <select v-else-if="fieldOptionList.length" :value="stringValue" :disabled="disabled" @change="updateString">
-        <option value="" disabled>Выберите значение</option>
+        <option value="" disabled>{{ t('engine.forms.json-form.jsonvalueeditor.008') }}</option>
         <option v-for="option in fieldOptionList" :key="option" :value="option">{{ option }}</option>
       </select>
       <CodeEditor
@@ -234,7 +234,7 @@ function updateBoolean(value: boolean): void {
         :model-value="stringValue"
         :language="codeLanguage"
         :disabled="disabled"
-        :aria-label="label || fieldName || 'Редактор кода'"
+        :aria-label="label || fieldName || t('engine.forms.json-form.jsonvalueeditor.009')"
         min-height="180px"
         @update:model-value="updateCodeString"
       />
@@ -252,7 +252,7 @@ function updateBoolean(value: boolean): void {
       class="json-boolean-input"
       :model-value="booleanValue"
       :disabled="disabled"
-      :label="label || (booleanValue ? 'Да' : 'Нет')"
+      :label="label || (booleanValue ? t('engine.forms.json-form.jsonvalueeditor.010') : t('engine.forms.json-form.jsonvalueeditor.011'))"
       @update:model-value="updateBoolean"
     />
   </div>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ProfileSettingsPage from '@theme/userOptions/userOptions/ProfileSettings.vue'
@@ -49,7 +51,7 @@ async function load(value?: string): Promise<void> {
   try {
     const identity = value || viewerLogin
     const user = await foxesApi.post<SettingsRecord>({ user_doaction: 'getUserSettings', ...(value ? { userUuid: identity } : { login: identity }) })
-    if (!user.uuid || !user.login) { error.value = user.message || 'Пользователь не найден.'; return }
+    if (!user.uuid || !user.login) { error.value = user.message || t('modules.usersettings.profilesettingsview.003'); return }
     targetUuid.value = user.uuid
     showSkinSettings.value = viewerUuid !== '' && user.uuid.replaceAll('-', '').toLowerCase() === viewerUuid.replaceAll('-', '').toLowerCase()
     minecraftFrontPreview.value = ''
@@ -61,14 +63,14 @@ async function load(value?: string): Promise<void> {
     avatarPreview.value = user.profilePhoto || ''
     accent.value = /^#[0-9a-f]{6}$/i.test(user.colorScheme || '') ? user.colorScheme! : '#5bd08b'
     if (activeTab.value === 'appearance' && showSkinSettings.value) await refreshMinecraftPreview()
-  } catch { error.value = 'Не удалось загрузить настройки профиля.' }
+  } catch { error.value = t('modules.usersettings.profilesettingsview.004') }
   finally { loading.value = false }
 }
 
 function selectAvatar(file: File): void {
   photoFeedback.value = null
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 5 * 1024 * 1024) {
-    photoFeedback.value = { type: 'error', message: 'Нужен JPEG, PNG, WebP или GIF размером до 5 МБ.' }
+    photoFeedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.005') }
     avatarFile.value = null
     return
   }
@@ -95,7 +97,7 @@ async function uploadAvatar(): Promise<void> {
       avatarPreview.value = response.url
       avatarFile.value = null
     }
-  } catch { photoFeedback.value = { type: 'error', message: 'Не удалось загрузить фото.' } }
+  } catch { photoFeedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.006') } }
   finally { uploading.value = false }
 }
 
@@ -115,7 +117,7 @@ async function refreshMinecraftPreview(force = false): Promise<void> {
     minecraftLoadedUuid = normalizedUuid
   } catch (minecraftError) {
     console.error('[FoxesCraft] Minecraft identity preview failed', minecraftError)
-    minecraftFeedback.value = { type: 'error', message: 'Не удалось построить предпросмотр Minecraft-образа.' }
+    minecraftFeedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.007') }
   } finally {
     minecraftPreviewLoading.value = false
   }
@@ -126,7 +128,7 @@ function selectMinecraftFile(type: SkinResource, event: Event): void {
   const file = input.files?.[0] ?? null
   minecraftFeedback.value = null
   if (file && file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
-    minecraftFeedback.value = { type: 'error', message: 'Для скина и плаща требуется PNG-файл.' }
+    minecraftFeedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.008') }
     input.value = ''
     minecraftSelected.value[type] = null
     return
@@ -155,7 +157,7 @@ async function uploadMinecraftFile(type: SkinResource): Promise<void> {
     }
   } catch (minecraftError) {
     console.error('[FoxesCraft] Minecraft identity upload failed', minecraftError)
-    minecraftFeedback.value = { type: 'error', message: 'Не удалось загрузить Minecraft-ресурс.' }
+    minecraftFeedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.009') }
   } finally {
     minecraftBusy.value = null
   }
@@ -176,7 +178,7 @@ async function removeMinecraftFile(type: SkinResource): Promise<void> {
     }
   } catch (minecraftError) {
     console.error('[FoxesCraft] Minecraft identity removal failed', minecraftError)
-    minecraftFeedback.value = { type: 'error', message: 'Не удалось удалить Minecraft-ресурс.' }
+    minecraftFeedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.010') }
   } finally {
     minecraftBusy.value = null
   }
@@ -184,10 +186,10 @@ async function removeMinecraftFile(type: SkinResource): Promise<void> {
 
 async function saveProfile(): Promise<void> {
   feedback.value = null
-  if (!canManageUsers && !form.currentPassword) return fail('Для сохранения нужен текущий пароль.')
+  if (!canManageUsers && !form.currentPassword) return fail(t('modules.usersettings.profilesettingsview.011'))
   const changesPassword = Boolean(form.newPassword || form.repeatPassword)
-  if (changesPassword && form.newPassword !== form.repeatPassword) return fail('Новые пароли не совпадают.', 'security')
-  if (changesPassword && form.newPassword.length < 10) return fail('Новый пароль должен содержать минимум 10 символов.', 'security')
+  if (changesPassword && form.newPassword !== form.repeatPassword) return fail(t('modules.usersettings.profilesettingsview.012'), 'security')
+  if (changesPassword && form.newPassword.length < 10) return fail(t('modules.usersettings.profilesettingsview.013'), 'security')
   submitting.value = true
   try {
     const response = await foxesApi.post<Response>({
@@ -199,7 +201,7 @@ async function saveProfile(): Promise<void> {
     if (response.type === 'success') {
       form.currentPassword = form.newPassword = form.repeatPassword = ''
     }
-  } catch { feedback.value = { type: 'error', message: 'Не удалось сохранить профиль.' } }
+  } catch { feedback.value = { type: 'error', message: t('modules.usersettings.profilesettingsview.014') } }
   finally { submitting.value = false }
 }
 
@@ -217,8 +219,8 @@ watch(activeTab, (tab) => {
 </script>
 
 <template>
-  <div v-if="loading" class="content-skeleton" aria-label="Загрузка настроек"><span /><span /><span /></div>
-  <div v-else-if="error" class="system-message system-message--error"><strong>Настройки недоступны</strong><p>{{ error }}</p></div>
+  <div v-if="loading" class="content-skeleton" :aria-label="t('modules.usersettings.profilesettingsview.001')"><span /><span /><span /></div>
+  <div v-else-if="error" class="system-message system-message--error"><strong>{{ t('modules.usersettings.profilesettingsview.002') }}</strong><p>{{ error }}</p></div>
   <ProfileSettingsPage
     v-else
     :can-manage-users="canManageUsers"

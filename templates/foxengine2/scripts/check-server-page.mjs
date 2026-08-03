@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
 
-const [page, mods, styles, route, admin, adminState, systemRequests, monitor, monitorService, serverParser, uploadInspector, serverEditor, tagifyInput, adminSettingsStyles, imageMigration] = await Promise.all([
+const [page, mods, styles, route, admin, adminState, systemRequests, monitor, monitorService, serverParser, uploadInspector, serverEditor, tagifyInput, adminSettingsStyles, imageMigration, localeSource] = await Promise.all([
   readFile(join(themeRoot, 'src', 'foxEngine', 'serverPage', 'ServerPage.vue'), 'utf8'),
   readFile(join(themeRoot, 'src', 'foxEngine', 'serverPage', 'ServerMods.vue'), 'utf8'),
   readFile(join(themeRoot, 'assets', 'css', 'legacy-continuation.css'), 'utf8'),
@@ -18,7 +18,12 @@ const [page, mods, styles, route, admin, adminState, systemRequests, monitor, mo
   readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'SeoTagifyInput.vue'), 'utf8'),
   readFile(join(themeRoot, 'src', 'styles', 'admin-site-settings.css'), 'utf8'),
   readFile(join(repositoryRoot, 'database', 'migrations', '018_expand_server_image_column.sql'), 'utf8'),
+  readFile(join(repositoryRoot, 'engine', 'client', 'i18n', 'locales', 'ru-RU.json'), 'utf8'),
 ])
+const locale = JSON.parse(localeSource)
+const includesTranslation = (source, message) => Object.entries(locale).some(
+  ([key, value]) => value === message && source.includes(`t('${key}'`),
+)
 
 const failures = []
 for (const token of [
@@ -55,11 +60,11 @@ for (const token of [
 }
 const headerRule = styles.match(/\.server-hero__header\{([^}]*)\}/)?.[1] ?? ''
 if (headerRule.includes('background:')) failures.push('Server hero header must not own the overlay background')
-if (!mods.includes('Основные модификации') || !mods.includes('class="mods-grid"')) {
+if (!includesTranslation(mods, 'Основные модификации') || !mods.includes('class="mods-grid"')) {
   failures.push('ServerMods lightweight section contract is missing')
 }
 for (const token of ['Некорректное имя сервера.', 'Сервер не найден.', 'Не удалось загрузить сведения о сервере.']) {
-  if (!route.includes(token)) failures.push(`Server route error copy is missing: ${token}`)
+  if (!includesTranslation(route, token)) failures.push(`Server route error copy is missing from i18n: ${token}`)
 }
 
 for (const token of [
@@ -87,7 +92,7 @@ for (const token of [
 ]) {
   if (!systemRequests.includes(token)) failures.push(`Empty monitoring response is missing ${token}`)
 }
-if (!monitor.includes('Нет доступных серверов') || !monitor.includes('{{ emptyMessage }}')) {
+if (!includesTranslation(monitor, 'Нет доступных серверов') || !monitor.includes('{{ emptyMessage }}')) {
   failures.push('Monitoring empty state must explain that the user has no accessible servers')
 }
 if (!monitorService.includes('!array_is_list($decoded)') || !monitorService.includes("$server['serverName'] ?? ''")) {
@@ -101,7 +106,7 @@ if (!uploadInspector.includes('!is_file($path) || !is_readable($path)')) {
 }
 if (!serverEditor.includes("import SeoTagifyInput from '../SeoTagifyInput.vue'")
   || !serverEditor.includes('v-model="ignoreDirectories"')
-  || !serverEditor.includes('placeholder="Добавьте каталог и нажмите Enter"')) {
+  || !includesTranslation(serverEditor, 'Добавьте каталог и нажмите Enter')) {
   failures.push('Server ignoreDirs must use the shared administrative Tagify input')
 }
 if (serverEditor.includes(':model-value="draft.ignoreDirs"') || serverEditor.includes("samplesFor('ignoreDirs')")) {

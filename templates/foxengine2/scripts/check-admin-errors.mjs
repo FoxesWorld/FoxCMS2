@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const read = (path) => readFile(join(repositoryRoot, path), 'utf8')
 const [presenter, options, panel, ui] = await Promise.all([
@@ -11,7 +12,7 @@ const [presenter, options, panel, ui] = await Promise.all([
 ])
 const failures = []
 const requireToken = (label, source, token) => {
-  if (!source.includes(token)) failures.push(`${label} is missing ${token}`)
+  if (!includesLocalized(source, token)) failures.push(`${label} is missing ${token}`)
 }
 
 for (const token of [

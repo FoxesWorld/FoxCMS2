@@ -573,7 +573,7 @@ CREATE TABLE IF NOT EXISTS `servers` (
     `ignoreDirs` LONGTEXT NOT NULL DEFAULT '[]',
     `enabled` VARCHAR(5) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'false',
     `checkLib` VARCHAR(5) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'false',
-    `serverGroups` VARCHAR(255) NOT NULL DEFAULT '4,5,6',
+    `serverGroups` LONGTEXT NOT NULL DEFAULT '[]',
     `serverDescription` TEXT NULL,
     `serverVersion` VARCHAR(64) NOT NULL DEFAULT '',
     `jreVersion` VARCHAR(64) NOT NULL DEFAULT '',
@@ -694,7 +694,7 @@ SET @fox_sql = IF(
           AND COLUMN_NAME = 'serverGroups'
     ),
     'SELECT 1',
-    'ALTER TABLE `servers` ADD COLUMN `serverGroups` VARCHAR(255) NOT NULL DEFAULT ''4,5,6'''
+    'ALTER TABLE `servers` ADD COLUMN `serverGroups` LONGTEXT NULL'
 );
 PREPARE fox_stmt FROM @fox_sql;
 EXECUTE fox_stmt;

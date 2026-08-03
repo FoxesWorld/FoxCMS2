@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import LostPasswordPage from '@theme/userOptions/content/guest/LostPassword.vue'
@@ -15,7 +17,7 @@ async function submit(): Promise<void> {
   feedback.value = null
   const value = email.value.trim()
   if (!value || !/^\S+@\S+\.\S+$/.test(value)) {
-    feedback.value = toastFeedback({ type: 'error', message: 'Укажите корректный email.' })
+    feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.lostpasswordview.001') })
     return
   }
   submitting.value = true
@@ -23,7 +25,7 @@ async function submit(): Promise<void> {
     feedback.value = await foxesApi.post<ApiResponse>({ user_doaction: 'lostpassword', email: value })
   } catch (error) {
     console.error('[FoxesCraft] Password reset failed', error)
-    feedback.value = { type: 'error', message: 'Не удалось отправить запрос на восстановление.' }
+    feedback.value = { type: 'error', message: t('modules.authreg.lostpasswordview.002') }
   } finally { submitting.value = false }
 }
 </script>

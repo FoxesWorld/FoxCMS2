@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import ImageUploadField from '@/components/ImageUploadField.vue'
 import type { FeedbackMessage, ProfileSettingsFormModel, SkinResource } from '@engine/contracts/user-pages'
 import MinecraftIdentityOption from './MinecraftIdentityOption.vue'
@@ -42,8 +44,8 @@ function updateAccent(event: Event): void { emit('update:accent', (event.target 
   <section class="settings-panel">
     <ImageUploadField
       class="avatar-image-upload"
-      title="Фото профиля"
-      description="Единая форма загрузки с drag-and-drop и предпросмотром"
+      :title="t('theme.useroptions.useroptions.profile.options.appearanceoption.001')"
+      :description="t('theme.useroptions.useroptions.profile.options.appearanceoption.002')"
       :preview="avatarPreview"
       :preview-alt="form.login"
       preview-mode="circle"
@@ -63,16 +65,16 @@ function updateAccent(event: Event): void { emit('update:accent', (event.target 
       :uploading="uploading"
       :error="photoFeedback?.type === 'error' ? photoFeedback.message : ''"
       :allow-clear="false"
-      hint="JPEG, PNG, WebP или GIF · 64×64–4096×4096 · до 5 МБ"
-      choose-label="Выбрать фото"
-      replace-label="Выбрать другое"
+      :hint="t('theme.useroptions.useroptions.profile.options.appearanceoption.003')"
+      :choose-label="t('theme.useroptions.useroptions.profile.options.appearanceoption.004')"
+      :replace-label="t('theme.useroptions.useroptions.profile.options.appearanceoption.005')"
       @select="emit('selectAvatar', $event)"
       @clear="emit('clearAvatar')"
     >
       <template #actions>
         <button class="button button--primary" type="button" :disabled="!avatarSelected || uploading" @click="emit('uploadAvatar')">
           <i class="fa-solid" :class="uploading ? 'fa-spinner' : 'fa-upload'" aria-hidden="true" />
-          <span>{{ uploading ? 'Загрузка…' : 'Загрузить фото' }}</span>
+          <span>{{ uploading ? t('theme.useroptions.useroptions.profile.options.appearanceoption.006') : t('theme.useroptions.useroptions.profile.options.appearanceoption.007') }}</span>
         </button>
       </template>
     </ImageUploadField>
@@ -98,7 +100,7 @@ function updateAccent(event: Event): void { emit('update:accent', (event.target 
       @refresh="emit('refreshMinecraft')"
     />
     <label class="accent-picker">
-      <span>Акцент профиля</span>
+      <span>{{ t('theme.useroptions.useroptions.profile.options.appearanceoption.008') }}</span>
       <div><input :value="accent" type="color" @input="updateAccent"><code>{{ accent }}</code></div>
     </label>
   </section>

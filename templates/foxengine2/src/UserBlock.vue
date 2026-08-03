@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { appBootstrap } from '@engine/app/context'
 import { themeAsset, type NavigationDefinition } from '@engine/domain/bootstrap'
@@ -80,14 +82,14 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOutside))
         id="profile-dropdown"
         class="profile-dropdown"
         role="menu"
-        aria-label="Меню пользователя"
+        :aria-label="t('theme.userblock.001')"
       >
         <div
           class="profile-dropdown__item profile-dropdown__item--balance"
           role="menuitem"
           aria-disabled="true"
           tabindex="-1"
-          aria-label="Баланс пользователя"
+          :aria-label="t('theme.userblock.002')"
         >
           <span class="profile-dropdown__balance-matrix">
             <span
@@ -107,7 +109,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOutside))
 
         <button
           v-for="item in accountItems"
-          :key="`${item.intent}:${item.route}:${item.action}`"
+          :key="t('theme.userblock.004', [item.intent, item.route, item.action])"
           class="profile-dropdown__item"
           :class="{ 'profile-dropdown__item--danger': item.action === 'logout' }"
           type="button"

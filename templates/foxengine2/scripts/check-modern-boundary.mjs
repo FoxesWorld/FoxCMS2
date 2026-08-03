@@ -15,7 +15,7 @@ async function walk(directory) {
       [/\b(?:jQuery|\$)\s*\(/g, 'jQuery call'],
       [/from\s+['"](?:bootstrap|jquery|jquery-ui)/g, 'legacy package import'],
       [/new\s+Vue\s*\(/g, 'Vue 2 constructor'],
-      [/\son[a-z]+\s*=/gi, 'inline DOM event handler'],
+      [/<[A-Za-z][^>]*\son[a-z]+\s*=/gi, 'inline DOM event handler'],
     ]) if (pattern.test(text)) violations.push(`${rel}: ${label}`)
     if (text.includes('/plugins/')) violations.push(`${rel}: direct /plugins/ access`)
   }

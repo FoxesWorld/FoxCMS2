@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { foxesApi } from '@/api'
@@ -31,7 +33,7 @@ const total = computed(() => ({
   max: data.value?.totalPlayersMax ?? servers.value.reduce((sum, server) => sum + (server.playersMax ?? 0), 0),
 }))
 const emptyMessage = computed(() => data.value?.message?.trim()
-  || 'Для вашей группы сейчас нет доступных серверов.')
+  || t('engine.servermonitor.008'))
 
 async function refresh(): Promise<void> {
   try {
@@ -58,17 +60,17 @@ onUnmounted(() => { if (timer) window.clearInterval(timer) })
 
 <template>
   <div class="server-monitor">
-    <div v-if="loading" class="sidebar-placeholder">Получаем состояние серверов…</div>
-    <div v-else-if="error && !servers.length" class="sidebar-placeholder">Мониторинг временно недоступен.</div>
-    <div v-else-if="!servers.length" class="sidebar-placeholder"><strong>Нет доступных серверов</strong><br>{{ emptyMessage }}</div>
+    <div v-if="loading" class="sidebar-placeholder">{{ t('engine.servermonitor.001') }}</div>
+    <div v-else-if="error && !servers.length" class="sidebar-placeholder">{{ t('engine.servermonitor.002') }}</div>
+    <div v-else-if="!servers.length" class="sidebar-placeholder"><strong>{{ t('engine.servermonitor.003') }}</strong><br>{{ emptyMessage }}</div>
     <template v-else>
       <button v-for="server in servers" :key="server.serverName" class="server-row" type="button" @click="openServer(server.serverName)">
-        <img v-if="server.favicon" :src="server.favicon" :alt="`${server.serverName} icon`">
+        <img v-if="server.favicon" :src="server.favicon" :alt="t('engine.servermonitor.004', [server.serverName])">
         <span v-else class="server-row__fallback">F</span>
-        <span class="server-row__identity"><strong>{{ server.serverName }}</strong><small>{{ server.version || 'Версия уточняется' }}</small></span>
-        <span class="server-row__online" :class="{ 'server-row__online--offline': server.status !== 'online' }">{{ server.status === 'online' ? `${server.playersOnline ?? 0}/${server.playersMax ?? 0}` : 'offline' }}</span>
+        <span class="server-row__identity"><strong>{{ server.serverName }}</strong><small>{{ server.version || t('engine.servermonitor.005') }}</small></span>
+        <span class="server-row__online" :class="{ 'server-row__online--offline': server.status !== 'online' }">{{ server.status === 'online' ? t('engine.servermonitor.006', [server.playersOnline ?? 0, server.playersMax ?? 0]) : 'offline' }}</span>
       </button>
-      <div class="monitor-total"><span>Общий онлайн</span><strong>{{ total.online }} / {{ total.max }}</strong></div>
+      <div class="monitor-total"><span>{{ t('engine.servermonitor.007') }}</span><strong>{{ total.online }} / {{ total.max }}</strong></div>
     </template>
   </div>
 </template>

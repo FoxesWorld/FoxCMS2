@@ -1,0 +1,2 @@
+import{O as e,_ as t,f as n}from"./i18n-CUtkcARW.js";var r=[`innerHTML`],i=t({__name:`StaticPage`,props:{page:{}},setup(t){return(i,a)=>(e(),n(`div`,{class:`static-page-html`,innerHTML:t.page.html},null,8,r))}});export{i as t};
+//# sourceMappingURL=StaticPage-CWLiW1SU.js.map

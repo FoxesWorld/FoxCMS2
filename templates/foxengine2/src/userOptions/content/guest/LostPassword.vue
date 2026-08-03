@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 interface Feedback { type:string; message:string }
 defineProps<{ email:string; submitting:boolean; feedback:Feedback|null }>()
 const emit=defineEmits<{ 'update:email':[value:string]; submit:[]; navigate:[route:string] }>()
@@ -6,12 +8,12 @@ function update(event:Event):void{emit('update:email',(event.target as HTMLInput
 </script>
 <template>
   <article class="content-surface account-page">
-    <div class="account-page__intro"><span class="eyebrow">Восстановление аккаунта</span><h1>Восстановление доступа</h1><p class="lead">Укажите почту аккаунта. Сервер отправит дальнейшие инструкции, если адрес найден.</p></div>
+    <div class="account-page__intro"><span class="eyebrow">{{ t('theme.useroptions.content.guest.lostpassword.001') }}</span><h1>{{ t('theme.useroptions.content.guest.lostpassword.002') }}</h1><p class="lead">{{ t('theme.useroptions.content.guest.lostpassword.003') }}</p></div>
     <form class="account-form" @submit.prevent="emit('submit')">
-      <label><span>Электронная почта</span><input :value="email" type="email" autocomplete="email" required placeholder="mail@example.com" @input="update"></label>
+      <label><span>{{ t('theme.useroptions.content.guest.lostpassword.004') }}</span><input :value="email" type="email" autocomplete="email" required placeholder="mail@example.com" @input="update"></label>
       <p v-if="feedback" class="form-feedback" :class="{ 'form-feedback--success': feedback.type === 'success' }">{{ feedback.message }}</p>
-      <button class="button button--primary button--large" type="submit" :disabled="submitting">{{ submitting ? 'Отправляем…' : 'Восстановить доступ' }}</button>
-      <button class="text-button" type="button" @click="emit('navigate','auth')">Вернуться ко входу</button>
+      <button class="button button--primary button--large" type="submit" :disabled="submitting">{{ submitting ? t('theme.useroptions.content.guest.lostpassword.005') : t('theme.useroptions.content.guest.lostpassword.006') }}</button>
+      <button class="text-button" type="button" @click="emit('navigate','auth')">{{ t('theme.useroptions.content.guest.lostpassword.007') }}</button>
     </form>
   </article>
 </template>

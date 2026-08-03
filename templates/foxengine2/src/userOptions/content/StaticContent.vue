@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type { StaticPageDefinition } from '@engine/content/contentData'
 import type { PublicRewardOffer } from '@engine/domain/publicRewardOffers'
 import type { RewardOfferFeedback } from '@engine/rewards/usePublicRewardOffer'
@@ -37,16 +39,15 @@ const emit = defineEmits<{ claimReward: [] }>()
           <i v-else class="fa-solid fa-award" />
         </div>
         <div class="rules-badge-claim__content">
-          <p class="rules-badge-claim__eyebrow">Награда за ознакомление</p>
-          <h2 id="rules-badge-title">{{ rewardOffer?.reward.title || 'Награда за правила' }}</h2>
+          <p class="rules-badge-claim__eyebrow">{{ t('theme.useroptions.content.staticcontent.001') }}</p>
+          <h2 id="rules-badge-title">{{ rewardOffer?.reward.title || t('theme.useroptions.content.staticcontent.002') }}</h2>
           <p v-if="rewardOffer">
-            {{ rewardOffer.reward.description || rewardOffer.reward.badge?.description || 'Подтвердите ознакомление с правилами и получите бейдж в профиль.' }}
-            <template v-if="rewardOffer.reward.currency">
-              Награда: {{ formatBalanceAmount(rewardOffer.reward.currency.amount) }} {{ rewardOffer.reward.currency.currencyName }}.
+            {{ rewardOffer.reward.description || rewardOffer.reward.badge?.description || t('theme.useroptions.content.staticcontent.003') }}
+            <template v-if="rewardOffer.reward.currency"> {{ t('theme.useroptions.content.staticcontent.004') }} {{ formatBalanceAmount(rewardOffer.reward.currency.amount) }} {{ rewardOffer.reward.currency.currencyName }}.
             </template>
           </p>
-          <p v-else-if="rewardOfferLoading">Проверяем выпущенный криптографический ключ награды…</p>
-          <p v-else>Для этого раздела пока не выпущен активный placement-ключ.</p>
+          <p v-else-if="rewardOfferLoading">{{ t('theme.useroptions.content.staticcontent.005') }}</p>
+          <p v-else>{{ t('theme.useroptions.content.staticcontent.006') }}</p>
         </div>
         <button
           class="button button--primary rules-badge-claim__button"
@@ -59,10 +60,10 @@ const emit = defineEmits<{ claimReward: [] }>()
             :class="rewardOfferClaiming ? 'fa-spinner' : rewardOffer?.acquired ? 'fa-circle-check' : 'fa-key'"
             aria-hidden="true"
           />
-          <span v-if="rewardOfferLoading">Проверяем ключ…</span>
-          <span v-else-if="rewardOfferClaiming">Погашаем ключ…</span>
-          <span v-else-if="rewardOffer?.acquired">Награда получена</span>
-          <span v-else>Получить по ключу</span>
+          <span v-if="rewardOfferLoading">{{ t('theme.useroptions.content.staticcontent.007') }}</span>
+          <span v-else-if="rewardOfferClaiming">{{ t('theme.useroptions.content.staticcontent.008') }}</span>
+          <span v-else-if="rewardOffer?.acquired">{{ t('theme.useroptions.content.staticcontent.009') }}</span>
+          <span v-else>{{ t('theme.useroptions.content.staticcontent.010') }}</span>
         </button>
         <p
           v-if="rewardOfferFeedback"
@@ -73,14 +74,12 @@ const emit = defineEmits<{ claimReward: [] }>()
         >
           {{ rewardOfferFeedback.message }}
         </p>
-        <p v-else-if="!authenticated" class="rules-badge-claim__hint">
-          Для получения награды необходимо войти в аккаунт.
-        </p>
+        <p v-else-if="!authenticated" class="rules-badge-claim__hint"> {{ t('theme.useroptions.content.staticcontent.012') }} </p>
       </section>
     </Teleport>
   </template>
   <div v-else-if="error" class="system-message system-message--error">
-    <strong>Страница не найдена</strong>
-    <p>Запрошенный материал отсутствует в runtime-реестре темы.</p>
+    <strong>{{ t('theme.useroptions.content.staticcontent.013') }}</strong>
+    <p>{{ t('theme.useroptions.content.staticcontent.014') }}</p>
   </div>
 </template>

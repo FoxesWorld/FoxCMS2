@@ -1419,3 +1419,66 @@ body.tiptap-editor-lock-scroll { overflow: hidden; }
   .news-comment-form__footer { align-items: stretch; flex-direction: column; }
   .news-comment-form__footer .button { width: 100%; }
 }
+
+
+/* News archive navigation and pagination. */
+.news-feed__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.news-feed__actions .button {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.news-archive__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: .82rem;
+}
+
+.news-archive__footer strong {
+  color: var(--color-accent);
+}
+
+.news-archive__error {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.news-archive__footer .button {
+  min-height: 40px;
+}
+
+
+@media (max-width: 760px) {
+  .news-feed__actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .news-feed__actions .button {
+    flex: 1 1 180px;
+    justify-content: center;
+  }
+
+  .news-archive__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .news-archive__footer .button {
+    width: 100%;
+    justify-content: center;
+  }
+}

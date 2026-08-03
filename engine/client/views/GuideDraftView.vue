@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { onMounted, ref, watch } from 'vue'
 import Article from '@theme/userOptions/Article.vue'
 const STORAGE_KEY = 'foxescraft.guide-draft.v2'
@@ -9,7 +11,7 @@ let timer: number | undefined
 function save(): void { localStorage.setItem(STORAGE_KEY, JSON.stringify({ title: title.value, body: body.value })); savedAt.value = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' }).format(new Date()) }
 function clear(): void { title.value = ''; body.value = ''; localStorage.removeItem(STORAGE_KEY); savedAt.value = '' }
 function exportDraft(): void {
-  const blob = new Blob([`# ${title.value || 'Без названия'}
+  const blob = new Blob([`# ${title.value || t('engine.guidedraftview.001')}
 
 ${body.value}`], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)

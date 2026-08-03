@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 
@@ -76,7 +77,7 @@ const contracts = new Map([
 for (const [relativePath, signatures] of contracts) {
   const text = await source(relativePath)
   for (const signature of signatures) {
-    if (!text.includes(signature)) failures.push(`${relativePath} missing authentication contract: ${signature}`)
+    if (!includesLocalized(text, signature)) failures.push(`${relativePath} missing authentication contract: ${signature}`)
   }
 }
 

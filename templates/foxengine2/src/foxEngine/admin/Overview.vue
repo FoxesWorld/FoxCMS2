@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed } from 'vue'
 import type {
   Hardware,
@@ -16,18 +18,18 @@ const distributionSections = computed(() => {
   const hardware = props.hardware
   if (!hardware) return []
   return [
-    { key: 'platforms', title: 'Платформы', icon: 'fa-server', items: hardware.platforms },
-    { key: 'operating-systems', title: 'Операционные системы', icon: 'fa-code', items: hardware.operatingSystems },
-    { key: 'architectures', title: 'Архитектуры', icon: 'fa-code', items: hardware.architectures },
-    { key: 'memory', title: 'Оперативная память', icon: 'fa-cube', items: hardware.memoryBuckets },
-    { key: 'cpu-vendors', title: 'Производители CPU', icon: 'fa-chart-line', items: hardware.cpuVendors },
-    { key: 'gpu-vendors', title: 'Производители GPU', icon: 'fa-image', items: hardware.gpuVendors },
-    { key: 'updater-versions', title: 'Версии UpdaterNorth', icon: 'fa-code-branch', items: hardware.updaterVersions },
+    { key: 'platforms', title: t('theme.foxengine.admin.overview.032'), icon: 'fa-server', items: hardware.platforms },
+    { key: 'operating-systems', title: t('theme.foxengine.admin.overview.033'), icon: 'fa-code', items: hardware.operatingSystems },
+    { key: 'architectures', title: t('theme.foxengine.admin.overview.034'), icon: 'fa-code', items: hardware.architectures },
+    { key: 'memory', title: t('theme.foxengine.admin.overview.035'), icon: 'fa-cube', items: hardware.memoryBuckets },
+    { key: 'cpu-vendors', title: t('theme.foxengine.admin.overview.036'), icon: 'fa-chart-line', items: hardware.cpuVendors },
+    { key: 'gpu-vendors', title: t('theme.foxengine.admin.overview.037'), icon: 'fa-image', items: hardware.gpuVendors },
+    { key: 'updater-versions', title: t('theme.foxengine.admin.overview.038'), icon: 'fa-code-branch', items: hardware.updaterVersions },
   ]
 })
 
 function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return 'Не определено'
+  if (!Number.isFinite(bytes) || bytes <= 0) return t('theme.foxengine.admin.overview.039')
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
   const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
   const value = bytes / 1024 ** exponent
@@ -52,44 +54,44 @@ function systemOs(system: HardwareSystem): string {
 }
 
 function gpuLabel(system: HardwareSystem): string {
-  return system.gpuAdapters.length > 0 ? system.gpuAdapters.join(', ') : 'Не определён'
+  return system.gpuAdapters.length > 0 ? system.gpuAdapters.join(', ') : t('theme.foxengine.admin.overview.028')
 }
 </script>
 
 <template>
   <section class="admin-section admin-overview">
     <div v-if="overview" class="admin-metrics">
-      <div><span>Пользователи</span><strong>{{ overview.users }}</strong></div>
-      <div><span>Активны 24 часа</span><strong>{{ overview.recentUsers }}</strong></div>
-      <div><span>Серверы</span><strong>{{ overview.enabledServers }}/{{ overview.servers }}</strong></div>
-      <div><span>Зарегистрированные системы</span><strong>{{ overview.hardwareReports }}</strong></div>
+      <div><span>{{ t('theme.foxengine.admin.overview.001') }}</span><strong>{{ overview.users }}</strong></div>
+      <div><span>{{ t('theme.foxengine.admin.overview.002') }}</span><strong>{{ overview.recentUsers }}</strong></div>
+      <div><span>{{ t('theme.foxengine.admin.overview.003') }}</span><strong>{{ overview.enabledServers }}/{{ overview.servers }}</strong></div>
+      <div><span>{{ t('theme.foxengine.admin.overview.004') }}</span><strong>{{ overview.hardwareReports }}</strong></div>
     </div>
 
     <template v-if="hardware && hardware.summary.totalSystems > 0">
-      <section class="hardware-summary" aria-label="Сводка по оборудованию">
+      <section class="hardware-summary" :aria-label="t('theme.foxengine.admin.overview.005')">
         <article>
           <i class="fa-solid fa-server" aria-hidden="true" />
-          <span>Уникальные системы</span>
+          <span>{{ t('theme.foxengine.admin.overview.006') }}</span>
           <strong>{{ hardware.summary.totalSystems }}</strong>
-          <small>по systemHWID</small>
+          <small>{{ t('theme.foxengine.admin.overview.007') }}</small>
         </article>
         <article>
           <i class="fa-solid fa-cube" aria-hidden="true" />
-          <span>Средний объём RAM</span>
+          <span>{{ t('theme.foxengine.admin.overview.008') }}</span>
           <strong>{{ formatBytes(hardware.summary.averageMemoryBytes) }}</strong>
-          <small>суммарно {{ formatBytes(hardware.summary.totalMemoryBytes) }}</small>
+          <small>{{ t('theme.foxengine.admin.overview.009') }} {{ formatBytes(hardware.summary.totalMemoryBytes) }}</small>
         </article>
         <article>
           <i class="fa-solid fa-code" aria-hidden="true" />
-          <span>Среднее число потоков</span>
+          <span>{{ t('theme.foxengine.admin.overview.010') }}</span>
           <strong>{{ hardware.summary.averageLogicalCpuCount }}</strong>
-          <small>логических CPU</small>
+          <small>{{ t('theme.foxengine.admin.overview.011') }}</small>
         </article>
         <article>
           <i class="fa-solid fa-clock" aria-hidden="true" />
-          <span>Последняя регистрация</span>
+          <span>{{ t('theme.foxengine.admin.overview.012') }}</span>
           <strong class="hardware-summary__date">{{ formatDate(hardware.summary.lastSeenAt) }}</strong>
-          <small>первая: {{ formatDate(hardware.summary.firstSeenAt) }}</small>
+          <small>{{ t('theme.foxengine.admin.overview.013') }} {{ formatDate(hardware.summary.firstSeenAt) }}</small>
         </article>
       </section>
 
@@ -115,7 +117,7 @@ function gpuLabel(system: HardwareSystem): string {
               <small>{{ item.percentage }}%</small>
             </div>
           </div>
-          <p v-else class="hardware-empty">Данных пока нет.</p>
+          <p v-else class="hardware-empty">{{ t('theme.foxengine.admin.overview.014') }}</p>
         </section>
       </div>
 
@@ -123,7 +125,7 @@ function gpuLabel(system: HardwareSystem): string {
         <section class="hardware-card hardware-card--models">
           <header>
             <i class="fa-solid fa-code" aria-hidden="true" />
-            <h2>Модели CPU</h2>
+            <h2>{{ t('theme.foxengine.admin.overview.015') }}</h2>
           </header>
           <ol>
             <li v-for="model in hardware.cpuModels" :key="model.label">
@@ -135,7 +137,7 @@ function gpuLabel(system: HardwareSystem): string {
         <section class="hardware-card hardware-card--models">
           <header>
             <i class="fa-solid fa-image" aria-hidden="true" />
-            <h2>Модели GPU</h2>
+            <h2>{{ t('theme.foxengine.admin.overview.016') }}</h2>
           </header>
           <ol>
             <li v-for="model in hardware.gpuModels" :key="model.label">
@@ -149,22 +151,22 @@ function gpuLabel(system: HardwareSystem): string {
       <section class="hardware-systems">
         <header class="hardware-systems__header">
           <div>
-            <span class="eyebrow">Inventory</span>
-            <h2>Последние зарегистрированные системы</h2>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.overview.017') }}</span>
+            <h2>{{ t('theme.foxengine.admin.overview.018') }}</h2>
           </div>
-          <small>Показываются последние {{ hardware.systems.length }} записей. Полный systemHWID скрыт.</small>
+          <small>{{ t('theme.foxengine.admin.overview.019') }} {{ hardware.systems.length }} {{ t('theme.foxengine.admin.overview.020') }}</small>
         </header>
         <div class="hardware-table-wrap">
           <table class="hardware-table">
             <thead>
               <tr>
-                <th>System ID</th>
-                <th>ОС / платформа</th>
-                <th>CPU</th>
-                <th>GPU</th>
-                <th>RAM</th>
-                <th>Updater</th>
-                <th>Добавлена</th>
+                <th>{{ t('theme.foxengine.admin.overview.021') }}</th>
+                <th>{{ t('theme.foxengine.admin.overview.022') }}</th>
+                <th>{{ t('theme.foxengine.admin.overview.023') }}</th>
+                <th>{{ t('theme.foxengine.admin.overview.024') }}</th>
+                <th>{{ t('theme.foxengine.admin.overview.025') }}</th>
+                <th>{{ t('theme.foxengine.admin.overview.026') }}</th>
+                <th>{{ t('theme.foxengine.admin.overview.027') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -175,8 +177,8 @@ function gpuLabel(system: HardwareSystem): string {
                   <small>{{ system.platform }} · {{ system.architecture }}</small>
                 </td>
                 <td>
-                  <strong :title="system.cpuBrand || 'Не определён'">{{ system.cpuBrand || 'Не определён' }}</strong>
-                  <small>{{ system.logicalCpuCount }} логических потоков</small>
+                  <strong :title="system.cpuBrand || t('theme.foxengine.admin.overview.028')">{{ system.cpuBrand || t('theme.foxengine.admin.overview.028') }}</strong>
+                  <small>{{ system.logicalCpuCount }} {{ t('theme.foxengine.admin.overview.029') }}</small>
                 </td>
                 <td><span class="hardware-table__gpu" :title="gpuLabel(system)">{{ gpuLabel(system) }}</span></td>
                 <td>{{ formatBytes(system.memoryBytes) }}</td>
@@ -195,8 +197,8 @@ function gpuLabel(system: HardwareSystem): string {
     <section v-else-if="hardware" class="hardware-empty-state">
       <i class="fa-solid fa-server" aria-hidden="true" />
       <div>
-        <h2>Статистика оборудования пока пуста</h2>
-        <p>Данные появятся после первого POST-запроса UpdaterNorth с новым hardware report.</p>
+        <h2>{{ t('theme.foxengine.admin.overview.030') }}</h2>
+        <p>{{ t('theme.foxengine.admin.overview.031') }}</p>
       </div>
     </section>
   </section>

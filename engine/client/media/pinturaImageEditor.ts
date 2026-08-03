@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 export interface PinturaImageEditorOptions {
   target: HTMLElement
   aspectRatio?: number | false
@@ -33,7 +34,7 @@ export async function editImageWithPintura(
   options: PinturaImageEditorOptions,
 ): Promise<File | null> {
   if (options.signal?.aborted) return null
-  if (!options.target.isConnected) throw new Error('Контейнер редактора изображения недоступен.')
+  if (!options.target.isConnected) throw new Error(t('engine.media.pinturaimageeditor.001'))
 
   const [pintura, localeModule] = await Promise.all([
     import('@pqina/pintura'),
@@ -42,7 +43,7 @@ export async function editImageWithPintura(
   ])
 
   if (options.signal?.aborted) return null
-  if (!options.target.isConnected) throw new Error('Контейнер редактора изображения был закрыт.')
+  if (!options.target.isConnected) throw new Error(t('engine.media.pinturaimageeditor.002'))
 
   const writerOptions: Record<string, unknown> = {
     quality: clamp(options.quality ?? 0.9, 0, 1),
@@ -105,7 +106,7 @@ export async function editImageWithPintura(
       if (settled) return
       settled = true
       cleanup()
-      reject(new Error(errorMessage(reason, 'Pintura не смогла обработать изображение.')))
+      reject(new Error(errorMessage(reason, t('engine.media.pinturaimageeditor.003'))))
     }
     const abort = (): void => settle(null)
 
@@ -114,7 +115,7 @@ export async function editImageWithPintura(
     editor.on('process', (result?: { dest?: Blob }) => {
       const output = result?.dest
       if (!(output instanceof Blob)) {
-        fail(new Error('Редактор не вернул итоговый файл.'))
+        fail(new Error(t('engine.media.pinturaimageeditor.004')))
         return
       }
       settle(new File([output], outputName(file, options), {

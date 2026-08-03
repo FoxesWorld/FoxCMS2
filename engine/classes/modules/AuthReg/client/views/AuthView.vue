@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AuthPage from '@theme/userOptions/content/guest/Auth.vue'
@@ -24,19 +26,19 @@ async function submit(): Promise<void> {
   feedback.value = null
   const login = form.login.trim()
   if (!login) {
-    feedback.value = toastFeedback({ type: 'error', message: 'Введите логин.' })
+    feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.authview.001') })
     focusFormField('login')
     return
   }
   if (!form.password) {
-    feedback.value = toastFeedback({ type: 'error', message: 'Введите пароль.' })
+    feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.authview.002') })
     focusFormField('password')
     return
   }
   if (!/^[A-Za-z0-9_.-]+$/.test(login)) {
     feedback.value = toastFeedback({
       type: 'error',
-      message: 'Логин содержит недопустимые символы. Разрешены латинские буквы, цифры, точка, дефис и подчёркивание.',
+      message: t('modules.authreg.authview.003'),
     })
     focusFormField('login')
     return
@@ -59,7 +61,7 @@ async function submit(): Promise<void> {
     console.error('[FoxesCraft] Authorization failed', error)
     const failure = foxesApiFailureFeedback(
       error,
-      'Сервер авторизации временно недоступен.',
+      t('modules.authreg.authview.004'),
     )
     feedback.value = failure
     focusFormField(failure.field)

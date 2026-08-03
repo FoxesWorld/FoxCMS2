@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import type { JsonKind, JsonObject, JsonRootKind, JsonValue } from './types'
 
 export function isJsonObject(value: unknown): value is JsonObject {
@@ -128,5 +129,5 @@ export function humanizeJsonKey(key: string): string {
     .replace(/([a-zа-яё0-9])([A-ZА-ЯЁ])/g, '$1 $2')
     .replace(/\s+/g, ' ')
     .trim()
-  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Поле'
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : t('engine.forms.json-form.jsonvalue.001')
 }

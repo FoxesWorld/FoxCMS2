@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { themeAsset, type BootstrapValue } from '@/domain/bootstrap'
@@ -26,11 +28,11 @@ function asString(value: BootstrapValue | undefined, fallback = ''): string {
 }
 
 const fallbackSlides: HeroSlide[] = [{
-  title: 'FoxesCraft продолжается',
-  description: 'Знакомый Лисий Мир возвращается на новом лёгком движке.',
+  title: t('engine.herosection.005'),
+  description: t('engine.herosection.006'),
   image: themeAsset(appBootstrap, 'img/slides/slide7.png'),
   route: 'start',
-  action: 'Начать играть',
+  action: t('engine.herosection.007'),
 }]
 
 const slides = computed<HeroSlide[]>(() => {
@@ -48,7 +50,7 @@ const slides = computed<HeroSlide[]>(() => {
       description: asString(item.description),
       image: themeAsset(appBootstrap, image.replace(/^assets\//, '')),
       route: asString(item.route, 'about'),
-      action: asString(item.action, 'Подробнее'),
+      action: asString(item.action, t('engine.herosection.008')),
     }]
   })
   return normalized.length ? normalized : fallbackSlides
@@ -79,21 +81,21 @@ onUnmounted(() => { if (timer) window.clearInterval(timer) })
     <img :key="activeSlide.image" class="hero__backdrop-image legacy-slider__image" :src="activeSlide.image" alt="">
     <div class="hero__backdrop legacy-slider__overlay" />
     <div class="hero__content legacy-slider__content" aria-live="polite">
-      <span class="eyebrow">FoxesCraft · новая глава</span>
+      <span class="eyebrow">{{ t('engine.herosection.001') }}</span>
       <h1 id="hero-title">{{ activeSlide.title }}</h1>
       <p>{{ activeSlide.description }}</p>
       <div class="hero__actions">
         <button class="button button--primary button--large" type="button" @click="emit('navigate', activeSlide.route)">{{ activeSlide.action }}</button>
-        <button class="button button--glass button--large" type="button" @click="emit('navigate', 'about')">История проекта</button>
+        <button class="button button--glass button--large" type="button" @click="emit('navigate', 'about')">{{ t('engine.herosection.002') }}</button>
       </div>
     </div>
-    <div class="legacy-slider__rail" aria-label="Слайды">
+    <div class="legacy-slider__rail" :aria-label="t('engine.herosection.003')">
       <button
         v-for="(slide, index) in slides"
         :key="slide.title"
         type="button"
         :class="{ 'is-active': index === activeIndex }"
-        :aria-label="`Открыть слайд ${index + 1}: ${slide.title}`"
+        :aria-label="t('engine.herosection.004', [index + 1, slide.title])"
         :aria-current="index === activeIndex ? 'true' : undefined"
         @click="selectSlide(index)"
       ><span /></button>

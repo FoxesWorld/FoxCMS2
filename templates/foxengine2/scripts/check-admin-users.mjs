@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 const files = {
@@ -15,7 +16,7 @@ const files = {
   styles: join(themeRoot, 'src', 'styles', 'admin-users.css'),
 }
 const [editor, badgeEditor, users, panel, table, client, backend, badges, styles] = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
-const requireText = (label, text, tokens) => { for (const token of tokens) if (!text.includes(token)) failures.push(`${label} is missing ${token}`) }
+const requireText = (label, text, tokens) => { for (const token of tokens) if (!includesLocalized(text, token)) failures.push(`${label} is missing ${token}`) }
 const rejectText = (label, text, tokens) => { for (const token of tokens) if (text.includes(token)) failures.push(`${label} must not contain ${token}`) }
 
 requireText('User editor badge operations', editor, [

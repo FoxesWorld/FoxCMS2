@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 const files = {
@@ -106,7 +107,7 @@ const expectedProfileCopy = [
   'Баланс закреплён за профилем игрока и хранится в единой матрице валют.',
 ]
 for (const copy of expectedProfileCopy) {
-  if (!source.profileSection.includes(copy)) failures.push(`Profile balance copy is missing or has invalid encoding: ${copy}`)
+  if (!includesLocalized(source.profileSection, copy)) failures.push(`Profile balance copy is missing or has invalid encoding: ${copy}`)
 }
 const suspiciousCyrillicMojibake = /(?:(?:\u0420|\u0421)[\u0401-\u040f\u0451-\u045f\u0080-\u00ff\u2010-\u203a]){2,}/u
 if (suspiciousCyrillicMojibake.test(source.profileSection)) {

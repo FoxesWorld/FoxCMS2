@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type { FeedbackMessage, SkinResource } from '@engine/contracts/user-pages'
 import CloakOption from './CloakOption.vue'
 import SkinOption from './SkinOption.vue'
@@ -32,9 +34,9 @@ function compactUuid(value: string): string {
 }
 
 function groupLabel(groupTag: string): string {
-  if (groupTag === 'admin') return 'Административный доступ'
-  if (groupTag === 'tester') return 'Тестовая группа'
-  return 'Игровая идентичность'
+  if (groupTag === 'admin') return t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.012')
+  if (groupTag === 'tester') return t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.013')
+  return t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.014')
 }
 </script>
 
@@ -42,24 +44,24 @@ function groupLabel(groupTag: string): string {
   <section id="minecraft-identity" class="minecraft-identity" aria-labelledby="minecraft-identity-title">
     <header class="minecraft-identity__header">
       <div>
-        <span class="eyebrow">Minecraft identity</span>
-        <h2 id="minecraft-identity-title">Скин и плащ</h2>
-        <p>Игровой образ привязан к UUID аккаунта. PNG проходит серверную проверку размеров и публикуется через Authlib-профиль.</p>
+        <span class="eyebrow">{{ t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.001') }}</span>
+        <h2 id="minecraft-identity-title">{{ t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.002') }}</h2>
+        <p>{{ t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.003') }}</p>
       </div>
       <div class="minecraft-identity__identity">
         <span>{{ groupLabel(viewerGroupTag) }}</span>
         <code :title="uuid">{{ compactUuid(uuid) }}</code>
         <button class="button button--ghost" type="button" :disabled="previewLoading || busy !== null" @click="emit('refresh')">
           <i class="fa-solid fa-rotate" aria-hidden="true" />
-          <span>{{ previewLoading ? 'Обновление…' : 'Обновить preview' }}</span>
+          <span>{{ previewLoading ? t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.004') : t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.005') }}</span>
         </button>
       </div>
     </header>
 
     <div class="minecraft-identity__status">
-      <span><i class="fa-solid fa-shield-halved" aria-hidden="true" /> UUID-based storage</span>
-      <span><i class="fa-solid fa-image" aria-hidden="true" /> Только PNG</span>
-      <span><i class="fa-solid fa-cube" aria-hidden="true" /> Front / Back preview</span>
+      <span><i class="fa-solid fa-shield-halved" aria-hidden="true" /> {{ t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.006') }}</span>
+      <span><i class="fa-solid fa-image" aria-hidden="true" /> {{ t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.007') }}</span>
+      <span><i class="fa-solid fa-cube" aria-hidden="true" /> {{ t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.008') }}</span>
     </div>
 
     <SkinPreview :front="frontPreview" :back="backPreview" :loading="previewLoading" />
@@ -88,7 +90,7 @@ function groupLabel(groupTag: string): string {
     </div>
 
     <p v-if="feedback" class="form-feedback minecraft-identity__feedback" :class="{ 'form-feedback--success': feedback.type === 'success' }">
-      {{ feedback.message || 'Операция завершена.' }}
+      {{ feedback.message || t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.011') }}
     </p>
   </section>
 </template>

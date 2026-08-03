@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { NavigationDefinition } from '@engine/domain/bootstrap'
@@ -168,17 +170,17 @@ onBeforeUnmount(() => {
         :class="{ 'primary-nav--open': mobileOpen && isMobile }"
         :aria-hidden="isMobile && !mobileOpen ? 'true' : undefined"
         :inert="isMobile && !mobileOpen"
-        aria-label="Основная навигация"
+        :aria-label="t('theme.header.001')"
         tabindex="-1"
       >
         <div class="mobile-nav__heading" aria-hidden="true">
-          <span>Навигация</span>
+          <span>{{ t('theme.header.002') }}</span>
           <small>{{ siteTitle }}</small>
         </div>
 
         <button
           v-for="item in primaryItems"
-          :key="`${item.owner}:${item.route}:${item.label}`"
+          :key="t('theme.header.003', [item.owner, item.route, item.label])"
           class="primary-nav__item"
           :class="{ 'is-current': isCurrent(item) }"
           type="button"
@@ -187,10 +189,10 @@ onBeforeUnmount(() => {
         >{{ item.label }}</button>
 
         <div class="mobile-account-actions">
-          <span class="mobile-account-actions__label">Аккаунт</span>
+          <span class="mobile-account-actions__label">{{ t('theme.header.004') }}</span>
           <button
             v-for="item in isGuest ? guestItems : accountItems"
-            :key="`${item.intent}:${item.label}`"
+            :key="t('theme.header.005', [item.intent, item.label])"
             type="button"
             @click="activate(item)"
           >
@@ -204,9 +206,9 @@ onBeforeUnmount(() => {
         <button
           class="theme-toggle"
           type="button"
-          :aria-label="colorTheme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'"
+          :aria-label="colorTheme === 'dark' ? t('theme.header.006') : t('theme.header.007')"
           :aria-pressed="colorTheme === 'dark'"
-          :title="colorTheme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'"
+          :title="colorTheme === 'dark' ? t('theme.header.006') : t('theme.header.007')"
           @click="emit('toggleTheme')"
         >
           <span class="theme-toggle__track" aria-hidden="true">
@@ -216,7 +218,7 @@ onBeforeUnmount(() => {
             </span>
           </span>
           <span class="theme-toggle__label">
-            {{ colorTheme === 'dark' ? 'Тёмная' : 'Светлая' }}
+            {{ colorTheme === 'dark' ? t('theme.header.008') : t('theme.header.009') }}
           </span>
         </button>
 
@@ -237,7 +239,7 @@ onBeforeUnmount(() => {
           type="button"
           :aria-expanded="mobileOpen"
           aria-controls="primary-navigation"
-          :aria-label="mobileOpen ? 'Закрыть меню' : 'Открыть меню'"
+          :aria-label="mobileOpen ? t('theme.header.010') : t('theme.header.011')"
           @click="toggleMenu"
         >
           <span class="menu-toggle__line" />

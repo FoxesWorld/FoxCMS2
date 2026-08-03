@@ -9,9 +9,10 @@ final class NewsRepository
     }
 
     /** @return list<array<string, mixed>> */
-    public function listPosts(int $limit, string $viewerUuid, bool $includeDrafts): array
+    public function listPosts(int $limit, int $offset, string $viewerUuid, bool $includeDrafts): array
     {
-        $limit = max(1, min(20, $limit));
+        $limit = max(1, min(50, $limit));
+        $offset = max(0, $offset);
         $visibility = $includeDrafts
             ? '1 = 1'
             : '`post`.`isPublished` = 1 AND `post`.`publishedAt` IS NOT NULL';
@@ -20,10 +21,20 @@ final class NewsRepository
             . $this->postJoins() . ' '
             . 'WHERE ' . $visibility . ' '
             . 'ORDER BY COALESCE(`post`.`publishedAt`, `post`.`createdAt`) DESC, `post`.`id` DESC '
-            . 'LIMIT ' . $limit
+            . 'LIMIT ' . $limit . ' OFFSET ' . $offset
         );
         $statement->execute([':viewerUuid' => $viewerUuid]);
         return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function countPosts(bool $includeDrafts): int
+    {
+        $visibility = $includeDrafts
+            ? '1 = 1'
+            : '`post`.`isPublished` = 1 AND `post`.`publishedAt` IS NOT NULL';
+        return (int)$this->scalar(
+            'SELECT COUNT(*) FROM `news_posts` AS `post` WHERE ' . $visibility,
+        );
     }
 
     /** @return array<string, mixed>|null */

@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 export type BootstrapValue = string | number | boolean | null | BootstrapValue[] | { [key: string]: BootstrapValue }
 
 export interface FrontendRouteDefinition {
@@ -74,7 +75,7 @@ function emptyBootstrap(): FoxesCraftBootstrap {
     engine: { version: '', csrfToken: '', endpoints: {} },
     theme: { name: themeName, assets, mount: 'foxescraft-app', settings: {} },
     site: {
-      title: 'FoxesCraft',
+      title: t('engine.domain.bootstrap.001'),
       homeTitle: 'FoxesCraft',
       titleTemplate: '%page% — %site%',
       status: '',

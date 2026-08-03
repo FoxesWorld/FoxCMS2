@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PlayerTop from '@theme/userOptions/PlayerTop.vue'
@@ -46,13 +48,13 @@ function latestPlay(player: Player): number {
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
-  return hours > 0 ? `${hours.toLocaleString('ru')} ч ${minutes} мин` : `${minutes} мин`
+  return hours > 0 ? t('modules.usertop.playersview.001', [hours.toLocaleString('ru'), minutes]) : t('modules.usertop.playersview.002', [minutes])
 }
 function formatDate(timestamp: number): string {
-  if (!timestamp) return 'Нет данных'
+  if (!timestamp) return t('modules.usertop.playersview.003')
   const milliseconds = timestamp < 1e12 ? timestamp * 1000 : timestamp
   const date = new Date(milliseconds)
-  return Number.isNaN(date.getTime()) ? 'Нет данных' : new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
+  return Number.isNaN(date.getTime()) ? t('modules.usertop.playersview.003') : new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 function safeAccent(value?: string): string { return value && /^#[0-9a-f]{3,8}$/i.test(value) ? value : '#5bd08b' }
 
@@ -107,7 +109,7 @@ onMounted(async () => {
     activeServers.value = new Set(Array.isArray(serverData) ? serverData.map((server) => server.serverName) : [])
   } catch (requestError) {
     console.error('[FoxesCraft] Player ranking failed', requestError)
-    error.value = 'Не удалось получить статистику игроков.'
+    error.value = t('modules.usertop.playersview.004')
   } finally { loading.value = false }
 })
 </script>

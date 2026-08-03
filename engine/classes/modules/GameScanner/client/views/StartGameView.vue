@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import StartGamePage from '@theme/userOptions/pages/StartGame.vue'
@@ -54,7 +56,7 @@ function downloadBootstrapper(): void {
     downloadFile('/api/bootstrap/download.php?platform=windows-x86_64', 'FoxesCraft.exe')
   } catch (downloadFailure) {
     console.error('[FoxesCraft] Bootstrapper download failed', downloadFailure)
-    downloadError.value = 'Не удалось начать загрузку. Попробуйте ещё раз позже.'
+    downloadError.value = t('modules.gamescanner.startgameview.001')
   } finally {
     downloading.value = false
   }

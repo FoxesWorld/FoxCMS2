@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { appBootstrap } from '@/app/context'
@@ -9,7 +10,7 @@ import { normalizeBalanceMatrix } from '@/domain/userBalance'
 export function useEngineShell() {
   const router = useRouter()
   const isGuest = computed(() => !bootstrapBoolean(appBootstrap, 'isLogged', false))
-  const displayName = computed(() => bootstrapString(appBootstrap, 'realname', bootstrapString(appBootstrap, 'login', 'Пользователь')))
+  const displayName = computed(() => bootstrapString(appBootstrap, 'realname', bootstrapString(appBootstrap, 'login', t('engine.shell.useengineshell.001'))))
   const profilePhoto = computed(() => bootstrapString(appBootstrap, 'profilePhoto'))
   const balance = computed(() => normalizeBalanceMatrix(appBootstrap.user.balance))
 

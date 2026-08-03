@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed } from 'vue'
 
 const props = defineProps<{ online: number; max: number }>()
@@ -12,7 +14,7 @@ const percent = computed(() => max.value === null
   ? 0
   : Math.min(100, Math.round((online.value / max.value) * 100)))
 const playersLabel = computed(() => max.value === null
-  ? `${online.value} игроков`
+  ? t('theme.foxengine.monitor.totalonline.005', [online.value])
   : `${online.value} / ${max.value}`)
 
 function normalizeCount(value: unknown): number {
@@ -25,7 +27,7 @@ function normalizeCount(value: unknown): number {
   <div class="monitor-total-card">
     <div class="monitor-total-card__header">
       <span>
-        <small>Общий онлайн</small>
+        <small>{{ t('theme.foxengine.monitor.totalonline.001') }}</small>
         <strong>{{ playersLabel }}</strong>
       </span>
       <b v-if="max !== null">{{ percent }}%</b>
@@ -34,11 +36,11 @@ function normalizeCount(value: unknown): number {
     <span
       class="monitor-total-card__progress"
       role="progressbar"
-      aria-label="Общая заполненность серверов"
+      :aria-label="t('theme.foxengine.monitor.totalonline.002')"
       aria-valuemin="0"
       :aria-valuenow="max === null ? undefined : Math.min(online, max)"
       :aria-valuemax="max ?? undefined"
-      :aria-valuetext="max === null ? playersLabel : `${percent}% — ${playersLabel}`"
+      :aria-valuetext="max === null ? playersLabel : t('theme.foxengine.monitor.totalonline.003', [percent, playersLabel])"
     >
       <span
         class="monitor-total-card__fill"

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const root = resolve(import.meta.dirname, '..', '..', '..')
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
@@ -15,7 +16,7 @@ const source = {
 }
 const failures = []
 const requireToken = (file, token, message) => {
-  if (!source[file].includes(token)) failures.push(message)
+  if (!includesLocalized(source[file], token)) failures.push(message)
 }
 const forbidToken = (file, token, message) => {
   if (source[file].includes(token)) failures.push(message)

@@ -45,6 +45,10 @@ export interface NewsDraft {
 export interface NewsListResponse {
   items: NewsPost[]
   canCreate: boolean
+  total: number
+  limit: number
+  offset: number
+  hasMore: boolean
 }
 
 export interface NewsDetailResponse {

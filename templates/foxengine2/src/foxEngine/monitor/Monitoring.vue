@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { appBootstrap } from '@engine/app/context'
 import { themeAsset } from '@engine/domain/bootstrap'
 import { useServerMonitor } from '@engine/shell/useServerMonitor'
@@ -17,12 +19,12 @@ const { servers, total, emptyMessage, loading, error, openServer } = useServerMo
     <div class="sidebar-card__heading legacy-card-title monitoring-card__heading">
       <img :src="icon" alt="" aria-hidden="true">
       <div>
-        <strong>Мониторинг</strong>
-        <small>Состояние игровых миров</small>
+        <strong>{{ t('theme.foxengine.monitor.monitoring.001') }}</strong>
+        <small>{{ t('theme.foxengine.monitor.monitoring.002') }}</small>
       </div>
       <span class="monitoring-card__live" :class="{ 'monitoring-card__live--loading': loading }">
         <i aria-hidden="true" />
-        {{ loading ? 'Обновление' : 'Live' }}
+        {{ loading ? t('theme.foxengine.monitor.monitoring.003') : t('theme.foxengine.monitor.monitoring.004') }}
       </span>
     </div>
 
@@ -30,16 +32,16 @@ const { servers, total, emptyMessage, loading, error, openServer } = useServerMo
       <div v-if="loading && !servers.length" class="monitoring-state" role="status">
         <span class="monitoring-state__spinner" aria-hidden="true" />
         <span>
-          <strong>Получаем состояние серверов</strong>
-          <small>Проверяем доступность и текущий онлайн…</small>
+          <strong>{{ t('theme.foxengine.monitor.monitoring.005') }}</strong>
+          <small>{{ t('theme.foxengine.monitor.monitoring.006') }}</small>
         </span>
       </div>
 
       <div v-else-if="error && !servers.length" class="monitoring-state monitoring-state--error" role="alert">
         <span class="monitoring-state__mark" aria-hidden="true">!</span>
         <span>
-          <strong>Мониторинг временно недоступен</strong>
-          <small>Не удалось получить актуальное состояние серверов.</small>
+          <strong>{{ t('theme.foxengine.monitor.monitoring.007') }}</strong>
+          <small>{{ t('theme.foxengine.monitor.monitoring.008') }}</small>
         </span>
       </div>
 
@@ -56,7 +58,7 @@ const { servers, total, emptyMessage, loading, error, openServer } = useServerMo
         <div v-else class="monitoring-state">
           <span class="monitoring-state__mark" aria-hidden="true">—</span>
           <span>
-            <strong>Нет доступных серверов</strong>
+            <strong>{{ t('theme.foxengine.monitor.monitoring.009') }}</strong>
             <small>{{ emptyMessage }}</small>
           </span>
         </div>
@@ -68,9 +70,7 @@ const { servers, total, emptyMessage, loading, error, openServer } = useServerMo
         />
 
         <div v-if="error && servers.length" class="monitoring-card__warning" role="status">
-          <span aria-hidden="true">!</span>
-          Показаны последние полученные данные.
-        </div>
+          <span aria-hidden="true">!</span> {{ t('theme.foxengine.monitor.monitoring.010') }} </div>
       </template>
     </div>
   </section>

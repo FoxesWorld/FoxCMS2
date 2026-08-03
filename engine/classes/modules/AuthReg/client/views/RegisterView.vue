@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import RegisterPage from '@theme/userOptions/content/guest/Reg.vue'
@@ -30,7 +32,7 @@ const strength = computed(() => {
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
   if (/\d/.test(password)) score++
   if (/[^A-Za-z0-9]/.test(password)) score++
-  const labels = ['Нет пароля', 'Очень слабый', 'Слабый', 'Нормальный', 'Надёжный', 'Очень надёжный']
+  const labels = [t('modules.authreg.registerview.001'), t('modules.authreg.registerview.002'), t('modules.authreg.registerview.003'), t('modules.authreg.registerview.004'), t('modules.authreg.registerview.005'), t('modules.authreg.registerview.006')]
   return { score, label: labels[score], width: `${score * 20}%` }
 })
 
@@ -41,7 +43,7 @@ function generatePassword(): void {
   const password = Array.from(values, (value) => alphabet[value % alphabet.length]).join('')
   form.password1 = password
   form.password2 = password
-  showToast('Надёжный пароль создан и подставлен в оба поля.', 'info', 3500)
+  showToast(t('modules.authreg.registerview.007'), 'info', 3500)
 }
 
 interface LocalValidationFailure { message: string; field: string }
@@ -49,29 +51,29 @@ interface LocalValidationFailure { message: string; field: string }
 function localValidationFailure(): LocalValidationFailure | null {
   const login = form.login.trim()
   const email = form.email.trim()
-  if (!login) return { message: 'Введите логин.', field: 'login' }
-  if (login.length < 3) return { message: 'Логин должен содержать не менее 3 символов.', field: 'login' }
+  if (!login) return { message: t('modules.authreg.registerview.008'), field: 'login' }
+  if (login.length < 3) return { message: t('modules.authreg.registerview.009'), field: 'login' }
   if (!/^[A-Za-z0-9_.-]+$/.test(login)) {
     return {
-      message: 'Логин содержит недопустимые символы. Разрешены латинские буквы, цифры, точка, дефис и подчёркивание.',
+      message: t('modules.authreg.registerview.010'),
       field: 'login',
     }
   }
-  if (!email) return { message: 'Введите электронную почту.', field: 'email' }
+  if (!email) return { message: t('modules.authreg.registerview.011'), field: 'email' }
   if (/\s/.test(email)) {
     return {
-      message: 'Электронная почта содержит пробелы или недопустимые управляющие символы.',
+      message: t('modules.authreg.registerview.012'),
       field: 'email',
     }
   }
-  if (!form.password1) return { message: 'Введите пароль.', field: 'password1' }
+  if (!form.password1) return { message: t('modules.authreg.registerview.013'), field: 'password1' }
   if (form.password1.length > 72) {
-    return { message: 'Пароль не должен превышать 72 символа.', field: 'password1' }
+    return { message: t('modules.authreg.registerview.014'), field: 'password1' }
   }
-  if (form.password1 !== form.password2) return { message: 'Пароли не совпадают.', field: 'password2' }
+  if (form.password1 !== form.password2) return { message: t('modules.authreg.registerview.015'), field: 'password2' }
   if (/[^\x21-\x7E]/.test(form.password1)) {
     return {
-      message: 'Пароль содержит недопустимые символы. Используйте латинские буквы, цифры и специальные символы.',
+      message: t('modules.authreg.registerview.016'),
       field: 'password1',
     }
   }
@@ -81,7 +83,7 @@ function localValidationFailure(): LocalValidationFailure | null {
 async function submit(): Promise<void> {
   feedback.value = null
   if (!form.acceptRules || !form.dataProcessing) {
-    feedback.value = toastFeedback({ type: 'error', message: 'Нужно принять правила и условия обработки данных.' })
+    feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.registerview.017') })
     return
   }
 
@@ -110,7 +112,7 @@ async function submit(): Promise<void> {
     console.error('[FoxesCraft] Registration failed', error)
     const failure = foxesApiFailureFeedback(
       error,
-      'Сервер регистрации временно недоступен.',
+      t('modules.authreg.registerview.018'),
     )
     feedback.value = failure
     focusFormField(failure.field)

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import './ui-checkbox.css'
 
 type CheckboxVariant = 'checkbox' | 'switch'

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import LastUserCard from '@/components/LastUserCard.vue'
 import ServerMonitor from '@/components/ServerMonitor.vue'
 import { appBootstrap } from '@/app/context'
@@ -17,18 +19,18 @@ const monitorIcon = iconSetting('monitor', 'icons/monitor.png')
 const lastUserIcon = iconSetting('lastUser', 'icons/lastuser.png')
 </script>
 <template>
-  <aside class="sidebar legacy-sidebar" aria-label="Информация о проекте">
+  <aside class="sidebar legacy-sidebar" :aria-label="t('engine.sitesidebar.001')">
     <section class="sidebar-card legacy-sidebar-card">
       <div class="sidebar-card__heading legacy-card-title">
         <img :src="monitorIcon" alt="" aria-hidden="true">
-        <div><strong>Мониторинг</strong><small>Состояние игровых миров</small></div>
+        <div><strong>{{ t('engine.sitesidebar.002') }}</strong><small>{{ t('engine.sitesidebar.003') }}</small></div>
       </div>
       <ServerMonitor />
     </section>
     <section class="sidebar-card legacy-sidebar-card">
       <div class="sidebar-card__heading legacy-card-title">
         <img :src="lastUserIcon" alt="" aria-hidden="true">
-        <div><strong>Новый лис</strong><small>Последняя регистрация</small></div>
+        <div><strong>{{ t('engine.sitesidebar.004') }}</strong><small>{{ t('engine.sitesidebar.005') }}</small></div>
       </div>
       <LastUserCard />
     </section>

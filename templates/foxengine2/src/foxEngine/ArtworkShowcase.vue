@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 withDefaults(defineProps<{
   src: string
   alt: string

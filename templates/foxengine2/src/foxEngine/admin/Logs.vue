@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import type { LogEntry } from '@modules/AdminPanel/client/useAdminPanel'
 
@@ -36,33 +38,33 @@ function scalar(value: unknown): string {
 function metadata(entry: LogEntry): LogMeta[] {
   const result: LogMeta[] = []
   if (entry.httpMethod || entry.httpPath) {
-    result.push({ label: 'HTTP', value: `${entry.httpMethod || '?'} ${entry.httpPath || '/'}`, kind: 'request' })
+    result.push({ label: t('theme.foxengine.admin.logs.016'), value: `${entry.httpMethod || '?'} ${entry.httpPath || '/'}`, kind: 'request' })
   }
-  if (entry.operation) result.push({ label: 'Операция', value: entry.operation, kind: 'operation' })
-  if (entry.component) result.push({ label: 'Компонент', value: entry.component })
+  if (entry.operation) result.push({ label: t('theme.foxengine.admin.logs.017'), value: entry.operation, kind: 'operation' })
+  if (entry.component) result.push({ label: t('theme.foxengine.admin.logs.018'), value: entry.component })
 
   const channel = entry.requestChannel || scalar(contextValue(entry, 'requestChannel'))
-  if (channel) result.push({ label: 'Канал', value: channel })
+  if (channel) result.push({ label: t('theme.foxengine.admin.logs.019'), value: channel })
   const action = entry.action || scalar(contextValue(entry, 'action'))
-  if (action) result.push({ label: 'Action', value: action, kind: 'action' })
+  if (action) result.push({ label: t('theme.foxengine.admin.logs.020'), value: action, kind: 'action' })
   const handler = entry.handler || scalar(contextValue(entry, 'handler'))
-  if (handler) result.push({ label: 'Handler', value: handler })
+  if (handler) result.push({ label: t('theme.foxengine.admin.logs.021'), value: handler })
 
   const moduleName = scalar(contextValue(entry, 'moduleName'))
   const modulePriority = scalar(contextValue(entry, 'modulePriority'))
-  if (moduleName) result.push({ label: 'Модуль', value: modulePriority ? `${moduleName} · ${modulePriority}` : moduleName })
+  if (moduleName) result.push({ label: t('theme.foxengine.admin.logs.022'), value: modulePriority ? `${moduleName} · ${modulePriority}` : moduleName })
 
   if (entry.actorLogin || entry.actorGroup) {
     const login = entry.actorLogin && entry.actorLogin !== 'anonymous' ? entry.actorLogin : 'guest'
-    result.push({ label: 'Пользователь', value: `${login}${entry.actorGroup ? ` [${entry.actorGroup}]` : ''}`, kind: 'actor' })
+    result.push({ label: t('theme.foxengine.admin.logs.023'), value: `${login}${entry.actorGroup ? ` [${entry.actorGroup}]` : ''}`, kind: 'actor' })
   }
-  if (entry.httpStatus != null) result.push({ label: 'Статус', value: String(entry.httpStatus), kind: entry.httpStatus >= 400 ? 'status-error' : 'status-ok' })
-  if (entry.durationMs != null) result.push({ label: 'Время', value: `${entry.durationMs.toFixed(3)} ms`, kind: entry.durationMs >= 2000 ? 'slow' : '' })
-  if (entry.outcome) result.push({ label: 'Результат', value: entry.outcome })
+  if (entry.httpStatus != null) result.push({ label: t('theme.foxengine.admin.logs.024'), value: String(entry.httpStatus), kind: entry.httpStatus >= 400 ? 'status-error' : 'status-ok' })
+  if (entry.durationMs != null) result.push({ label: t('theme.foxengine.admin.logs.025'), value: `${entry.durationMs.toFixed(3)} ms`, kind: entry.durationMs >= 2000 ? 'slow' : '' })
+  if (entry.outcome) result.push({ label: t('theme.foxengine.admin.logs.026'), value: entry.outcome })
 
   const loaded = contextValue(entry, 'loadedModules')
   if (Array.isArray(loaded) && loaded.length) {
-    result.push({ label: 'Загружено', value: loaded.map(String).join(', '), kind: 'modules' })
+    result.push({ label: t('theme.foxengine.admin.logs.027'), value: loaded.map(String).join(', '), kind: 'modules' })
   }
   return result
 }
@@ -99,7 +101,7 @@ function entryKey(entry: LogEntry, index: number): string {
 <template>
   <section class="admin-section admin-log-section">
     <div class="admin-toolbar">
-      <select :value="file" aria-label="Файл журнала" @change="updateFile">
+      <select :value="file" :aria-label="t('theme.foxengine.admin.logs.001')" @change="updateFile">
         <option value="lastlog">lastlog.log</option>
         <option value="error">error.log</option>
         <option value="access">access.log</option>
@@ -109,16 +111,16 @@ function entryKey(entry: LogEntry, index: number): string {
         class="admin-auto-refresh"
         variant="switch"
         compact
-        label="Автообновление"
-        description="Каждые 10 секунд"
+        :label="t('theme.foxengine.admin.logs.002')"
+        :description="t('theme.foxengine.admin.logs.003')"
         @update:model-value="updateAuto"
       />
-      <button class="button button--ghost" type="button" @click="emit('reload')">Обновить</button>
-      <button class="button button--ghost" type="button" @click="emit('clear')">Очистить</button>
+      <button class="button button--ghost" type="button" @click="emit('reload')">{{ t('theme.foxengine.admin.logs.004') }}</button>
+      <button class="button button--ghost" type="button" @click="emit('clear')">{{ t('theme.foxengine.admin.logs.005') }}</button>
     </div>
 
     <div class="admin-log">
-      <p v-if="!props.entries.length" class="admin-log__empty">Журнал пуст.</p>
+      <p v-if="!props.entries.length" class="admin-log__empty">{{ t('theme.foxengine.admin.logs.006') }}</p>
       <article
         v-for="(entry, index) in props.entries"
         :key="entryKey(entry, index)"
@@ -147,19 +149,19 @@ function entryKey(entry: LogEntry, index: number): string {
         </div>
 
         <details v-if="hasDetails(entry)" class="admin-log-line__details">
-          <summary>Диагностический контекст</summary>
+          <summary>{{ t('theme.foxengine.admin.logs.010') }}</summary>
 
           <div v-if="entry.requestId || entry.correlationId" class="admin-log-identifiers">
-            <span v-if="entry.requestId"><small>Request ID</small><code>{{ entry.requestId }}</code></span>
-            <span v-if="entry.correlationId"><small>Correlation ID</small><code>{{ entry.correlationId }}</code></span>
+            <span v-if="entry.requestId"><small>{{ t('theme.foxengine.admin.logs.011') }}</small><code>{{ entry.requestId }}</code></span>
+            <span v-if="entry.correlationId"><small>{{ t('theme.foxengine.admin.logs.012') }}</small><code>{{ entry.correlationId }}</code></span>
           </div>
 
           <section v-if="entry.deviation" class="admin-log-deviation">
             <strong>{{ entry.deviation.code || 'deviation' }}</strong>
             <span>Severity: {{ entry.deviation.severity || 'unknown' }}</span>
             <dl>
-              <div><dt>Ожидалось</dt><dd><pre>{{ formatValue(entry.deviation.expected) }}</pre></dd></div>
-              <div><dt>Получено</dt><dd><pre>{{ formatValue(entry.deviation.actual) }}</pre></dd></div>
+              <div><dt>{{ t('theme.foxengine.admin.logs.013') }}</dt><dd><pre>{{ formatValue(entry.deviation.expected) }}</pre></dd></div>
+              <div><dt>{{ t('theme.foxengine.admin.logs.014') }}</dt><dd><pre>{{ formatValue(entry.deviation.actual) }}</pre></dd></div>
             </dl>
           </section>
 
@@ -178,7 +180,7 @@ function entryKey(entry: LogEntry, index: number): string {
           </dl>
 
           <div v-if="entry.actorUuid" class="admin-log-actor-id">
-            <small>Actor UUID</small>
+            <small>{{ t('theme.foxengine.admin.logs.015') }}</small>
             <code>{{ entry.actorUuid }}</code>
           </div>
         </details>

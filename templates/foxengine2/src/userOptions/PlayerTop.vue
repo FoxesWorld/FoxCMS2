@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import PlayerCell from '@theme/foxEngine/userTop/playTime/PlayerCell.vue'
 interface ServerSession { serverName:string; totalTime:number; lastPlayed:number }
 interface Player { uuid:string; login:string; colorScheme?:string; skinHead?:string; serversOnline:string | ServerSession[] | { servers?:Record<string,Omit<ServerSession,'serverName'>> } }
@@ -13,12 +15,12 @@ function updateServer(event:Event):void{emit('update:selectedServer',(event.targ
 </script>
 <template>
   <div v-if="loading" class="content-skeleton"><span /><span /><span /></div>
-  <div v-else-if="error" class="system-message system-message--error"><strong>Рейтинг недоступен</strong><p>{{ error }}</p></div>
+  <div v-else-if="error" class="system-message system-message--error"><strong>{{ t('theme.useroptions.playertop.001') }}</strong><p>{{ error }}</p></div>
   <article v-else class="content-surface ranking-page">
-    <header class="ranking-header"><div><span class="eyebrow">Playtime index</span><h1>Топ игроков</h1><p class="lead">Статистика игрового времени с 7 декабря 2024 года.</p></div><label><span>Сервер</span><select :value="selectedServer" @change="updateServer"><option value="all">Все серверы</option><option v-for="name in serverNames" :key="name" :value="name">{{ name }}{{ activeServers.has(name) ? '' : ' · закрыт' }}</option></select></label></header>
+    <header class="ranking-header"><div><span class="eyebrow">{{ t('theme.useroptions.playertop.002') }}</span><h1>{{ t('theme.useroptions.playertop.003') }}</h1><p class="lead">{{ t('theme.useroptions.playertop.004') }}</p></div><label><span>{{ t('theme.useroptions.playertop.005') }}</span><select :value="selectedServer" @change="updateServer"><option value="all">{{ t('theme.useroptions.playertop.006') }}</option><option v-for="name in serverNames" :key="name" :value="name">{{ name }}{{ activeServers.has(name) ? '' : t('theme.useroptions.playertop.007') }}</option></select></label></header>
     <div class="ranking-list">
       <PlayerCell v-for="(entry,index) in ranking" :key="entry.player.login" :index="index" :entry="entry" :format-duration="formatDuration" :format-date="formatDate" :safe-accent="safeAccent" :segments="segments" @profile="emit('profile',$event)" />
     </div>
-    <p v-if="!ranking.length" class="empty-state">Для выбранного сервера статистика отсутствует.</p>
+    <p v-if="!ranking.length" class="empty-state">{{ t('theme.useroptions.playertop.008') }}</p>
   </article>
 </template>

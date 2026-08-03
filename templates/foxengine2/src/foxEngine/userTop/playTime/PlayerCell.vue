@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 interface ServerSession { serverName:string; totalTime:number; lastPlayed:number }
 interface Player { uuid:string; login:string; colorScheme?:string; skinHead?:string; serversOnline:string|ServerSession[]|{servers?:Record<string,Omit<ServerSession,'serverName'>>} }
 interface RankingEntry { player:Player; seconds:number; lastPlayed:number }
@@ -20,7 +22,7 @@ function hideBrokenImage(event:Event):void {
         v-if="entry.player.skinHead"
         class="ranking-avatar__image"
         :src="entry.player.skinHead"
-        :alt="`Голова скина игрока ${entry.player.login}`"
+        :alt="t('theme.foxengine.usertop.playtime.playercell.001', [entry.player.login])"
         decoding="async"
         draggable="false"
         @error="hideBrokenImage"

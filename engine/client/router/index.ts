@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { createRouter, createWebHashHistory, type RouteLocationRaw, type RouteRecordRaw } from 'vue-router'
 import { defineComponent, h } from 'vue'
 import { appBootstrap } from '@/app/context'
@@ -11,7 +12,7 @@ const viewModules = new Map<string, () => Promise<unknown>>()
 for (const [path, loader] of Object.entries(discoveredViewModules)) {
   const match = path.match(/\/([^/]+View)\.vue$/)
   if (!match) continue
-  if (viewModules.has(match[1])) throw new Error(`Duplicate engine client view: ${match[1]}`)
+  if (viewModules.has(match[1])) throw new Error(t('engine.router.index.001', [match[1]]))
   viewModules.set(match[1], loader)
 }
 
@@ -32,7 +33,7 @@ function routeRecord(definition: FrontendRouteDefinition): RouteRecordRaw {
   if (definition.redirect) return { ...base, redirect: definition.redirect }
 
   const component = definition.view ? viewModules.get(definition.view) : undefined
-  if (!component) throw new Error(`Engine client view is not available: ${definition.view}`)
+  if (!component) throw new Error(t('engine.router.index.002', [definition.view]))
   return { ...base, component, props: definition.props as RouteRecordRaw['props'] }
 }
 
@@ -48,6 +49,19 @@ const routes: RouteRecordRaw[] = engineRoutes.length > 0
  * named route. Keep the client usable in that state and let the next complete
  * bootstrap restore the manifest-owned definition.
  */
+if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news-list')) {
+  const component = viewModules.get('NewsListView')
+  if (component) {
+    console.warn('[FoxesCraft] News archive route is missing from bootstrap; applying client fallback.')
+    routes.push({
+      path: '/news',
+      name: 'news-list',
+      component,
+      meta: { title: t('engine.router.index.004') },
+    })
+  }
+}
+
 if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news')) {
   const component = viewModules.get('NewsView')
   if (component) {
@@ -57,7 +71,7 @@ if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news')) {
       name: 'news',
       component,
       props: true,
-      meta: { title: 'Новость' },
+      meta: { title: t('engine.router.index.003') },
     })
   }
 }

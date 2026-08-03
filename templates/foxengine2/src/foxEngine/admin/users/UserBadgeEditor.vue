@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, ref } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { themeAsset } from '@/domain/bootstrap'
@@ -44,7 +46,7 @@ const assignedBadges = computed<ManagedBadge[]>(() => assignments.value.map((ass
         id: 0,
         badgeName: assignment.badgeName,
         title: assignment.badgeName,
-        description: 'Бейдж сохранён в профиле, но отсутствует в текущем каталоге.',
+        description: t('theme.foxengine.admin.users.userbadgeeditor.018'),
         image: null,
         assignment,
         legacy: true,
@@ -70,12 +72,12 @@ function imageUrl(value: string | null): string {
   return themeAsset(appBootstrap, relative.includes('/') ? relative : `img/badges/${relative}`)
 }
 function hideImage(event: Event): void { (event.currentTarget as HTMLImageElement).hidden = true }
-function initial(value: string): string { return Array.from(value.trim())[0]?.toLocaleUpperCase('ru') ?? 'Б' }
+function initial(value: string): string { return Array.from(value.trim())[0]?.toLocaleUpperCase('ru') ?? t('theme.foxengine.admin.users.userbadgeeditor.019') }
 function assignmentLabel(assignment: UserBadgeAssignment | null): string {
-  if (!assignment) return 'Доступен для выдачи'
-  if (assignment.source === 'admin') return 'Выдан администратором'
-  if (assignment.source?.startsWith('public-offer:')) return 'Получен через публичную награду'
-  return 'Получен как награда'
+  if (!assignment) return t('theme.foxengine.admin.users.userbadgeeditor.020')
+  if (assignment.source === 'admin') return t('theme.foxengine.admin.users.userbadgeeditor.021')
+  if (assignment.source?.startsWith('public-offer:')) return t('theme.foxengine.admin.users.userbadgeeditor.022')
+  return t('theme.foxengine.admin.users.userbadgeeditor.023')
 }
 function acquiredLabel(assignment: UserBadgeAssignment | null): string {
   if (!assignment?.acquiredAt) return ''
@@ -88,8 +90,8 @@ function validateReason(): boolean {
     return true
   }
   reasonError.value = reasonValue.value.length < 3
-    ? 'Укажите причину операции: минимум 3 символа.'
-    : 'Причина операции не должна превышать 500 символов.'
+    ? t('theme.foxengine.admin.users.userbadgeeditor.024')
+    : t('theme.foxengine.admin.users.userbadgeeditor.025')
   reasonField.value?.focus()
   return false
 }
@@ -99,7 +101,7 @@ function grant(badge: ManagedBadge): void {
 }
 function revoke(badge: ManagedBadge): void {
   if (!validateReason()) return
-  if (!window.confirm(`Отозвать бейдж «${badge.title}»? Валютные начисления и история наград останутся без изменений.`)) return
+  if (!window.confirm(t('theme.foxengine.admin.users.userbadgeeditor.026', [badge.title]))) return
   emit('revoke', { badgeName: badge.badgeName, reason: reasonValue.value })
 }
 </script>
@@ -109,13 +111,13 @@ function revoke(badge: ManagedBadge): void {
     <div class="admin-badge-editor__notice">
       <i class="fa-solid fa-shield-halved" aria-hidden="true" />
       <div>
-        <strong>Административное управление бейджами</strong>
-        <span>Выдача и отзыв изменяют только знаки профиля. Баланс, ключи, определения наград и журнал их погашения не изменяются.</span>
+        <strong>{{ t('theme.foxengine.admin.users.userbadgeeditor.001') }}</strong>
+        <span>{{ t('theme.foxengine.admin.users.userbadgeeditor.002') }}</span>
       </div>
     </div>
 
     <label class="admin-badge-editor__reason">
-      <span>Причина операции</span>
+      <span>{{ t('theme.foxengine.admin.users.userbadgeeditor.003') }}</span>
       <textarea
         ref="reasonField"
         v-model="reason"
@@ -123,18 +125,18 @@ function revoke(badge: ManagedBadge): void {
         minlength="3"
         maxlength="500"
         :disabled="disabled"
-        placeholder="Например: награждение за участие в мероприятии или отзыв ошибочно выданного бейджа"
+        :placeholder="t('theme.foxengine.admin.users.userbadgeeditor.004')"
         :aria-invalid="reasonError ? 'true' : undefined"
         @input="reasonError = ''"
       />
       <small :class="{ 'is-invalid': Boolean(reasonError) || (reason.length > 0 && !canAct) }">
         <strong v-if="reasonError">{{ reasonError }}</strong>
-        <span v-else>Причина обязательна и попадёт в административный журнал.</span>
+        <span v-else>{{ t('theme.foxengine.admin.users.userbadgeeditor.005') }}</span>
         {{ reason.length }}/500
       </small>
     </label>
 
-    <div class="admin-badge-editor__tabs" role="tablist" aria-label="Состояние бейджей пользователя">
+    <div class="admin-badge-editor__tabs" role="tablist" :aria-label="t('theme.foxengine.admin.users.userbadgeeditor.006')">
       <button
         type="button"
         class="button button--ghost"
@@ -142,8 +144,7 @@ function revoke(badge: ManagedBadge): void {
         role="tab"
         :aria-selected="tab === 'assigned'"
         @click="tab = 'assigned'"
-      >
-        Полученные <b>{{ assignedBadges.length }}</b>
+      > {{ t('theme.foxengine.admin.users.userbadgeeditor.007') }} <b>{{ assignedBadges.length }}</b>
       </button>
       <button
         type="button"
@@ -152,15 +153,14 @@ function revoke(badge: ManagedBadge): void {
         role="tab"
         :aria-selected="tab === 'available'"
         @click="tab = 'available'"
-      >
-        Доступные <b>{{ availableBadges.length }}</b>
+      > {{ t('theme.foxengine.admin.users.userbadgeeditor.008') }} <b>{{ availableBadges.length }}</b>
       </button>
     </div>
 
     <label class="admin-badge-editor__search">
       <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />
-      <input v-model.trim="search" type="search" autocomplete="off" placeholder="Поиск бейджа по названию или описанию">
-      <button v-if="search" type="button" title="Очистить поиск" @click="search = ''"><i class="fa-solid fa-xmark" aria-hidden="true" /></button>
+      <input v-model.trim="search" type="search" autocomplete="off" :placeholder="t('theme.foxengine.admin.users.userbadgeeditor.009')">
+      <button v-if="search" type="button" :title="t('theme.foxengine.admin.users.userbadgeeditor.010')" @click="search = ''"><i class="fa-solid fa-xmark" aria-hidden="true" /></button>
     </label>
 
     <div v-if="visibleBadges.length" class="admin-badge-grid">
@@ -176,7 +176,7 @@ function revoke(badge: ManagedBadge): void {
         </span>
         <span class="admin-badge-card__copy">
           <strong>{{ badge.title }} <i v-if="badge.assignment" class="fa-solid fa-circle-check" aria-hidden="true" /></strong>
-          <small>{{ badge.description || 'Описание бейджа не задано.' }}</small>
+          <small>{{ badge.description || t('theme.foxengine.admin.users.userbadgeeditor.012') }}</small>
         </span>
         <span class="admin-badge-card__status">
           <span>{{ assignmentLabel(badge.assignment) }}</span>
@@ -189,9 +189,7 @@ function revoke(badge: ManagedBadge): void {
           :disabled="disabled"
           @click="revoke(badge)"
         >
-          <i class="fa-solid fa-trash-can" aria-hidden="true" />
-          Отозвать
-        </button>
+          <i class="fa-solid fa-trash-can" aria-hidden="true" /> {{ t('theme.foxengine.admin.users.userbadgeeditor.013') }} </button>
         <button
           v-else
           type="button"
@@ -199,14 +197,12 @@ function revoke(badge: ManagedBadge): void {
           :disabled="disabled || badge.id <= 0"
           @click="grant(badge)"
         >
-          <i class="fa-solid fa-plus" aria-hidden="true" />
-          Выдать
-        </button>
+          <i class="fa-solid fa-plus" aria-hidden="true" /> {{ t('theme.foxengine.admin.users.userbadgeeditor.014') }} </button>
       </article>
     </div>
     <div v-else class="admin-badge-editor__empty">
       <i class="fa-solid fa-award" aria-hidden="true" />
-      <strong>{{ search ? 'Бейджи не найдены' : tab === 'assigned' ? 'У пользователя нет бейджей' : 'Все каталоговые бейджи уже выданы' }}</strong>
+      <strong>{{ search ? t('theme.foxengine.admin.users.userbadgeeditor.015') : tab === 'assigned' ? t('theme.foxengine.admin.users.userbadgeeditor.016') : t('theme.foxengine.admin.users.userbadgeeditor.017') }}</strong>
     </div>
   </div>
 </template>

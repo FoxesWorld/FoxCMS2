@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed } from 'vue'
 import type { ServerStatus } from '@engine/contracts/sidebar'
 
@@ -22,15 +24,15 @@ const state = computed(() => {
 })
 const stateLabel = computed(() => {
   switch (state.value) {
-    case 'critical': return 'Почти заполнен'
-    case 'busy': return 'Высокая нагрузка'
-    case 'offline': return 'Недоступен'
-    default: return 'Работает'
+    case 'critical': return t('theme.foxengine.monitor.serverentry.008')
+    case 'busy': return t('theme.foxengine.monitor.serverentry.009')
+    case 'offline': return t('theme.foxengine.monitor.serverentry.010')
+    default: return t('theme.foxengine.monitor.serverentry.011')
   }
 })
 const playersLabel = computed(() => {
   if (!isOnline.value) return 'offline'
-  return max.value === null ? `${online.value} игроков` : `${online.value} / ${max.value}`
+  return max.value === null ? t('theme.foxengine.monitor.serverentry.012', [online.value]) : `${online.value} / ${max.value}`
 })
 
 function normalizeCount(value: unknown): number {
@@ -44,7 +46,7 @@ function normalizeCount(value: unknown): number {
     class="monitor-server"
     :class="`monitor-server--${state}`"
     type="button"
-    :aria-label="`Открыть сервер ${server.serverName}. ${stateLabel}. ${playersLabel}.`"
+    :aria-label="t('theme.foxengine.monitor.serverentry.002', [server.serverName, stateLabel, playersLabel])"
     @click="emit('open', server.serverName)"
   >
     <span class="monitor-server__header">
@@ -55,7 +57,7 @@ function normalizeCount(value: unknown): number {
 
       <span class="monitor-server__identity">
         <strong>{{ server.serverName }}</strong>
-        <small>{{ server.version || 'Версия уточняется' }}</small>
+        <small>{{ server.version || t('theme.foxengine.monitor.serverentry.003') }}</small>
       </span>
 
       <span class="monitor-server__status">
@@ -65,7 +67,7 @@ function normalizeCount(value: unknown): number {
     </span>
 
     <span class="monitor-server__stats">
-      <span>Игроки</span>
+      <span>{{ t('theme.foxengine.monitor.serverentry.004') }}</span>
       <strong>{{ playersLabel }}</strong>
       <span v-if="isOnline && max !== null">{{ loadPercent }}%</span>
     </span>
@@ -77,8 +79,8 @@ function normalizeCount(value: unknown): number {
       :aria-valuenow="isOnline && max !== null ? Math.min(online, max) : undefined"
       :aria-valuemax="isOnline && max !== null ? max : undefined"
       :aria-valuetext="isOnline
-        ? (max === null ? playersLabel : `${loadPercent}% — ${playersLabel}`)
-        : 'Сервер недоступен'"
+        ? (max === null ? playersLabel : t('theme.foxengine.monitor.serverentry.005', [loadPercent, playersLabel]))
+        : t('theme.foxengine.monitor.serverentry.006')"
     >
       <span
         v-if="isOnline"

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { NewsComment, NewsDetailResponse, NewsDraft, NewsPost } from '@modules/News/client/types'
@@ -37,7 +39,7 @@ async function load(trackView = false): Promise<void> {
     canComment.value = response.canComment
   } catch {
     post.value = null
-    error.value = 'Новость не найдена или недоступна.'
+    error.value = t('theme.news.newsarticle.016')
   } finally {
     loading.value = false
   }
@@ -56,7 +58,7 @@ async function save(draft: NewsDraft): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!post.value || !window.confirm(`Удалить публикацию «${post.value.title}»?`)) return
+  if (!post.value || !window.confirm(t('theme.news.newsarticle.017', [post.value.title]))) return
   await deleteNewsPost(post.value.id)
   await router.push({ name: 'home' })
 }
@@ -76,7 +78,7 @@ async function publishComment(): Promise<void> {
 }
 
 async function removeComment(item: NewsComment): Promise<void> {
-  if (!window.confirm('Удалить этот комментарий?')) return
+  if (!window.confirm(t('theme.news.newsarticle.018'))) return
   await deleteNewsComment(item.id)
   await load()
 }
@@ -92,9 +94,9 @@ watch(() => props.id, () => {
 </script>
 
 <template>
-  <div v-if="loading" class="content-skeleton" aria-label="Загрузка новости"><span /><span /><span /></div>
+  <div v-if="loading" class="content-skeleton" :aria-label="t('theme.news.newsarticle.001')"><span /><span /><span /></div>
   <div v-else-if="error || !post" class="system-message system-message--error">
-    <strong>Публикация недоступна</strong>
+    <strong>{{ t('theme.news.newsarticle.002') }}</strong>
     <p>{{ error }}</p>
   </div>
 
@@ -123,17 +125,17 @@ watch(() => props.id, () => {
         </button>
 
         <div class="news-article__tools">
-          <span v-if="!post.isPublished" class="news-status">Черновик</span>
+          <span v-if="!post.isPublished" class="news-status">{{ t('theme.news.newsarticle.003') }}</span>
           <button v-if="post.canEdit" class="button button--ghost" type="button" @click="editing = true">
             <i class="fa-solid fa-pen-to-square" aria-hidden="true" />
-            <span>Редактировать</span>
+            <span>{{ t('theme.news.newsarticle.004') }}</span>
           </button>
         </div>
       </header>
 
       <section class="news-article__hero">
         <div class="news-article__intro">
-          <span class="eyebrow">FoxesCraft Chronicle</span>
+          <span class="eyebrow">{{ t('theme.news.newsarticle.005') }}</span>
           <h1>{{ post.title }}</h1>
           <p class="news-article__summary">{{ post.summary }}</p>
           <div class="news-article__date">
@@ -146,7 +148,7 @@ watch(() => props.id, () => {
             v-if="post.coverImage"
             class="news-article__cover"
             :src="post.coverImage"
-            :alt="`Круглая обложка публикации ${post.title}`"
+            :alt="t('theme.news.newsarticle.006', [post.title])"
             decoding="async"
           >
           <i v-else class="fa-solid fa-newspaper" aria-hidden="true" />
@@ -168,8 +170,8 @@ watch(() => props.id, () => {
           <i class="fa-solid fa-heart" aria-hidden="true" />
           <span>{{ post.likesCount }}</span>
         </button>
-        <span><i class="fa-solid fa-comments" aria-hidden="true" /><b>{{ post.commentsCount }}</b> комментариев</span>
-        <span><i class="fa-solid fa-eye" aria-hidden="true" /><b>{{ post.viewsCount }}</b> просмотров</span>
+        <span><i class="fa-solid fa-comments" aria-hidden="true" /><b>{{ post.commentsCount }}</b> {{ t('theme.news.newsarticle.007') }}</span>
+        <span><i class="fa-solid fa-eye" aria-hidden="true" /><b>{{ post.viewsCount }}</b> {{ t('theme.news.newsarticle.008') }}</span>
       </footer>
     </template>
   </article>
@@ -177,22 +179,22 @@ watch(() => props.id, () => {
   <section v-if="post" class="content-surface news-comments" aria-labelledby="news-comments-title">
     <header>
       <div>
-        <span class="eyebrow">Обсуждение</span>
-        <h2 id="news-comments-title">Комментарии</h2>
+        <span class="eyebrow">{{ t('theme.news.newsarticle.009') }}</span>
+        <h2 id="news-comments-title">{{ t('theme.news.newsarticle.010') }}</h2>
       </div>
       <strong>{{ comments.length }}</strong>
     </header>
 
     <form v-if="canComment" class="news-comment-form" @submit.prevent="publishComment">
-      <textarea v-model="comment" rows="4" maxlength="2000" placeholder="Напишите комментарий…" required />
+      <textarea v-model="comment" rows="4" maxlength="2000" :placeholder="t('theme.news.newsarticle.011')" required />
       <div class="news-comment-form__footer">
         <small>{{ comment.length }} / 2000</small>
         <button class="button button--primary" type="submit" :disabled="!comment.trim()">
-          <i class="fa-solid fa-paper-plane" aria-hidden="true" /><span>Опубликовать</span>
+          <i class="fa-solid fa-paper-plane" aria-hidden="true" /><span>{{ t('theme.news.newsarticle.012') }}</span>
         </button>
       </div>
     </form>
-    <p v-else class="news-comments__notice">Чтобы оставить комментарий, войдите в аккаунт. Комментарии к черновикам отключены.</p>
+    <p v-else class="news-comments__notice">{{ t('theme.news.newsarticle.013') }}</p>
 
     <div v-if="comments.length" class="news-comment-list">
       <article v-for="item in comments" :key="item.id" class="news-comment">
@@ -209,10 +211,10 @@ watch(() => props.id, () => {
         <p>{{ item.content }}</p>
         <button v-if="item.canDelete" class="news-comment__delete" type="button" @click="removeComment(item)">
           <i class="fa-solid fa-trash-can" aria-hidden="true" />
-          <span>Удалить</span>
+          <span>{{ t('theme.news.newsarticle.014') }}</span>
         </button>
       </article>
     </div>
-    <p v-else class="news-feed__empty">Комментариев пока нет.</p>
+    <p v-else class="news-feed__empty">{{ t('theme.news.newsarticle.015') }}</p>
   </section>
 </template>

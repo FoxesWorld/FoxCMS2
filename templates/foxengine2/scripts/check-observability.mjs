@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
+import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 const files = {
@@ -72,7 +73,7 @@ for (const token of [
   'entry.exception',
   'entry.httpMethod',
   'entry.actorLogin',
-]) if (!source.logUi.includes(token)) failures.push(`Admin log UI is missing ${token}`)
+]) if (!includesLocalized(source.logUi, token)) failures.push(`Admin log UI is missing ${token}`)
 
 for (const token of [
   'export interface LogDeviation',

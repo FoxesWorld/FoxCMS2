@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
@@ -52,7 +53,7 @@ export function usePublicRewardOffer(placement: string, enabled: MaybeRefOrGette
       if (offer.value?.acquired) {
         feedback.value = {
           type: 'warning',
-          message: `Награда «${offer.value.reward.title}» уже получена.`,
+          message: t('engine.rewards.usepublicrewardoffer.001', [offer.value.reward.title]),
         }
       }
     } catch (error) {
@@ -78,7 +79,7 @@ export function usePublicRewardOffer(placement: string, enabled: MaybeRefOrGette
       if (response.balance !== undefined) appBootstrap.user.balance = response.balance
       feedback.value = {
         type: response.type === 'warning' ? 'warning' : 'success',
-        message: response.message || 'Награда успешно получена.',
+        message: response.message || t('engine.rewards.usepublicrewardoffer.002'),
       }
     } catch (error) {
       console.error('[FoxesCraft] Public reward claim failed', error)
@@ -86,7 +87,7 @@ export function usePublicRewardOffer(placement: string, enabled: MaybeRefOrGette
         type: 'error',
         message: error instanceof Error && error.message.trim()
           ? error.message
-          : 'Не удалось получить награду.',
+          : t('engine.rewards.usepublicrewardoffer.003'),
       }
     } finally {
       claiming.value = false

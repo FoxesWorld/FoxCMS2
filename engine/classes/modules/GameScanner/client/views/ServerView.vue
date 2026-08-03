@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { onMounted, ref } from 'vue'
 import ServerPage from '@theme/foxEngine/serverPage/ServerPage.vue'
 import { foxesApi } from '@/api'
@@ -26,7 +28,7 @@ function normalizeMods(value: ServerDetails['modsInfo']): ServerMod[] {
 onMounted(async () => {
   const serverName = decodeURIComponent(props.value).trim()
   if (!/^[\p{L}\p{N}_ -]{1,64}$/u.test(serverName)) {
-    error.value = 'Некорректное имя сервера.'; loading.value = false; return
+    error.value = t('modules.gamescanner.serverview.001'); loading.value = false; return
   }
   try {
     const [monitorResponse, detailsResponse] = await Promise.all([
@@ -35,11 +37,11 @@ onMounted(async () => {
     ])
     monitor.value = monitorResponse.servers?.find((server) => server.serverName === serverName) ?? null
     details.value = detailsResponse[0] ?? null
-    if (!details.value) error.value = 'Сервер не найден.'
+    if (!details.value) error.value = t('modules.gamescanner.serverview.002')
     else mods.value = normalizeMods(details.value.modsInfo)
   } catch (requestError) {
     console.error('[FoxesCraft] Server request failed', requestError)
-    error.value = 'Не удалось загрузить сведения о сервере.'
+    error.value = t('modules.gamescanner.serverview.003')
   } finally { loading.value = false }
 })
 </script>

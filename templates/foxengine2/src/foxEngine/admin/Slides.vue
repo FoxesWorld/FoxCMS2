@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, nextTick, ref, watch } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
@@ -45,7 +47,7 @@ function preview(image: string): string {
 }
 
 function routeLabel(name: string): string {
-  if (!name) return 'Не выбран'
+  if (!name) return t('theme.foxengine.admin.slides.060')
   const route = props.routes.find((entry) => entry.name === name)
   return route ? `${route.title} · ${route.path}` : name
 }
@@ -82,13 +84,13 @@ function selectImage(index: number, file: File): void {
   <section class="admin-section admin-slides">
     <header class="admin-slides__header">
       <div>
-        <span class="eyebrow">Theme data · JSON</span>
-        <h2>Слайды главной страницы</h2>
-        <p>Слева расположен порядок показа. Справа — полная конфигурация и предварительный вид выбранного слайда.</p>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.slides.001') }}</span>
+        <h2>{{ t('theme.foxengine.admin.slides.002') }}</h2>
+        <p>{{ t('theme.foxengine.admin.slides.003') }}</p>
       </div>
-      <div class="admin-slides__summary" aria-label="Статистика слайдов">
-        <div><strong>{{ settings.slides.length }}</strong><span>всего</span></div>
-        <div><strong>{{ enabledCount }}</strong><span>показывается</span></div>
+      <div class="admin-slides__summary" :aria-label="t('theme.foxengine.admin.slides.004')">
+        <div><strong>{{ settings.slides.length }}</strong><span>{{ t('theme.foxengine.admin.slides.005') }}</span></div>
+        <div><strong>{{ enabledCount }}</strong><span>{{ t('theme.foxengine.admin.slides.006') }}</span></div>
       </div>
     </header>
 
@@ -97,29 +99,29 @@ function selectImage(index: number, file: File): void {
         <header>
           <span class="admin-slides__settings-icon"><i class="fa-solid fa-sliders" aria-hidden="true" /></span>
           <div>
-            <strong>Общие настройки</strong>
-            <small>Применяются ко всей последовательности слайдов</small>
+            <strong>{{ t('theme.foxengine.admin.slides.007') }}</strong>
+            <small>{{ t('theme.foxengine.admin.slides.008') }}</small>
           </div>
         </header>
         <label>
-          <span>Надпись над заголовком</span>
-          <input v-model.trim="settings.eyebrow" type="text" maxlength="100" placeholder="FoxesCraft — новая глава">
+          <span>{{ t('theme.foxengine.admin.slides.009') }}</span>
+          <input v-model.trim="settings.eyebrow" type="text" maxlength="100" :placeholder="t('theme.foxengine.admin.slides.010')">
         </label>
         <label>
-          <span>Автопереключение, мс</span>
+          <span>{{ t('theme.foxengine.admin.slides.011') }}</span>
           <input v-model.number="settings.autoplayMs" type="number" min="0" max="60000" step="500">
-          <small>0 отключает автоматическую смену; рабочий диапазон — 3000–60000 мс.</small>
+          <small>{{ t('theme.foxengine.admin.slides.012') }}</small>
         </label>
       </section>
 
       <div class="admin-slides__toolbar">
         <button class="button button--ghost" type="button" @click="addSlide">
           <i class="fa-solid fa-plus" aria-hidden="true" />
-          <span>Добавить слайд</span>
+          <span>{{ t('theme.foxengine.admin.slides.013') }}</span>
         </button>
         <button class="button button--primary" type="submit" :disabled="loading">
           <i class="fa-solid fa-floppy-disk" aria-hidden="true" />
-          <span>{{ loading ? 'Сохранение…' : 'Сохранить изменения' }}</span>
+          <span>{{ loading ? t('theme.foxengine.admin.slides.014') : t('theme.foxengine.admin.slides.015') }}</span>
         </button>
       </div>
 
@@ -127,8 +129,8 @@ function selectImage(index: number, file: File): void {
         <aside class="admin-slides__master">
           <header class="admin-slides__master-header">
             <div>
-              <strong>Порядок показа</strong>
-              <small>Выберите слайд для редактирования</small>
+              <strong>{{ t('theme.foxengine.admin.slides.016') }}</strong>
+              <small>{{ t('theme.foxengine.admin.slides.017') }}</small>
             </div>
             <span>{{ settings.slides.length }}</span>
           </header>
@@ -147,20 +149,20 @@ function selectImage(index: number, file: File): void {
                   <i v-else class="fa-solid fa-image" aria-hidden="true" />
                 </span>
                 <span class="admin-slide-item__copy">
-                  <strong>{{ slide.title || `Слайд ${index + 1}` }}</strong>
+                  <strong>{{ slide.title || t('theme.foxengine.admin.slides.018', [index + 1]) }}</strong>
                   <small>{{ slide.id }}</small>
                   <span class="admin-slide-item__state">
                     <i class="fa-solid" :class="slide.enabled ? 'fa-circle-check' : 'fa-circle-xmark'" aria-hidden="true" />
-                    {{ slide.enabled ? 'Показывается' : 'Скрыт' }}
+                    {{ slide.enabled ? t('theme.foxengine.admin.slides.019') : t('theme.foxengine.admin.slides.020') }}
                   </span>
                 </span>
               </button>
 
-              <div class="admin-slide-item__order" aria-label="Изменить порядок">
-                <button type="button" :disabled="index === 0" title="Поднять" @click="moveSlide(index, -1)">
+              <div class="admin-slide-item__order" :aria-label="t('theme.foxengine.admin.slides.021')">
+                <button type="button" :disabled="index === 0" :title="t('theme.foxengine.admin.slides.022')" @click="moveSlide(index, -1)">
                   <i class="fa-solid fa-arrow-up" aria-hidden="true" />
                 </button>
-                <button type="button" :disabled="index === settings.slides.length - 1" title="Опустить" @click="moveSlide(index, 1)">
+                <button type="button" :disabled="index === settings.slides.length - 1" :title="t('theme.foxengine.admin.slides.023')" @click="moveSlide(index, 1)">
                   <i class="fa-solid fa-arrow-down" aria-hidden="true" />
                 </button>
               </div>
@@ -169,20 +171,20 @@ function selectImage(index: number, file: File): void {
 
           <button class="admin-slides__add-card" type="button" @click="addSlide">
             <i class="fa-solid fa-plus" aria-hidden="true" />
-            <span><strong>Новый слайд</strong><small>Добавить в конец последовательности</small></span>
+            <span><strong>{{ t('theme.foxengine.admin.slides.024') }}</strong><small>{{ t('theme.foxengine.admin.slides.025') }}</small></span>
           </button>
         </aside>
 
         <section v-if="selectedSlide && selectedIndex >= 0" class="admin-slides__detail">
           <header class="admin-slide-editor__header">
             <div>
-              <span class="eyebrow">Слайд {{ selectedIndex + 1 }} из {{ settings.slides.length }}</span>
-              <h3>{{ selectedSlide.title || 'Без названия' }}</h3>
+              <span class="eyebrow">{{ t('theme.foxengine.admin.slides.026') }} {{ selectedIndex + 1 }} {{ t('theme.foxengine.admin.slides.027') }} {{ settings.slides.length }}</span>
+              <h3>{{ selectedSlide.title || t('theme.foxengine.admin.slides.028') }}</h3>
               <p><code>{{ selectedSlide.id }}</code></p>
             </div>
             <button class="admin-slide-editor__delete" type="button" @click="removeSlide(selectedIndex)">
               <i class="fa-solid fa-trash-can" aria-hidden="true" />
-              <span>Удалить</span>
+              <span>{{ t('theme.foxengine.admin.slides.029') }}</span>
             </button>
           </header>
 
@@ -190,55 +192,55 @@ function selectImage(index: number, file: File): void {
             <img v-if="selectedImage" :src="selectedImage" alt="">
             <div v-else class="admin-slide-editor__preview-empty">
               <i class="fa-solid fa-image" aria-hidden="true" />
-              <span>Изображение не выбрано</span>
+              <span>{{ t('theme.foxengine.admin.slides.030') }}</span>
             </div>
             <div class="admin-slide-editor__preview-overlay" />
             <div class="admin-slide-editor__preview-content">
               <span class="eyebrow">{{ settings.eyebrow || 'FoxesCraft' }}</span>
-              <h4>{{ selectedSlide.title || 'Заголовок слайда' }}</h4>
-              <p>{{ selectedSlide.description || 'Описание появится здесь после заполнения поля.' }}</p>
+              <h4>{{ selectedSlide.title || t('theme.foxengine.admin.slides.031') }}</h4>
+              <p>{{ selectedSlide.description || t('theme.foxengine.admin.slides.032') }}</p>
               <div>
-                <span class="button button--primary">{{ selectedSlide.action || 'Основное действие' }}</span>
-                <span v-if="selectedSlide.secondaryRoute" class="button button--ghost">{{ selectedSlide.secondaryAction || 'Дополнительное действие' }}</span>
+                <span class="button button--primary">{{ selectedSlide.action || t('theme.foxengine.admin.slides.033') }}</span>
+                <span v-if="selectedSlide.secondaryRoute" class="button button--ghost">{{ selectedSlide.secondaryAction || t('theme.foxengine.admin.slides.034') }}</span>
               </div>
             </div>
-            <span v-if="!selectedSlide.enabled" class="admin-slide-editor__preview-badge">Слайд скрыт</span>
+            <span v-if="!selectedSlide.enabled" class="admin-slide-editor__preview-badge">{{ t('theme.foxengine.admin.slides.035') }}</span>
           </div>
 
           <UiCheckbox
             v-model="selectedSlide.enabled"
             class="admin-slide-toggle"
             variant="switch"
-            label="Показывать слайд"
+            :label="t('theme.foxengine.admin.slides.036')"
             :description="selectedSlide.enabled
-              ? 'Слайд участвует в показе на главной странице'
-              : 'Слайд сохранён, но исключён из показа'"
+              ? t('theme.foxengine.admin.slides.037')
+              : t('theme.foxengine.admin.slides.038')"
           />
 
           <div class="admin-slide-editor__fields">
             <label>
-              <span>ID слайда</span>
+              <span>{{ t('theme.foxengine.admin.slides.039') }}</span>
               <input v-model.trim="selectedSlide.id" type="text" minlength="2" maxlength="64" pattern="[a-z][a-z0-9-]{1,63}" required>
-              <small>Стабильный технический идентификатор: латиница, цифры и дефисы.</small>
+              <small>{{ t('theme.foxengine.admin.slides.040') }}</small>
             </label>
             <label>
-              <span>Заголовок</span>
+              <span>{{ t('theme.foxengine.admin.slides.041') }}</span>
               <input v-model.trim="selectedSlide.title" type="text" maxlength="160" required>
             </label>
             <label class="admin-slide-editor__wide">
-              <span>Описание</span>
+              <span>{{ t('theme.foxengine.admin.slides.042') }}</span>
               <textarea v-model.trim="selectedSlide.description" rows="4" maxlength="600" />
             </label>
 
             <div class="admin-slide-editor__wide admin-slide-editor__image-field">
               <label>
-                <span>Путь изображения</span>
-                <input v-model.trim="selectedSlide.image" type="text" maxlength="512" required placeholder="img/slides/slide1.png или /uploads/slides/...">
-                <small>Ресурс темы задаётся относительно <code>assets/</code>; загрузки сохраняются в <code>/uploads/slides/</code>.</small>
+                <span>{{ t('theme.foxengine.admin.slides.043') }}</span>
+                <input v-model.trim="selectedSlide.image" type="text" maxlength="512" required :placeholder="t('theme.foxengine.admin.slides.044')">
+                <small>{{ t('theme.foxengine.admin.slides.045') }} <code>assets/</code>{{ t('theme.foxengine.admin.slides.046') }} <code>/uploads/slides/</code>.</small>
               </label>
               <ImageUploadField
-                title="Изображение слайда"
-                description="Перетащите новую обложку или выберите файл"
+                :title="t('theme.foxengine.admin.slides.047')"
+                :description="t('theme.foxengine.admin.slides.048')"
                 :preview="selectedImage"
                 preview-mode="none"
                 :editor-aspect-ratio="false"
@@ -251,10 +253,10 @@ function selectImage(index: number, file: File): void {
                 :maximum-height="8192"
                 :disabled="loading"
                 :uploading="loading"
-                hint="JPEG, PNG, WebP, GIF или AVIF · до 12 МиБ"
-                choose-label="Выбрать изображение"
-                replace-label="Заменить изображение"
-                clear-label="Очистить изображение"
+                :hint="t('theme.foxengine.admin.slides.049')"
+                :choose-label="t('theme.foxengine.admin.slides.050')"
+                :replace-label="t('theme.foxengine.admin.slides.051')"
+                :clear-label="t('theme.foxengine.admin.slides.052')"
                 @select="selectImage(selectedIndex, $event)"
                 @clear="selectedSlide.image = ''"
               />
@@ -263,16 +265,16 @@ function selectImage(index: number, file: File): void {
             <section class="admin-slide-editor__actions">
               <header>
                 <i class="fa-solid fa-arrow-pointer" aria-hidden="true" />
-                <div><strong>Основное действие</strong><small>{{ selectedPrimaryRoute }}</small></div>
+                <div><strong>{{ t('theme.foxengine.admin.slides.033') }}</strong><small>{{ selectedPrimaryRoute }}</small></div>
               </header>
               <label>
-                <span>Маршрут</span>
+                <span>{{ t('theme.foxengine.admin.slides.053') }}</span>
                 <select v-model="selectedSlide.route" required>
                   <option v-for="route in routes" :key="route.name" :value="route.name">{{ route.title }} — {{ route.path }}</option>
                 </select>
               </label>
               <label>
-                <span>Текст кнопки</span>
+                <span>{{ t('theme.foxengine.admin.slides.054') }}</span>
                 <input v-model.trim="selectedSlide.action" type="text" maxlength="80" required>
               </label>
             </section>
@@ -280,27 +282,27 @@ function selectImage(index: number, file: File): void {
             <section class="admin-slide-editor__actions admin-slide-editor__actions--secondary" :class="{ 'is-empty': !selectedSlide.secondaryRoute }">
               <header>
                 <i class="fa-solid fa-code-branch" aria-hidden="true" />
-                <div><strong>Дополнительное действие</strong><small>{{ selectedSecondaryRoute }}</small></div>
+                <div><strong>{{ t('theme.foxengine.admin.slides.034') }}</strong><small>{{ selectedSecondaryRoute }}</small></div>
               </header>
               <label>
-                <span>Маршрут</span>
+                <span>{{ t('theme.foxengine.admin.slides.053') }}</span>
                 <select v-model="selectedSlide.secondaryRoute">
-                  <option value="">Без дополнительной кнопки</option>
+                  <option value="">{{ t('theme.foxengine.admin.slides.055') }}</option>
                   <option v-for="route in routes" :key="route.name" :value="route.name">{{ route.title }} — {{ route.path }}</option>
                 </select>
               </label>
               <label>
-                <span>Текст кнопки</span>
+                <span>{{ t('theme.foxengine.admin.slides.054') }}</span>
                 <input v-model.trim="selectedSlide.secondaryAction" type="text" maxlength="80" :required="Boolean(selectedSlide.secondaryRoute)" :disabled="!selectedSlide.secondaryRoute">
               </label>
             </section>
           </div>
 
           <footer class="admin-slide-editor__footer">
-            <span><i class="fa-solid fa-circle-info" aria-hidden="true" /> Изменения применятся после сохранения всей конфигурации.</span>
+            <span><i class="fa-solid fa-circle-info" aria-hidden="true" /> {{ t('theme.foxengine.admin.slides.056') }}</span>
             <button class="button button--primary" type="submit" :disabled="loading">
               <i class="fa-solid fa-floppy-disk" aria-hidden="true" />
-              <span>{{ loading ? 'Сохранение…' : 'Сохранить слайды' }}</span>
+              <span>{{ loading ? t('theme.foxengine.admin.slides.014') : t('theme.foxengine.admin.slides.057') }}</span>
             </button>
           </footer>
         </section>
@@ -308,9 +310,9 @@ function selectImage(index: number, file: File): void {
 
       <div v-else class="admin-slides__empty">
         <i class="fa-solid fa-images" aria-hidden="true" />
-        <strong>Слайдов пока нет</strong>
-        <p>Создайте первый слайд, чтобы настроить главный экран.</p>
-        <button class="button button--primary" type="button" @click="addSlide"><i class="fa-solid fa-plus" aria-hidden="true" /><span>Добавить слайд</span></button>
+        <strong>{{ t('theme.foxengine.admin.slides.058') }}</strong>
+        <p>{{ t('theme.foxengine.admin.slides.059') }}</p>
+        <button class="button button--primary" type="button" @click="addSlide"><i class="fa-solid fa-plus" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.slides.013') }}</span></button>
       </div>
     </form>
   </section>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PassResetPage from '@theme/userOptions/content/guest/PassReset.vue'
@@ -15,9 +17,9 @@ const feedback = ref<ApiResponse | null>(null)
 
 async function submit(): Promise<void> {
   feedback.value = null
-  if (!token.value) { feedback.value = toastFeedback({ type: 'error', message: 'В ссылке отсутствует token восстановления.' }); return }
-  if (form.password !== form.confirmation) { feedback.value = toastFeedback({ type: 'error', message: 'Пароли не совпадают.' }); return }
-  if (form.password.length < 10 || /[А-Яа-яЁё]/u.test(form.password)) { feedback.value = toastFeedback({ type: 'error', message: 'Пароль должен содержать минимум 10 символов без кириллицы.' }); return }
+  if (!token.value) { feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.resetpasswordview.001') }); return }
+  if (form.password !== form.confirmation) { feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.resetpasswordview.002') }); return }
+  if (form.password.length < 10 || /[А-Яа-яЁё]/u.test(form.password)) { feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.resetpasswordview.003') }); return }
 
   submitting.value = true
   try {
@@ -30,7 +32,7 @@ async function submit(): Promise<void> {
     if (feedback.value.type === 'success') window.setTimeout(() => void router.push({ name: 'auth' }), 1000)
   } catch (error) {
     console.error('[FoxesCraft] Password reset request failed', error)
-    feedback.value = { type: 'error', message: 'Сервер восстановления временно недоступен.' }
+    feedback.value = { type: 'error', message: t('modules.authreg.resetpasswordview.004') }
   } finally { submitting.value = false }
 }
 </script>

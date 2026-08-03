@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import type { FoxesCraftBootstrap } from '@/domain/bootstrap'
 import { bootstrapEndpoint, bootstrapString } from '@/domain/bootstrap'
 import { notifyPayload, showToast } from '@/notifications/toasts'
@@ -110,14 +111,14 @@ export class FoxesApiClient {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body,
       })
     } catch {
-      showToast('Не удалось связаться с сервером.', 'error')
-      throw new FoxesApiError('Не удалось связаться с сервером.', 0, '')
+      showToast(t('engine.api.foxesapiclient.001'), 'error')
+      throw new FoxesApiError(t('engine.api.foxesapiclient.001'), 0, '')
     }
     const text = await response.text()
     if (!response.ok) {
       let payload: FoxesApiErrorPayload | null
       try { payload = JSON.parse(text) as FoxesApiErrorPayload } catch { payload = null }
-      const message = errorMessage(payload, `Ошибка сервера: HTTP ${response.status}.`)
+      const message = errorMessage(payload, t('engine.api.foxesapiclient.002', [response.status]))
       if (!notifyPayload(payload)) showToast(message, 'error')
       throw new FoxesApiError(message, response.status, text, payload)
     }
@@ -126,7 +127,7 @@ export class FoxesApiClient {
 
   private actionEndpoint(): string {
     const endpoint = bootstrapEndpoint(this.bootstrap, 'actions')
-    if (!endpoint) throw new FoxesApiError('Endpoint административных операций недоступен.', 0, '')
+    if (!endpoint) throw new FoxesApiError(t('engine.api.foxesapiclient.003'), 0, '')
     return endpoint
   }
 
@@ -142,21 +143,21 @@ export class FoxesApiClient {
     try {
       response = await fetch(this.actionEndpoint(), { method: 'POST', credentials: 'same-origin', headers, body })
     } catch {
-      showToast('Не удалось связаться с сервером.', 'error')
-      throw new FoxesApiError('Не удалось связаться с сервером.', 0, '')
+      showToast(t('engine.api.foxesapiclient.001'), 'error')
+      throw new FoxesApiError(t('engine.api.foxesapiclient.001'), 0, '')
     }
     const text = await response.text()
     let payload: unknown
     try { payload = JSON.parse(text) }
     catch {
-      showToast('Сервер вернул некорректный ответ.', 'error')
-      throw new FoxesApiError(`Сервер вернул некорректный JSON (HTTP ${response.status}).`, response.status, text)
+      showToast(t('engine.api.foxesapiclient.004'), 'error')
+      throw new FoxesApiError(t('engine.api.foxesapiclient.005', [response.status]), response.status, text)
     }
     if (!response.ok) {
       const errorPayload = payload && typeof payload === 'object' && !Array.isArray(payload)
         ? payload as FoxesApiErrorPayload
         : null
-      const message = errorMessage(errorPayload, `Ошибка запроса: HTTP ${response.status}.`)
+      const message = errorMessage(errorPayload, t('engine.api.foxesapiclient.006', [response.status]))
       if (!notifyPayload(errorPayload)) showToast(message, 'error')
       throw new FoxesApiError(message, response.status, text, errorPayload)
     }

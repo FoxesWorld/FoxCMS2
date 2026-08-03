@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type {
   AdminCategoryDefinition,
   AdminCategoryId,
@@ -21,9 +23,9 @@ const emit = defineEmits<{ select: [tool: AdminToolId]; selectCategory: [categor
 
 function toolMetric(tab: AdminToolId): string {
   if (!props.overview) return ''
-  if (tab === 'overview') return `${props.hardware?.summary.totalSystems ?? 0} систем`
-  if (tab === 'users') return `${props.overview.users} игроков`
-  if (tab === 'servers') return `${props.overview.enabledServers}/${props.overview.servers} активно`
+  if (tab === 'overview') return t('theme.foxengine.admin.dashboard.015', [props.hardware?.summary.totalSystems ?? 0])
+  if (tab === 'users') return t('theme.foxengine.admin.dashboard.016', [props.overview.users])
+  if (tab === 'servers') return t('theme.foxengine.admin.dashboard.017', [props.overview.enabledServers, props.overview.servers])
   if (tab === 'logs') return 'Live telemetry'
   return ''
 }
@@ -33,27 +35,25 @@ function toolMetric(tab: AdminToolId): string {
   <section class="admin-dashboard" aria-labelledby="admin-dashboard-title">
     <header class="admin-dashboard__hero">
       <div>
-        <span class="eyebrow">Control center</span>
-        <h1 id="admin-dashboard-title">Центр управления FoxesCraft</h1>
-        <p>
-          Инструменты сгруппированы по назначению. Выберите карточку, чтобы перейти к рабочему интерфейсу.
-        </p>
+        <span class="eyebrow">{{ t('theme.foxengine.admin.dashboard.001') }}</span>
+        <h1 id="admin-dashboard-title">{{ t('theme.foxengine.admin.dashboard.002') }}</h1>
+        <p> {{ t('theme.foxengine.admin.dashboard.003') }} </p>
       </div>
-      <div class="admin-dashboard__summary" aria-label="Краткая сводка проекта">
+      <div class="admin-dashboard__summary" :aria-label="t('theme.foxengine.admin.dashboard.004')">
         <article>
-          <span>Игроки</span>
+          <span>{{ t('theme.foxengine.admin.dashboard.005') }}</span>
           <strong>{{ overview?.users ?? '—' }}</strong>
-          <small>{{ overview?.recentUsers ?? '—' }} активны за 24 часа</small>
+          <small>{{ overview?.recentUsers ?? '—' }} {{ t('theme.foxengine.admin.dashboard.006') }}</small>
         </article>
         <article>
-          <span>Серверы</span>
-          <strong>{{ overview ? `${overview.enabledServers}/${overview.servers}` : '—' }}</strong>
-          <small>активно / всего</small>
+          <span>{{ t('theme.foxengine.admin.dashboard.007') }}</span>
+          <strong>{{ overview ? t('theme.foxengine.admin.dashboard.008', [overview.enabledServers, overview.servers]) : '—' }}</strong>
+          <small>{{ t('theme.foxengine.admin.dashboard.009') }}</small>
         </article>
         <article>
-          <span>Системы</span>
+          <span>{{ t('theme.foxengine.admin.dashboard.010') }}</span>
           <strong>{{ hardware?.summary.totalSystems ?? overview?.hardwareReports ?? '—' }}</strong>
-          <small>аппаратных профилей</small>
+          <small>{{ t('theme.foxengine.admin.dashboard.011') }}</small>
         </article>
       </div>
     </header>
@@ -68,7 +68,7 @@ function toolMetric(tab: AdminToolId): string {
         <button
           type="button"
           class="admin-dashboard-group__header"
-          :aria-label="`Открыть группу «${category.label}»`"
+          :aria-label="t('theme.foxengine.admin.dashboard.012', [category.label])"
           @click="emit('selectCategory', category.id)"
         >
           <span class="admin-dashboard-group__icon" aria-hidden="true">
@@ -88,7 +88,7 @@ function toolMetric(tab: AdminToolId): string {
             :key="tool.id"
             type="button"
             class="admin-dashboard-card"
-            :aria-label="`Открыть раздел «${tool.label}»`"
+            :aria-label="t('theme.foxengine.admin.dashboard.013', [tool.label])"
             @click="emit('select', tool.id)"
           >
             <span class="admin-dashboard-card__icon" aria-hidden="true">
@@ -108,8 +108,6 @@ function toolMetric(tab: AdminToolId): string {
     </div>
 
     <p v-if="loading" class="admin-dashboard__loading" role="status">
-      <i class="fa-solid fa-spinner" aria-hidden="true" />
-      Обновляется сводка проекта…
-    </p>
+      <i class="fa-solid fa-spinner" aria-hidden="true" /> {{ t('theme.foxengine.admin.dashboard.014') }} </p>
   </section>
 </template>

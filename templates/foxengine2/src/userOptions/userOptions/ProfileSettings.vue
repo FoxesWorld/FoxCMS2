@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+
 import type { FeedbackMessage, ProfileSettingsFormModel, SettingsTab, SkinResource } from '@engine/contracts/user-pages'
 import AppearanceOption from './profile/options/AppearanceOption.vue'
 import ProfileOption from './profile/options/ProfileOption.vue'
@@ -48,14 +50,14 @@ const emit = defineEmits<{
 <template>
   <article class="content-surface settings-page" :style="{ '--settings-accent': accent }">
     <header>
-      <span class="eyebrow">Личный кабинет</span>
-      <h1>Настройки профиля</h1>
-      <p class="lead">Основные данные, внешний вид и безопасность аккаунта.</p>
+      <span class="eyebrow">{{ t('theme.useroptions.useroptions.profilesettings.001') }}</span>
+      <h1>{{ t('theme.useroptions.useroptions.profilesettings.002') }}</h1>
+      <p class="lead">{{ t('theme.useroptions.useroptions.profilesettings.003') }}</p>
     </header>
-    <nav class="settings-tabs" aria-label="Разделы настроек">
-      <button class="button button--primary" type="button" :class="{ active: activeTab === 'profile' }" @click="emit('update:activeTab', 'profile')">Профиль</button>
-      <button class="button button--primary" type="button" :class="{ active: activeTab === 'appearance' }" @click="emit('update:activeTab', 'appearance')">Оформление</button>
-      <button class="button button--primary" type="button" :class="{ active: activeTab === 'security' }" @click="emit('update:activeTab', 'security')">Безопасность</button>
+    <nav class="settings-tabs" :aria-label="t('theme.useroptions.useroptions.profilesettings.004')">
+      <button class="button button--primary" type="button" :class="{ active: activeTab === 'profile' }" @click="emit('update:activeTab', 'profile')">{{ t('theme.useroptions.useroptions.profilesettings.005') }}</button>
+      <button class="button button--primary" type="button" :class="{ active: activeTab === 'appearance' }" @click="emit('update:activeTab', 'appearance')">{{ t('theme.useroptions.useroptions.profilesettings.006') }}</button>
+      <button class="button button--primary" type="button" :class="{ active: activeTab === 'security' }" @click="emit('update:activeTab', 'security')">{{ t('theme.useroptions.useroptions.profilesettings.007') }}</button>
     </nav>
     <form class="settings-form" @submit.prevent="emit('submit')">
       <ProfileOption v-show="activeTab === 'profile'" :form="form" />
@@ -94,8 +96,8 @@ const emit = defineEmits<{
       <SecurityOption v-show="activeTab === 'security'" :form="form" :require-current-password="!canManageUsers" />
       <p v-if="feedback" class="form-feedback" :class="{ 'form-feedback--success': feedback.type === 'success' }">{{ feedback.message }}</p>
       <div class="settings-actions">
-        <button class="button button--ghost" type="button" @click="emit('navigate', 'profile')">Открыть профиль</button>
-        <button class="button button--primary button--large" type="submit" :disabled="submitting">{{ submitting ? 'Сохраняем…' : 'Сохранить изменения' }}</button>
+        <button class="button button--ghost" type="button" @click="emit('navigate', 'profile')">{{ t('theme.useroptions.useroptions.profilesettings.008') }}</button>
+        <button class="button button--primary button--large" type="submit" :disabled="submitting">{{ submitting ? t('theme.useroptions.useroptions.profilesettings.009') : t('theme.useroptions.useroptions.profilesettings.010') }}</button>
       </div>
     </form>
   </article>

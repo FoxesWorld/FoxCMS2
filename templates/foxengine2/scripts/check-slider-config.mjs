@@ -25,11 +25,16 @@ else {
 }
 
 const slider = await readFile(join(themeRoot, 'src', 'Slider.vue'), 'utf8')
-for (const required of ['appBootstrap.theme.settings.slider', 'data/slides.json', "cache: 'no-store'", 'loadRuntimeSettings', 'resolveImage']) {
+for (const required of ['appBootstrap.theme.settings.slider', 'data/slides.json', "cache: 'no-store'", 'loadRuntimeSettings', 'resolveImage', 'onPointerDown', 'onPointerMove', 'finishPointer', 'draggable="false"', '@dragstart.prevent', '@selectstart.prevent', 'legacy-slide-next']) {
   if (!slider.includes(required)) failures.push(`Slider.vue missing ${required}`)
 }
 for (const forbidden of ['const slides: Slide[] = [', "title: 'Добро пожаловать в Лисий Мир'"]) {
   if (slider.includes(forbidden)) failures.push(`Slider.vue contains hardcoded slide data: ${forbidden}`)
+}
+
+const sliderStyles = await readFile(join(themeRoot, 'assets', 'css', 'legacy-continuation.css'), 'utf8')
+for (const required of ['touch-action: pan-y', 'user-select: none', '-webkit-user-drag: none', '.legacy-slide-next-enter-from', '.legacy-slide-previous-enter-from']) {
+  if (!sliderStyles.includes(required)) failures.push(`Slider styles are missing ${required}`)
 }
 
 const admin = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
