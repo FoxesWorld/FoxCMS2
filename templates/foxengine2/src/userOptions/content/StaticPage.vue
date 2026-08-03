@@ -5,5 +5,5 @@ defineProps<{ page: StaticPageDefinition }>()
 </script>
 
 <template>
-  <div class="static-page-html" v-html="page.html" />
+  <div v-emoticons class="static-page-html" v-html="page.html" />
 </template>

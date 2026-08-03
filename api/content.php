@@ -27,6 +27,7 @@ if (!is_array($config)) {
 
 require_once ENGINE_DIR . 'classes/syslib/database.php';
 require_once ENGINE_DIR . 'classes/themes/ThemeContentRepository.class.php';
+require_once ENGINE_DIR . 'classes/themes/ThemeEmoticonRepository.class.php';
 require_once ENGINE_DIR . 'classes/themes/BadgeSlug.class.php';
 require_once ENGINE_DIR . 'classes/themes/ThemeBadgePageRepository.class.php';
 
@@ -175,6 +176,10 @@ try {
             }
         }
         contentRespond($indexed);
+    }
+
+    if ($registry === 'emoticons') {
+        contentRespond((new ThemeEmoticonRepository(TEMPLATE_DIR, $themeName))->catalog());
     }
 
     if ($registry === 'badges') {

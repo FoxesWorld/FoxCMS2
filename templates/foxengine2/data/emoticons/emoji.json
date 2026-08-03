@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "categories": [
+    {
+      "id": "smileys_people",
+      "label": "Эмоции и люди",
+      "items": [
+        { "name": "adventure" },
+        { "name": "blush" },
+        { "name": "joy" },
+        { "name": "relieved" },
+        { "name": "sad" },
+        { "name": "smile" },
+        { "name": "smirk" },
+        { "name": "thinking" },
+        { "name": "wavehand" }
+      ]
+    },
+    {
+      "id": "animals_nature",
+      "label": "Животные и природа",
+      "items": [
+        { "name": "finley" },
+        { "name": "fox" },
+        { "name": "sadFox" }
+      ]
+    },
+    {
+      "id": "objects",
+      "label": "Объекты",
+      "items": [
+        { "name": "cluster" },
+        { "name": "coal" },
+        { "name": "coffee" },
+        { "name": "comet" },
+        { "name": "drip" },
+        { "name": "experiment" },
+        { "name": "explosion" },
+        { "name": "form" },
+        { "name": "gear" },
+        { "name": "guitar" },
+        { "name": "hotsprings" },
+        { "name": "lamp" },
+        { "name": "link" },
+        { "name": "medal" },
+        { "name": "paintBrush" },
+        { "name": "parcell" },
+        { "name": "pencil" },
+        { "name": "pray" },
+        { "name": "serum" },
+        { "name": "shield" },
+        { "name": "sparkles" },
+        { "name": "steam" },
+        { "name": "sword" },
+        { "name": "swords" },
+        { "name": "target" },
+        { "name": "warning" },
+        { "name": "wizard" }
+      ]
+    },
+    {
+      "id": "symbols",
+      "label": "Символы",
+      "items": [
+        { "name": "check" },
+        { "name": "like" }
+      ]
+    }
+  ]
+}

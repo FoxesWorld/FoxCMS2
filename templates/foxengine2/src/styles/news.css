@@ -1482,3 +1482,31 @@ body.tiptap-editor-lock-scroll { overflow: hidden; }
     justify-content: center;
   }
 }
+
+.news-comment-form__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tiptap-toolbar .fox-emoticon-picker__trigger {
+  min-width: 34px;
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.tiptap-toolbar .fox-emoticon-picker__panel {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+
+.tiptap-toolbar .fox-emoticon-picker__grid button {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 1;
+  padding: 5px;
+}

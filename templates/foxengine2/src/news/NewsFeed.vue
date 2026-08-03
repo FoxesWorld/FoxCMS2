@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 import { appBootstrap } from '@/app/context'
 import type { NewsDraft, NewsPost } from '@modules/News/client/types'
 import { deleteNewsPost, formatNewsDate, loadNews, saveNewsPost, toggleNewsLike } from '@modules/News/client/newsApi'
+import EmoticonText from '@engine/emoticons/EmoticonText.vue'
 import NewsEditor from './NewsEditor.vue'
 
 const props = withDefaults(defineProps<{ archive?: boolean }>(), { archive: false })
@@ -204,7 +205,7 @@ onMounted(() => void reload())
               </div>
             </div>
 
-            <p class="news-card__summary">{{ post.summary }}</p>
+            <EmoticonText tag="p" class="news-card__summary" :text="post.summary" />
           </div>
 
           <footer class="news-card__footer">

@@ -104,6 +104,7 @@ function handleAction(event: MouseEvent): void {
   <div
     v-else-if="page"
     class="static-page-html start-page-runtime"
+    v-emoticons
     @click.capture="handleAction"
     v-html="hydratedHtml"
   />

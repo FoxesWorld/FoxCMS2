@@ -1258,5 +1258,8 @@
   "theme.useroptions.useroptions.profilesettings.007": "Безопасность",
   "theme.useroptions.useroptions.profilesettings.008": "Открыть профиль",
   "theme.useroptions.useroptions.profilesettings.009": "Сохраняем…",
-  "theme.useroptions.useroptions.profilesettings.010": "Сохранить изменения"
+  "theme.useroptions.useroptions.profilesettings.010": "Сохранить изменения",
+  "engine.emoticons.picker.001": "Выбрать эмоджи",
+  "engine.emoticons.picker.002": "Загрузка эмоджи…",
+  "engine.emoticons.picker.003": "Каталог эмоджи недоступен."
 }

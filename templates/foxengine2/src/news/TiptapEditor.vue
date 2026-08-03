@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { TableKit } from '@tiptap/extension-table'
 import TextAlign from '@tiptap/extension-text-align'
 import { CharacterCount, Placeholder } from '@tiptap/extensions'
+import EmoticonPicker from '@engine/emoticons/EmoticonPicker.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -29,6 +30,7 @@ const sourceMode = ref(false)
 const sourceHtml = ref('')
 const fullscreen = ref(false)
 const revision = ref(0)
+const sourceInput = ref<HTMLTextAreaElement | null>(null)
 
 const editor = useEditor({
   content: props.modelValue || '',
@@ -153,6 +155,23 @@ function editLink(): void {
   instance.chain().focus().extendMarkRange('link').setLink({ href: normalized }).run()
 }
 
+function insertEmoticon(shortcode: string): void {
+  if (!sourceMode.value) {
+    editor.value?.chain().focus().insertContent(shortcode).run()
+    return
+  }
+  const input = sourceInput.value
+  const start = input?.selectionStart ?? sourceHtml.value.length
+  const end = input?.selectionEnd ?? start
+  sourceHtml.value = `${sourceHtml.value.slice(0, start)}${shortcode}${sourceHtml.value.slice(end)}`
+  void nextTick(() => {
+    if (!input) return
+    input.focus()
+    const cursor = start + shortcode.length
+    input.setSelectionRange(cursor, cursor)
+  })
+}
+
 function toggleSourceMode(): void {
   const instance = editor.value
   if (!instance || props.disabled) return
@@ -233,6 +252,10 @@ onBeforeUnmount(() => {
         <button type="button" :title="t('theme.news.tiptapeditor.024')" :aria-label="t('theme.news.tiptapeditor.024')" :disabled="disabled || sourceMode || !isActive('table')" @click="withEditor((instance) => instance.chain().focus().deleteTable().run())"><i class="fa-solid fa-table-list" /></button>
       </div>
 
+      <div class="tiptap-toolbar__group">
+        <EmoticonPicker :disabled="disabled" @select="insertEmoticon" />
+      </div>
+
       <div class="tiptap-toolbar__group tiptap-toolbar__group--end">
         <button type="button" :title="t('theme.news.tiptapeditor.025')" :aria-label="t('theme.news.tiptapeditor.025')" :disabled="disabled || sourceMode" @click="withEditor((instance) => instance.chain().focus().clearNodes().unsetAllMarks().run())"><i class="fa-solid fa-eraser" /></button>
         <button type="button" :title="t('theme.news.tiptapeditor.026')" :aria-label="t('theme.news.tiptapeditor.026')" :disabled="disabled || sourceMode || !editor.can().undo()" @click="withEditor((instance) => instance.chain().focus().undo().run())"><i class="fa-solid fa-rotate-left" /></button>
@@ -246,6 +269,7 @@ onBeforeUnmount(() => {
       <EditorContent v-if="editor && !sourceMode" :editor="editor" />
       <textarea
         v-else-if="sourceMode"
+        ref="sourceInput"
         v-model="sourceHtml"
         class="tiptap-editor__source"
         :maxlength="maximumLength"

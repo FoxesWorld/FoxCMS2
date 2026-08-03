@@ -1,6 +1,7 @@
 import { t } from '@/i18n'
 import { appBootstrap } from '@/app/context'
 import { bootstrapEndpoint } from '@/domain/bootstrap'
+import type { EmoticonCatalog } from '@/emoticons/types'
 
 export interface StaticPageDefinition {
   id: string
@@ -20,6 +21,7 @@ export interface BadgeDefinition {
 
 let staticPagesPromise: Promise<Record<string, StaticPageDefinition>> | null = null
 let badgesPromise: Promise<readonly BadgeDefinition[]> | null = null
+let emoticonsPromise: Promise<EmoticonCatalog> | null = null
 const badgePagePromises = new Map<string, Promise<BadgeDefinition>>()
 
 function registryUrl(registry: string): string {
@@ -54,6 +56,13 @@ export function loadBadges(): Promise<readonly BadgeDefinition[]> {
   return badgesPromise ??= loadRegistry<readonly BadgeDefinition[]>('badges')
 }
 
+export function loadEmoticons(): Promise<EmoticonCatalog> {
+  return emoticonsPromise ??= loadRegistry<EmoticonCatalog>('emoticons').catch((error: unknown) => {
+    emoticonsPromise = null
+    throw error
+  })
+}
+
 
 export function loadBadge(slug: string): Promise<BadgeDefinition> {
   const normalized = slug.trim().toLowerCase()
@@ -85,8 +94,9 @@ export function loadBadge(slug: string): Promise<BadgeDefinition> {
   return request
 }
 
-export function invalidateContentRegistry(registry?: 'project-pages' | 'badges'): void {
+export function invalidateContentRegistry(registry?: 'project-pages' | 'badges' | 'emoticons'): void {
   if (!registry || registry === 'project-pages') staticPagesPromise = null
+  if (!registry || registry === 'emoticons') emoticonsPromise = null
   if (!registry || registry === 'badges') {
     badgesPromise = null
     badgePagePromises.clear()

@@ -2,6 +2,7 @@ import { setLocale, t } from '@/i18n'
 import { createApp, type Component } from 'vue'
 import { router } from '@/router'
 import { appBootstrap } from '@/app/context'
+import { emoticonsDirective } from '@/emoticons/directive'
 
 export function mountEngine(rootComponent: Component): void {
   setLocale(appBootstrap.site.language || document.documentElement.lang)
@@ -13,6 +14,7 @@ export function mountEngine(rootComponent: Component): void {
   application.config.errorHandler = (error, instance, info) => {
     console.error('[FoxesCraft] Client runtime error', { error, instance, info })
   }
+  application.directive('emoticons', emoticonsDirective)
   application.use(router)
   application.mount(mountPoint)
   document.documentElement.dataset.themeReady = 'true'

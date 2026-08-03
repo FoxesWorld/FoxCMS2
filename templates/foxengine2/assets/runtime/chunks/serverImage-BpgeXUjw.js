@@ -1,2 +1,0 @@
-import{f as e,g as t}from"../theme.js";function n(n){let r=String(n??``).trim().replaceAll(`\\`,`/`);if(!r)return``;if(/^(?:https?:|data:|blob:)/i.test(r)||r.startsWith(`//`)||r.startsWith(`/`))return r;if(r.startsWith(`uploads/`)||r.startsWith(`templates/`))return`/${r}`;let i=r.replace(/^assets\//,``);return t(e,i.includes(`/`)?i:`img/servers/${i}`)}export{n as t};
-//# sourceMappingURL=serverImage-BpgeXUjw.js.map

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { NewsComment, NewsDetailResponse, NewsDraft, NewsPost } from '@modules/News/client/types'
 import {
@@ -13,6 +13,8 @@ import {
   saveNewsPost,
   toggleNewsLike,
 } from '@modules/News/client/newsApi'
+import EmoticonPicker from '@engine/emoticons/EmoticonPicker.vue'
+import EmoticonText from '@engine/emoticons/EmoticonText.vue'
 import NewsEditor from './NewsEditor.vue'
 
 const props = defineProps<{ id: number }>()
@@ -24,6 +26,7 @@ const loading = ref(true)
 const saving = ref(false)
 const editing = ref(false)
 const comment = ref('')
+const commentInput = ref<HTMLTextAreaElement | null>(null)
 const error = ref('')
 let trackedPostId: number | null = null
 
@@ -75,6 +78,22 @@ async function publishComment(): Promise<void> {
   await addNewsComment(post.value.id, comment.value.trim())
   comment.value = ''
   await load()
+}
+
+function insertCommentEmoticon(shortcode: string): void {
+  const input = commentInput.value
+  if (!input) {
+    comment.value += shortcode
+    return
+  }
+  const start = input.selectionStart ?? comment.value.length
+  const end = input.selectionEnd ?? start
+  comment.value = `${comment.value.slice(0, start)}${shortcode}${comment.value.slice(end)}`
+  void nextTick(() => {
+    input.focus()
+    const cursor = start + shortcode.length
+    input.setSelectionRange(cursor, cursor)
+  })
 }
 
 async function removeComment(item: NewsComment): Promise<void> {
@@ -137,7 +156,7 @@ watch(() => props.id, () => {
         <div class="news-article__intro">
           <span class="eyebrow">{{ t('theme.news.newsarticle.005') }}</span>
           <h1>{{ post.title }}</h1>
-          <p class="news-article__summary">{{ post.summary }}</p>
+          <EmoticonText tag="p" class="news-article__summary" :text="post.summary" />
           <div class="news-article__date">
             <time>{{ formatNewsDate(post.publishedAt || post.createdAt) }}</time>
           </div>
@@ -157,7 +176,7 @@ watch(() => props.id, () => {
 
       <div class="news-article__divider" aria-hidden="true"><span /></div>
 
-      <div class="news-article__content fr-view" v-html="post.content || ''" />
+      <div v-emoticons class="news-article__content fr-view" v-html="post.content || ''" />
 
       <footer class="news-article__reactions">
         <button
@@ -186,9 +205,12 @@ watch(() => props.id, () => {
     </header>
 
     <form v-if="canComment" class="news-comment-form" @submit.prevent="publishComment">
-      <textarea v-model="comment" rows="4" maxlength="2000" :placeholder="t('theme.news.newsarticle.011')" required />
+      <textarea ref="commentInput" v-model="comment" rows="4" maxlength="2000" :placeholder="t('theme.news.newsarticle.011')" required />
       <div class="news-comment-form__footer">
-        <small>{{ comment.length }} / 2000</small>
+        <div class="news-comment-form__tools">
+          <EmoticonPicker @select="insertCommentEmoticon" />
+          <small>{{ comment.length }} / 2000</small>
+        </div>
         <button class="button button--primary" type="submit" :disabled="!comment.trim()">
           <i class="fa-solid fa-paper-plane" aria-hidden="true" /><span>{{ t('theme.news.newsarticle.012') }}</span>
         </button>
@@ -208,7 +230,7 @@ watch(() => props.id, () => {
             <small>{{ item.authorGroup || `@${item.authorLogin}` }} · {{ formatNewsDate(item.createdAt) }}</small>
           </span>
         </button>
-        <p>{{ item.content }}</p>
+        <EmoticonText tag="p" :text="item.content" />
         <button v-if="item.canDelete" class="news-comment__delete" type="button" @click="removeComment(item)">
           <i class="fa-solid fa-trash-can" aria-hidden="true" />
           <span>{{ t('theme.news.newsarticle.014') }}</span>

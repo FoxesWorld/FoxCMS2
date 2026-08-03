@@ -1,2 +1,0 @@
-import{k as e,p as t,v as n}from"./i18n-CFsYDGvM.js";var r=[`innerHTML`],i=n({__name:`StaticPage`,props:{page:{}},setup(n){return(i,a)=>(e(),t(`div`,{class:`static-page-html`,innerHTML:n.page.html},null,8,r))}});export{i as t};
-//# sourceMappingURL=StaticPage-BPZs6NjY.js.map

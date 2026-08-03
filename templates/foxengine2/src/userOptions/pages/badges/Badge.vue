@@ -12,6 +12,7 @@ defineProps<{ loading: boolean; error: boolean; badge: BadgeDefinition | null }>
     v-else-if="badge"
     class="badge-runtime-page"
     :data-badge-route="badge.id"
+    v-emoticons
     v-html="badge.html"
   />
   <div v-else-if="error" class="system-message system-message--error">
