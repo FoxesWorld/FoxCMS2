@@ -14,6 +14,8 @@ export function useServerMonitor() {
     online: data.value?.totalPlayersOnline ?? servers.value.reduce((sum, server) => sum + (server.playersOnline ?? 0), 0),
     max: data.value?.totalPlayersMax ?? servers.value.reduce((sum, server) => sum + (server.playersMax ?? 0), 0),
   }))
+  const emptyMessage = computed(() => data.value?.message?.trim()
+    || 'Для вашей группы сейчас нет доступных серверов.')
   async function refresh(): Promise<void> {
     try { data.value = await foxesApi.post<MonitorResponse>({ sysRequest: 'parseMonitor' }); error.value = false }
     catch (requestError) { console.warn('[FoxesCraft] Monitor request failed', requestError); error.value = true }
@@ -22,5 +24,5 @@ export function useServerMonitor() {
   function openServer(serverName: string): void { void router.push({ name: 'server', params: { value: serverName } }) }
   onMounted(() => { void refresh(); timer = window.setInterval(() => void refresh(), 60_000) })
   onUnmounted(() => { if (timer) window.clearInterval(timer) })
-  return { servers, total, loading, error, openServer }
+  return { servers, total, emptyMessage, loading, error, openServer }
 }

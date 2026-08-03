@@ -159,9 +159,25 @@ final class SystemRequests
     {
         UtilityLoader::load('ServerParser', '1.0.0');
         $parser = new ServerParser($this->db, $this->userSession->uuid());
+        $serversJson = $parser->parseServers();
+        $servers = json_decode($serversJson, true);
+        if (is_array($servers) && ($servers['error'] ?? null) === 'ServerNotFound') {
+            JsonResponse::send([
+                'servers' => [],
+                'totalPlayersOnline' => 0,
+                'totalPlayersMax' => 0,
+                'absoluteRecord' => 0,
+                'todaysRecord' => 0,
+                'emptyReason' => 'no_accessible_servers',
+                'message' => 'Для вашей группы сейчас нет доступных серверов.',
+            ]);
+        }
+        if (!is_array($servers) || !array_is_list($servers)) {
+            throw new RuntimeException('Server parser returned an invalid monitoring payload.');
+        }
         $monitor = new foxesMon(
             $this->logger,
-            $parser->parseServers(),
+            $serversJson,
             ['out' => 2, 'record_day' => 86400],
         );
         JsonResponse::rawJson($monitor->outputMonitoringData());

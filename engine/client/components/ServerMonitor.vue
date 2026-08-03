@@ -16,6 +16,7 @@ interface MonitorResponse {
   totalPlayersOnline?: number
   totalPlayersMax?: number
   todaysRecord?: number
+  message?: string
 }
 
 const router = useRouter()
@@ -29,6 +30,8 @@ const total = computed(() => ({
   online: data.value?.totalPlayersOnline ?? servers.value.reduce((sum, server) => sum + (server.playersOnline ?? 0), 0),
   max: data.value?.totalPlayersMax ?? servers.value.reduce((sum, server) => sum + (server.playersMax ?? 0), 0),
 }))
+const emptyMessage = computed(() => data.value?.message?.trim()
+  || 'Для вашей группы сейчас нет доступных серверов.')
 
 async function refresh(): Promise<void> {
   try {
@@ -57,6 +60,7 @@ onUnmounted(() => { if (timer) window.clearInterval(timer) })
   <div class="server-monitor">
     <div v-if="loading" class="sidebar-placeholder">Получаем состояние серверов…</div>
     <div v-else-if="error && !servers.length" class="sidebar-placeholder">Мониторинг временно недоступен.</div>
+    <div v-else-if="!servers.length" class="sidebar-placeholder"><strong>Нет доступных серверов</strong><br>{{ emptyMessage }}</div>
     <template v-else>
       <button v-for="server in servers" :key="server.serverName" class="server-row" type="button" @click="openServer(server.serverName)">
         <img v-if="server.favicon" :src="server.favicon" :alt="`${server.serverName} icon`">

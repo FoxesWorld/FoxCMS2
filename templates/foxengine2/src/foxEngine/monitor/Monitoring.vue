@@ -6,7 +6,7 @@ import ServerEntry from './ServerEntry.vue'
 import TotalOnline from './TotalOnline.vue'
 
 const icon = themeAsset(appBootstrap, 'icons/monitor.png')
-const { servers, total, loading, error, openServer } = useServerMonitor()
+const { servers, total, emptyMessage, loading, error, openServer } = useServerMonitor()
 </script>
 
 <template>
@@ -56,8 +56,8 @@ const { servers, total, loading, error, openServer } = useServerMonitor()
         <div v-else class="monitoring-state">
           <span class="monitoring-state__mark" aria-hidden="true">—</span>
           <span>
-            <strong>Серверы пока не добавлены</strong>
-            <small>После публикации они появятся в этом блоке.</small>
+            <strong>Нет доступных серверов</strong>
+            <small>{{ emptyMessage }}</small>
           </span>
         </div>
 

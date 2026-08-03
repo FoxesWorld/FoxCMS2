@@ -24,7 +24,7 @@ final class AdminPanel extends Module
         ]);
 
         try {
-            if (!in_array($action, ['fileUpload', 'uploadSlideImage', 'uploadServerImage'], true)) {
+            if (!in_array($action, ['fileUpload', 'uploadSlideImage', 'uploadServerImage', 'uploadSiteSocialImage'], true)) {
                 CsrfToken::requireValid($request->csrfToken());
             }
             if (!$session->isAdmin()) {
@@ -46,6 +46,7 @@ final class AdminPanel extends Module
             $payload['_upload'] = $request->file('file');
             $payload['_slideUpload'] = $request->file('image');
             $payload['_serverImageUpload'] = $request->file('image');
+            $payload['_siteSocialImageUpload'] = $request->file('image');
             new AdminOptions(
                 $payload,
                 $db,

@@ -61,6 +61,26 @@ for (const token of [
 }
 if (codeEditor.includes('@codemirror/')) failures.push('CodeEditor must use CodeMirror 5, not @codemirror version 6 packages')
 
+
+const jsonTypes = await readFile(join(repositoryRoot, 'engine', 'client', 'forms', 'json-form', 'types.ts'), 'utf8')
+const jsonForm = await readFile(join(repositoryRoot, 'engine', 'client', 'forms', 'json-form', 'JsonFormEditor.vue'), 'utf8')
+const jsonValue = await readFile(join(repositoryRoot, 'engine', 'client', 'forms', 'json-form', 'JsonValueEditor.vue'), 'utf8')
+const jsonFormCss = await readFile(join(repositoryRoot, 'engine', 'client', 'forms', 'json-form', 'json-form.css'), 'utf8')
+const catalogs = await readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'Catalogs.vue'), 'utf8')
+for (const [source, token, message] of [
+  [jsonTypes, "export type JsonFieldControl = 'color'", 'JSON form color control type is missing'],
+  [jsonForm, 'fieldControls?: JsonFieldControls', 'JsonFormEditor does not expose field controls'],
+  [jsonForm, ':field-controls="fieldControls"', 'JsonFormEditor does not pass field controls to values'],
+  [jsonValue, 'type="color"', 'JSON value editor does not render a native color picker'],
+  [jsonValue, 'colorPickerValue', 'JSON value editor does not normalize color picker values'],
+  [jsonValue, ':field-controls="fieldControls"', 'JSON value editor does not propagate field controls recursively'],
+  [jsonFormCss, '.json-color-control__picker', 'JSON color picker styles are missing'],
+  [catalogs, "{ groupColor: 'color' }", 'Groups catalog does not declare groupColor as a color picker'],
+  [catalogs, ':field-controls="fieldControls"', 'Groups catalog does not pass color field controls'],
+]) {
+  if (!source.includes(token)) failures.push(message)
+}
+
 const packageJson = JSON.parse(await readFile(join(themeRoot, 'package.json'), 'utf8'))
 const codeMirrorVersion = packageJson?.dependencies?.codemirror
 if (typeof codeMirrorVersion !== 'string' || !/^\^?5\./.test(codeMirrorVersion)) {
@@ -76,4 +96,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('UI controls contract passed: shared controls and the CodeMirror 5 editor are enforced.')
+console.log('UI controls contract passed: shared controls, JSON color pickers and the CodeMirror 5 editor are enforced.')

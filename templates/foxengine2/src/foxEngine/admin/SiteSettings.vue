@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import ImageUploadField from '@/components/ImageUploadField.vue'
 import type { SiteSettings } from '@modules/AdminPanel/client/useAdminPanel'
 import SeoTagifyInput from './SeoTagifyInput.vue'
 
@@ -8,8 +9,14 @@ const props = defineProps<{
   loading: boolean
   updatedAt: string
   storageReady: boolean
+  imageUploading: boolean
+  imageError: string
 }>()
-const emit = defineEmits<{ save: [] }>()
+const emit = defineEmits<{
+  uploadImage: [file: File]
+  clearImage: []
+  save: []
+}>()
 
 const titlePreview = computed(() => props.settings.titleTemplate
   .replaceAll('%page%', 'Новости проекта')
@@ -86,7 +93,38 @@ const canonicalPreview = computed(() => props.settings.canonicalUrl || 'Кано
           <label><span>Название Open Graph</span><input v-model="settings.ogSiteName" maxlength="120" placeholder="FoxesCraft"></label>
           <label><span>Заголовок карточки</span><input v-model="settings.ogTitle" maxlength="180" placeholder="FoxesCraft"></label>
           <label class="site-settings-field--full"><span>Описание карточки</span><textarea v-model="settings.ogDescription" rows="3" maxlength="320" placeholder="Описание для предпросмотра ссылки."></textarea></label>
-          <label class="site-settings-field--full"><span>Изображение карточки</span><input v-model="settings.ogImage" maxlength="2048" placeholder="/uploads/site/social-cover.webp"><small>Используйте абсолютный URL или путь от корня сайта.</small></label>
+          <div class="site-settings-field--full site-settings-social-image">
+            <label>
+              <span>Open Graph image URL</span>
+              <input v-model.trim="settings.ogImage" maxlength="2048" placeholder="/uploads/site/social-card.webp">
+              <small>Значение атрибута <code>content</code> для <code>&lt;meta property=&quot;og:image&quot;&gt;</code>. Можно указать абсолютный URL или путь от корня сайта.</small>
+            </label>
+            <ImageUploadField
+              title="Изображение социальной карточки"
+              description="Загрузите изображение для Open Graph и Twitter Card"
+              :preview="settings.ogImage"
+              preview-alt="Предпросмотр социальной карточки"
+              preview-mode="wide"
+              preview-fit="cover"
+              :editor-aspect-ratio="1200 / 630"
+              accept="image/jpeg,image/png,image/webp"
+              :allowed-types="['image/jpeg', 'image/png', 'image/webp']"
+              :maximum-bytes="12_582_912"
+              :minimum-width="600"
+              :minimum-height="315"
+              :maximum-width="8192"
+              :maximum-height="8192"
+              :disabled="loading"
+              :uploading="imageUploading"
+              :error="imageError"
+              hint="Рекомендуемый размер 1200×630 · JPEG, PNG или WebP · до 12 МиБ"
+              choose-label="Загрузить изображение"
+              replace-label="Заменить изображение"
+              clear-label="Очистить og:image"
+              @select="emit('uploadImage', $event)"
+              @clear="emit('clearImage')"
+            />
+          </div>
           <label><span>Тип Twitter Card</span><select v-model="settings.twitterCard"><option value="summary_large_image">Большая карточка</option><option value="summary">Компактная карточка</option></select></label>
           <label><span>Favicon</span><input v-model="settings.faviconUrl" maxlength="2048" placeholder="/favicon.ico"></label>
           <label><span>Аккаунт сайта</span><input v-model="settings.twitterSite" maxlength="31" placeholder="@foxescraft"></label>

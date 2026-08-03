@@ -27,6 +27,7 @@ final class AdminOptions {
         'saveSlides' => 'saveSlides',
         'uploadSlideImage' => 'uploadSlideImage',
         'uploadServerImage' => 'uploadServerImage',
+        'uploadSiteSocialImage' => 'uploadSiteSocialImage',
         'content' => 'content',
         'saveProjectPages' => 'saveProjectPages',
         'saveBadgePage' => 'saveBadgePage',
@@ -202,7 +203,7 @@ final class AdminOptions {
         $users = (int)$this->scalar('SELECT COUNT(*) FROM `users`');
         $recent = (int)$this->scalar('SELECT COUNT(*) FROM `users` WHERE `last_date` >= :threshold', [':threshold' => time() - 86400]);
         $servers = (int)$this->scalar('SELECT COUNT(*) FROM `servers`');
-        $enabledServers = (int)$this->scalar("SELECT COUNT(*) FROM `servers` WHERE `enabled` = 'true'");
+        $enabledServers = (int)$this->scalar("SELECT COUNT(*) FROM `servers` WHERE LOWER(CAST(`enabled` AS CHAR)) IN ('true', '1')");
         $hardware = (int)$this->scalar('SELECT COUNT(*) FROM `system_hardware_inventory`');
 
         $this->respond([
@@ -435,6 +436,7 @@ final class AdminOptions {
     private function saveServer(): void {
         $payload = $this->decodeObject('entry');
         $originalName = trim((string)($this->request['originalName'] ?? ''));
+        $serverId = max(0, (int)($payload['id'] ?? 0));
         $serverName = trim((string)($payload['serverName'] ?? ''));
         $enabled = filter_var($payload['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $runtimeWarning = '';
@@ -442,17 +444,28 @@ final class AdminOptions {
             $this->respond(['message' => 'Некорректное имя сервера.', 'type' => 'error'], 400);
         }
 
+        $booleanStorage = $this->serverBooleanStorageModes();
         $data = [];
         foreach (self::SERVER_FIELDS as $field) {
             if (!array_key_exists($field, $payload)) continue;
             $value = $payload[$field];
             if (in_array($field, ['enabled', 'checkLib'], true)) {
-                $value = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+                $boolean = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                $value = ($booleanStorage[$field] ?? 'string') === 'numeric'
+                    ? ($boolean ? 1 : 0)
+                    : ($boolean ? 'true' : 'false');
             }
             if ($field === 'port') {
                 $value = filter_var($value, FILTER_VALIDATE_INT);
                 if ($value === false || $value < 1 || $value > 65535) {
                     $this->respond(['message' => 'Некорректный порт.', 'type' => 'error'], 400);
+                }
+            }
+            if ($field === 'host') {
+                $value = trim((string)$value);
+                if ($value === '' || strlen($value) > 255
+                    || preg_match('/[\x00-\x20\x7F]/', $value) === 1) {
+                    $this->respond(['message' => 'Некорректный адрес сервера.', 'type' => 'error'], 400);
                 }
             }
             if ($field === 'jreVersion') {
@@ -490,8 +503,16 @@ final class AdminOptions {
                     $this->normalizeGroupList($value),
                     JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
                 );
-            } elseif (in_array($field, ['ignoreDirs', 'modsInfo'], true) && (is_array($value) || is_object($value))) {
-                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            } elseif ($field === 'ignoreDirs') {
+                $value = json_encode(
+                    $this->normalizeServerIgnoreDirectories($value),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+                );
+            } elseif ($field === 'modsInfo') {
+                $value = json_encode(
+                    $this->normalizeServerMods($value),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+                );
             }
             $data[$field] = is_string($value) ? trim($value) : $value;
         }
@@ -506,24 +527,86 @@ final class AdminOptions {
             $runtimeWarning = 'Отключённый сервер сохранён без Java runtime. Назначьте JDK перед включением.';
         }
 
-        if ($originalName !== '') {
-            $parts = [];
-            $params = [':originalName' => $originalName];
-            foreach ($data as $field => $value) {
-                $placeholder = ':field_' . $field;
-                $parts[] = '`' . $field . '` = ' . $placeholder;
-                $params[$placeholder] = $value;
+        try {
+            if ($originalName !== '' || $serverId > 0) {
+                $parts = [];
+                $params = [];
+                foreach ($data as $field => $value) {
+                    $placeholder = ':field_' . $field;
+                    $parts[] = '`' . $field . '` = ' . $placeholder;
+                    $params[$placeholder] = $value;
+                }
+                if ($serverId > 0) {
+                    $params[':serverId'] = $serverId;
+                    $where = '`id` = :serverId';
+                } else {
+                    $params[':originalName'] = $originalName;
+                    $where = '`serverName` = :originalName';
+                }
+                $this->db->run('UPDATE `servers` SET ' . implode(', ', $parts) . ' WHERE ' . $where, $params);
+            } else {
+                $fields = array_keys($data);
+                $placeholders = array_map(fn($field) => ':' . $field, $fields);
+                $params = [];
+                foreach ($data as $field => $value) $params[':' . $field] = $value;
+                $this->db->run(
+                    'INSERT INTO `servers` (' . $this->quotedFields($fields) . ') VALUES (' . implode(', ', $placeholders) . ')',
+                    $params,
+                );
             }
-            $stmt = $this->db->prepare('UPDATE `servers` SET ' . implode(', ', $parts) . ' WHERE `serverName` = :originalName');
-            $stmt->execute($params);
-        } else {
-            $fields = array_keys($data);
-            $placeholders = array_map(fn($field) => ':' . $field, $fields);
-            $params = [];
-            foreach ($data as $field => $value) $params[':' . $field] = $value;
-            $stmt = $this->db->prepare('INSERT INTO `servers` (' . $this->quotedFields($fields) . ') VALUES (' . implode(', ', $placeholders) . ')');
-            $stmt->execute($params);
+        } catch (DatabaseException $error) {
+            $this->logger->exception(
+                'admin.server.save_failed',
+                $error,
+                'Server configuration could not be persisted.',
+                [
+                    'component' => 'admin_servers',
+                    'operation' => 'save',
+                    'serverId' => $serverId,
+                    'serverName' => $serverName,
+                    'originalName' => $originalName,
+                    'fields' => array_keys($data),
+                ],
+            );
+            $message = $error->getMessage();
+            if (str_contains($message, '23000') || str_contains($message, '1062')) {
+                $this->respond(['message' => 'Сервер с таким именем уже существует.', 'type' => 'error'], 409);
+            }
+            if (str_contains($message, '22001') || str_contains($message, '1406')) {
+                $field = '';
+                if (preg_match("/Data too long for column ['`]([^'`]+)['`]/i", $message, $columnMatch) === 1) {
+                    $field = (string)$columnMatch[1];
+                }
+                $labels = [
+                    'serverName' => 'Имя сервера',
+                    'host' => 'Адрес сервера',
+                    'serverGroups' => 'Группы доступа',
+                    'serverDescription' => 'Описание сервера',
+                    'serverVersion' => 'Версия сервера',
+                    'jreVersion' => 'Java runtime',
+                    'serverImage' => 'Изображение сервера',
+                    'ignoreDirs' => 'Игнорируемые каталоги',
+                    'modsInfo' => 'Информация о модах',
+                ];
+                $label = $labels[$field] ?? ($field !== '' ? $field : 'Одно из полей сервера');
+                $suffix = $field === 'serverImage'
+                    ? ' Примените миграцию 018, расширяющую legacy-колонку serverImage.'
+                    : '';
+                $this->respond([
+                    'message' => $label . ' превышает допустимую длину.' . $suffix,
+                    'type' => 'error',
+                    'field' => $field !== '' ? $field : null,
+                ], 422);
+            }
+            if (str_contains($message, '22032') || str_contains($message, '3140') || str_contains($message, '3141')) {
+                $this->respond(['message' => 'Структурированные данные сервера содержат некорректный JSON.', 'type' => 'error'], 422);
+            }
+            $this->respond([
+                'message' => 'Не удалось сохранить сервер. Проверьте актуальность схемы базы данных и применённые миграции.',
+                'type' => 'error',
+            ], 409);
         }
+
         $this->respond([
             'message' => $runtimeWarning !== ''
                 ? 'Сервер сохранён. ' . $runtimeWarning
@@ -690,6 +773,25 @@ final class AdminOptions {
         }
         $this->respond([
             'message' => 'Изображение слайда загружено.',
+            'type' => 'success',
+            'image' => $result->publicPath(),
+            'upload' => $result,
+        ], 201);
+    }
+
+    private function uploadSiteSocialImage(): void {
+        try {
+            $result = $this->uploads->store(
+                UploadPurpose::SITE_SOCIAL_IMAGE,
+                is_array($this->request['_siteSocialImageUpload'] ?? null)
+                    ? $this->request['_siteSocialImageUpload']
+                    : null,
+            );
+        } catch (UploadException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], $error->httpStatus());
+        }
+        $this->respond([
+            'message' => 'Изображение социальной карточки загружено.',
             'type' => 'success',
             'image' => $result->publicPath(),
             'upload' => $result,
@@ -1432,6 +1534,104 @@ final class AdminOptions {
             $this->respond(['message' => 'Пользователь не найден.', 'type' => 'error'], 404);
         }
         return $storedUuid;
+    }
+
+    /** @return array{enabled:string,checkLib:string} */
+    private function serverBooleanStorageModes(): array {
+        $modes = ['enabled' => 'string', 'checkLib' => 'string'];
+        try {
+            $statement = $this->db->prepare(
+                "SELECT `COLUMN_NAME`, `DATA_TYPE` FROM information_schema.COLUMNS "
+                . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'servers' "
+                . "AND COLUMN_NAME IN ('enabled', 'checkLib')"
+            );
+            $statement->execute();
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $column) {
+                $name = (string)($column['COLUMN_NAME'] ?? '');
+                $type = strtolower((string)($column['DATA_TYPE'] ?? ''));
+                if (array_key_exists($name, $modes)
+                    && in_array($type, ['bit', 'tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint', 'decimal'], true)) {
+                    $modes[$name] = 'numeric';
+                }
+            }
+        } catch (Throwable $error) {
+            $this->logger->exception(
+                'admin.server.boolean_storage_detection_failed',
+                $error,
+                'Server boolean column types could not be inspected; canonical string storage will be used.',
+                ['component' => 'admin_servers', 'operation' => 'inspect_schema'],
+            );
+        }
+        return $modes;
+    }
+
+    /** @return list<string> */
+    private function normalizeServerIgnoreDirectories(mixed $value): array {
+        if (is_string($value)) {
+            $raw = trim($value);
+            if ($raw === '') {
+                $source = [];
+            } else {
+                $decoded = json_decode($raw, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    if (!is_array($decoded) || !array_is_list($decoded)) {
+                        $this->respond(['message' => 'Игнорируемые каталоги должны быть JSON-массивом или списком через запятую.', 'type' => 'error'], 400);
+                    }
+                    $source = $decoded;
+                } else {
+                    $source = preg_split('/[\r\n,]+/', $raw) ?: [];
+                }
+            }
+        } elseif (is_array($value) && array_is_list($value)) {
+            $source = $value;
+        } else {
+            $this->respond(['message' => 'Игнорируемые каталоги должны быть массивом.', 'type' => 'error'], 400);
+        }
+
+        $directories = [];
+        foreach ($source as $entry) {
+            if (!is_string($entry) && !is_numeric($entry)) {
+                $this->respond(['message' => 'Каждый игнорируемый каталог должен быть строкой.', 'type' => 'error'], 400);
+            }
+            $directory = trim(str_replace('\\', '/', (string)$entry));
+            if ($directory === '') continue;
+            if (mb_strlen($directory, 'UTF-8') > 255
+                || preg_match('/[\x00-\x1F\x7F]/u', $directory) === 1) {
+                $this->respond(['message' => 'Некорректное имя игнорируемого каталога.', 'type' => 'error'], 400);
+            }
+            foreach (explode('/', $directory) as $segment) {
+                if ($segment === '..') {
+                    $this->respond(['message' => 'Сегмент .. запрещён в игнорируемых каталогах.', 'type' => 'error'], 400);
+                }
+            }
+            $directories[] = $directory;
+            if (count($directories) > 256) {
+                $this->respond(['message' => 'Указано слишком много игнорируемых каталогов.', 'type' => 'error'], 400);
+            }
+        }
+        return array_values(array_unique($directories));
+    }
+
+    /** @return list<mixed> */
+    private function normalizeServerMods(mixed $value): array {
+        if (is_string($value)) {
+            $raw = trim($value);
+            if ($raw === '') return [];
+            try {
+                $value = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                $this->respond(['message' => 'Информация о модах содержит некорректный JSON.', 'type' => 'error'], 400);
+            }
+        } elseif (is_object($value)) {
+            $value = (array)$value;
+        }
+        if (!is_array($value) || !array_is_list($value)) {
+            $this->respond(['message' => 'Информация о модах должна быть JSON-массивом.', 'type' => 'error'], 400);
+        }
+        if (count($value) > 2000) {
+            $this->respond(['message' => 'Список модов слишком велик.', 'type' => 'error'], 413);
+        }
+        return array_values($value);
     }
 
     private function normalizeServerImageReference(string $value): string {

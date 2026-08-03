@@ -241,6 +241,7 @@ function selectImage(index: number, file: File): void {
                 description="Перетащите новую обложку или выберите файл"
                 :preview="selectedImage"
                 preview-mode="none"
+                :editor-aspect-ratio="false"
                 accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                 :allowed-types="['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif']"
                 :maximum-bytes="12_582_912"

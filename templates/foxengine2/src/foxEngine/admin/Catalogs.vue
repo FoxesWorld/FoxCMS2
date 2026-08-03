@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { JsonFormEditor } from '@/forms/json-form'
-import type { JsonObject, JsonValue } from '@/forms/json-form'
-import type { JsonRow } from '@modules/AdminPanel/client/useAdminPanel'
+import type { JsonFieldControls, JsonObject, JsonValue } from '@/forms/json-form'
+import type { CatalogName, JsonRow } from '@modules/AdminPanel/client/useAdminPanel'
 
-type CatalogName = 'infobox' | 'badges' | 'groups'
 
 const props = defineProps<{
   name: CatalogName
@@ -13,8 +13,11 @@ const props = defineProps<{
   draft: JsonObject
 }>()
 
+const fieldControls = computed<JsonFieldControls>(() => props.name === 'groups'
+  ? { groupColor: 'color' }
+  : {})
+
 const emit = defineEmits<{
-  'update:name': [value: CatalogName]
   'update:draft': [value: JsonObject]
   create: []
   edit: [row: JsonRow]
@@ -22,10 +25,6 @@ const emit = defineEmits<{
   save: []
 }>()
 
-
-function updateName(event: Event): void {
-  emit('update:name', (event.target as HTMLSelectElement).value as CatalogName)
-}
 
 function updateDraft(value: JsonValue): void {
   emit('update:draft', value as JsonObject)
@@ -36,12 +35,11 @@ function updateDraft(value: JsonValue): void {
 <template>
   <section class="admin-section admin-split">
     <div>
-      <div class="admin-toolbar">
-        <select :value="name" @change="updateName">
-          <option value="infobox">InfoBox</option>
-          <option value="badges">Бейджи</option>
-          <option value="groups">Группы</option>
-        </select>
+      <div class="admin-toolbar admin-catalog-toolbar">
+        <span class="admin-catalog-toolbar__context">
+          <i class="fa-solid" :class="name === 'infobox' ? 'fa-circle-info' : name === 'badges' ? 'fa-award' : 'fa-user-group'" aria-hidden="true" />
+          <strong>{{ name === 'infobox' ? 'InfoBox' : name === 'badges' ? 'Бейджи' : 'Группы' }}</strong>
+        </span>
         <button class="button button--ghost" type="button" @click="emit('create')">Новая запись</button>
       </div>
 
@@ -74,6 +72,7 @@ function updateDraft(value: JsonValue): void {
         :samples="rows"
         label="Поля записи"
         root-kind="object"
+        :field-controls="fieldControls"
         @update:model-value="updateDraft"
       />
       <button class="button button--primary" type="submit">Сохранить запись</button>

@@ -6,7 +6,7 @@ import {
   inferJsonKind,
   isJsonObject,
 } from './jsonValue'
-import type { JsonFieldOptions, JsonKind, JsonObject, JsonValue } from './types'
+import type { JsonFieldControls, JsonFieldOptions, JsonKind, JsonObject, JsonValue } from './types'
 
 defineOptions({ name: 'JsonValueEditor' })
 
@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   depth?: number
   fieldOptions?: JsonFieldOptions
+  fieldControls?: JsonFieldControls
 }>(), {
   samples: () => [],
   label: '',
@@ -30,6 +31,7 @@ const props = withDefaults(defineProps<{
   disabled: false,
   depth: 0,
   fieldOptions: () => ({}),
+  fieldControls: () => ({}),
 })
 
 const emit = defineEmits<{ 'update:modelValue': [value: JsonValue] }>()
@@ -76,6 +78,15 @@ const codeLanguage = computed<CodeLanguage | null>(() => {
   return null
 })
 const fieldOptionList = computed(() => props.fieldName ? props.fieldOptions[props.fieldName] ?? [] : [])
+const fieldControl = computed(() => props.fieldName ? props.fieldControls[props.fieldName] : undefined)
+const isColorControl = computed(() => fieldControl.value === 'color')
+const isColorValueValid = computed(() => /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(stringValue.value.trim()))
+const colorPickerValue = computed(() => {
+  const value = stringValue.value.trim()
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value
+  const short = value.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i)
+  return short ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}` : '#000000'
+})
 
 
 function fieldSamples(key: string): JsonValue[] {
@@ -150,6 +161,7 @@ function updateBoolean(value: boolean): void {
               :depth="depth + 1"
               :disabled="disabled"
               :field-options="fieldOptions"
+              :field-controls="fieldControls"
               @update:model-value="updateObjectField(key, $event)"
             />
           </div>
@@ -175,6 +187,7 @@ function updateBoolean(value: boolean): void {
             :depth="depth + 1"
             :disabled="disabled"
             :field-options="fieldOptions"
+            :field-controls="fieldControls"
             @update:model-value="updateArrayItem(index, $event)"
           />
         </div>
@@ -188,7 +201,31 @@ function updateBoolean(value: boolean): void {
 
     <template v-else-if="kind === 'string' || kind === 'null'">
       <label v-if="label" class="json-primitive-label">{{ label }}</label>
-      <select v-if="fieldOptionList.length" :value="stringValue" :disabled="disabled" @change="updateString">
+      <div v-if="isColorControl" class="json-color-control">
+        <input
+          class="json-color-control__picker"
+          type="color"
+          :value="colorPickerValue"
+          :disabled="disabled"
+          :aria-label="`${fieldName || label || 'Цвет'}: выбор цвета`"
+          @input="updateString"
+        >
+        <input
+          class="json-color-control__value"
+          type="text"
+          :value="stringValue"
+          :disabled="disabled"
+          pattern="^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+          maxlength="7"
+          autocomplete="off"
+          spellcheck="false"
+          :aria-invalid="!isColorValueValid"
+          :aria-label="`${fieldName || label || 'Цвет'}: HEX`"
+          placeholder="#000000"
+          @input="updateString"
+        >
+      </div>
+      <select v-else-if="fieldOptionList.length" :value="stringValue" :disabled="disabled" @change="updateString">
         <option value="" disabled>Выберите значение</option>
         <option v-for="option in fieldOptionList" :key="option" :value="option">{{ option }}</option>
       </select>

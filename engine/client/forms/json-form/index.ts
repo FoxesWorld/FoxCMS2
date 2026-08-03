@@ -1,5 +1,5 @@
 export { default as JsonFormEditor } from './JsonFormEditor.vue'
-export type { JsonFieldOptions, JsonKind, JsonObject, JsonPrimitive, JsonValue } from './types'
+export type { JsonFieldControl, JsonFieldControls, JsonFieldOptions, JsonKind, JsonObject, JsonPrimitive, JsonValue } from './types'
 export {
   cloneJsonValue,
   collectJsonSamples,

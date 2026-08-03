@@ -64,6 +64,9 @@ final class UploadFileInspector
 
     public function validateExistingFile(string $path, UploadPolicy $policy): void
     {
+        if (!is_file($path) || !is_readable($path)) {
+            throw new UploadException('Указанный файл не найден или недоступен.', 404);
+        }
         $size = filesize($path);
         if (!is_int($size) || $size < 1 || $size > $policy->maximumBytes) {
             throw new UploadException('Файл пуст или превышает допустимый размер.', 413, [

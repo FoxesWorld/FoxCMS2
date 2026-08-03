@@ -113,6 +113,57 @@
 }
 
 
+
+.json-color-control {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.json-color-control__picker {
+  width: 52px;
+  min-width: 52px;
+  height: 42px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-soft);
+  cursor: pointer;
+}
+
+.json-color-control__picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.json-color-control__picker::-webkit-color-swatch {
+  border: 0;
+  border-radius: 6px;
+}
+
+.json-color-control__picker::-moz-color-swatch {
+  border: 0;
+  border-radius: 6px;
+}
+
+.json-color-control__picker:focus-visible,
+.json-color-control__value:focus-visible {
+  border-color: var(--color-accent);
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  outline-offset: 1px;
+}
+
+.json-color-control__picker:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.json-color-control__value[aria-invalid='true']:not(:placeholder-shown) {
+  border-color: var(--color-danger);
+}
+
 @media (max-width: 620px) {
   .json-field-row {
     grid-template-columns: 1fr;

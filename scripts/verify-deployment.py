@@ -71,6 +71,7 @@ STATIC_REQUIRED_FILES = {
     "database/migrations/015_consolidate_user_badges.sql": "DROP TABLE IF EXISTS `userBadges`",
     "database/migrations/016_revoke_public_badge_claim_key.sql": "activeLegacyPublicBadgeKeys",
     "database/migrations/017_public_badge_claim_access.sql": "`accessMode` = 'public'",
+    "database/migrations/018_expand_server_image_column.sql": "`serverImage` VARCHAR(512)",
     "database/repair-legacy-schema.sql": "Safe to run repeatedly",
 }
 

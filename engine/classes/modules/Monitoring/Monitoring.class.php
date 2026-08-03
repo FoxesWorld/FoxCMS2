@@ -99,12 +99,23 @@ private function fetchServersData()
 
     private function parseServers($serversArray)
     {
+        $decoded = json_decode((string)$serversArray, true);
+        if (!is_array($decoded) || !array_is_list($decoded)) {
+            return [];
+        }
         $servers = [];
-        foreach (json_decode($serversArray, true) as $server) {
+        foreach ($decoded as $server) {
+            if (!is_array($server)) continue;
+            $name = trim((string)($server['serverName'] ?? ''));
+            $host = trim((string)($server['host'] ?? ''));
+            $port = filter_var($server['port'] ?? null, FILTER_VALIDATE_INT);
+            if ($name === '' || $host === '' || $port === false || $port < 1 || $port > 65535) {
+                continue;
+            }
             $servers[] = [
-                'name' => $server['serverName'],
-                'host' => $server['host'],
-                'port' => $server['port'],
+                'name' => $name,
+                'host' => $host,
+                'port' => $port,
             ];
         }
         return $servers;

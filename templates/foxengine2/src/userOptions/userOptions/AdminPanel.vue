@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAdminPanel } from '@modules/AdminPanel/client/useAdminPanel'
+import type { AdminCategoryId, AdminSection, AdminToolId } from '@modules/AdminPanel/client/useAdminPanel'
+import AdminDashboard from '@theme/foxEngine/admin/Dashboard.vue'
+import AdminCategoryView from '@theme/foxEngine/admin/Category.vue'
 import AdminOverview from '@theme/foxEngine/admin/Overview.vue'
 import AdminSiteSettings from '@theme/foxEngine/admin/SiteSettings.vue'
 import AdminSlides from '@theme/foxEngine/admin/Slides.vue'
@@ -12,74 +16,155 @@ import AdminFileManager from '@theme/foxEngine/admin/FileManager.vue'
 import AdminLogs from '@theme/foxEngine/admin/Logs.vue'
 import AdminCatalogs from '@theme/foxEngine/admin/Catalogs.vue'
 
+const route = useRoute()
+const router = useRouter()
 const {
-  isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady,
+  isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
   maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, badgeClaimKeys, issuedBadgeClaimCode, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
   servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
-  logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, catalogKey,
-  formatTimestamp, loadSiteSettings, saveSiteSettings, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide,
+  logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, groupedTabs, catalogKey,
+  formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide,
   uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, issueBadgeClaimKey, revokeBadgeClaimKey, clearIssuedBadgeClaimCode, loadUsers, searchUsers, editUser, saveUser, grantBadgeToSelectedUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
 } = useAdminPanel()
 
-const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value) ?? tabs[0])
+const queryValue = (value: unknown): string => Array.isArray(value)
+  ? String(value[0] ?? '')
+  : typeof value === 'string' ? value : ''
+
+function normalizeTool(value: unknown): AdminSection {
+  const candidate = queryValue(value)
+  return tabs.some((tool) => tool.id === candidate) ? candidate as AdminToolId : 'home'
+}
+
+function normalizeCategory(value: unknown): AdminCategoryId | null {
+  const candidate = queryValue(value)
+  return groupedTabs.value.some((category) => category.id === candidate)
+    ? candidate as AdminCategoryId
+    : null
+}
+
+const currentTool = computed(() => {
+  const tool = normalizeTool(route.query.section)
+  return tool === 'home' ? null : tabs.find((entry) => entry.id === tool) ?? null
+})
+const currentCategory = computed(() => {
+  const categoryId = currentTool.value?.category ?? normalizeCategory(route.query.group)
+  return categoryId ? groupedTabs.value.find((category) => category.id === categoryId) ?? null : null
+})
+const isHome = computed(() => !currentCategory.value && !currentTool.value)
+const isCategory = computed(() => Boolean(currentCategory.value) && !currentTool.value)
+const isTool = computed(() => Boolean(currentTool.value))
+const pageTitle = computed(() => currentTool.value?.label ?? 'Центр управления')
+const pageDescription = computed(() => currentTool.value?.description
+  ?? 'Все возможности FoxesCraft, сгруппированные по назначению.')
+
+async function navigateHome(): Promise<void> {
+  await router.push({ query: { ...route.query, group: undefined, section: undefined } })
+}
+
+async function navigateCategory(category: AdminCategoryId): Promise<void> {
+  await router.push({ query: { ...route.query, group: category, section: undefined } })
+}
+
+async function navigateTool(toolId: AdminToolId): Promise<void> {
+  const tool = tabs.find((entry) => entry.id === toolId)
+  if (!tool) return
+  await router.push({ query: { ...route.query, group: tool.category, section: tool.id } })
+}
+
+watch(
+  () => [route.query.group, route.query.section] as const,
+  ([groupValue, sectionValue]) => {
+    const section = normalizeTool(sectionValue)
+    if (section !== 'home') {
+      const tool = tabs.find((entry) => entry.id === section)
+      if (!tool) { void activate('home'); return }
+      if (normalizeCategory(groupValue) !== tool.category) {
+        void router.replace({ query: { ...route.query, group: tool.category, section: tool.id } })
+        return
+      }
+      void activate(section)
+      return
+    }
+    void activate('home')
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div v-if="!isAdmin" class="system-message system-message--error">
     <strong>Доступ запрещён</strong>
-    <p>Административная панель доступна только пользователям с соответствующими правами.</p>
+    <p>Административный интерфейс доступен только учётным записям с группой admin.</p>
   </div>
 
-  <article v-else class="content-surface admin-page admin-workspace">
-    <aside class="admin-sidebar">
-      <header class="admin-sidebar__header">
-        <span class="admin-sidebar__mark" aria-hidden="true">
-          <i class="fa-solid fa-shield-halved" />
-        </span>
-        <div>
-          <span class="eyebrow">Control center</span>
-          <strong>FoxesCraft</strong>
-          <small>Администрирование</small>
-        </div>
-      </header>
-
-      <nav class="admin-tabs" aria-label="Разделы управления">
+  <article v-else class="content-surface admin-page admin-workspace" :class="{ 'admin-workspace--home': isHome, 'admin-workspace--navigation': isHome || isCategory }">
+    <nav class="admin-breadcrumbs" aria-label="Уровень навигации">
+      <button
+        type="button"
+        :class="{ 'is-current': isHome }"
+        :aria-current="isHome ? 'page' : undefined"
+        @click="navigateHome"
+      >
+        <i class="fa-solid fa-shield-halved" aria-hidden="true" />
+        <span>Админ-панель</span>
+      </button>
+      <template v-if="currentCategory">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true" />
         <button
-          v-for="tab in tabs"
-          :key="tab.id"
           type="button"
-          :class="{ active: activeTab === tab.id }"
-          :aria-current="activeTab === tab.id ? 'page' : undefined"
-          @click="activate(tab.id)"
+          class="admin-breadcrumbs__level"
+          :class="{ 'is-current': isCategory }"
+          :aria-current="isCategory ? 'page' : undefined"
+          @click="navigateCategory(currentCategory.id)"
         >
-          <i class="fa-solid" :class="tab.icon" aria-hidden="true" />
-          <span>
-            <strong>{{ tab.label }}</strong>
-            <small>{{ tab.description }}</small>
-          </span>
+          <i class="fa-solid" :class="currentCategory.icon" aria-hidden="true" />
+          {{ currentCategory.label }}
         </button>
-      </nav>
-
-      <footer class="admin-sidebar__footer">
-        <span class="admin-sidebar__status" :class="{ 'is-loading': loading }" aria-hidden="true" />
-        <span>{{ loading ? 'Выполняется операция' : 'Система готова' }}</span>
-      </footer>
-    </aside>
+      </template>
+      <template v-if="currentTool?.parentLabel">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span class="admin-breadcrumbs__level admin-breadcrumbs__level--parent">
+          <i class="fa-solid" :class="currentTool.parentIcon" aria-hidden="true" />
+          {{ currentTool.parentLabel }}
+        </span>
+      </template>
+      <template v-if="currentTool">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span class="admin-breadcrumbs__level is-current" aria-current="page">
+          <i class="fa-solid" :class="currentTool.icon" aria-hidden="true" />
+          {{ currentTool.label }}
+        </span>
+      </template>
+      <span class="admin-breadcrumbs__status" :class="{ 'is-loading': loading }">
+        <i class="fa-solid" :class="loading ? 'fa-spinner' : 'fa-circle-check'" aria-hidden="true" />
+        {{ loading ? 'Выполняется' : 'API online' }}
+      </span>
+    </nav>
 
     <main class="admin-workspace__main">
       <div class="admin-workspace__inner">
-        <header class="admin-header">
-          <div>
-            <span class="eyebrow">{{ currentTab?.label }}</span>
-            <h1>{{ currentTab?.label }}</h1>
-            <p class="lead">{{ currentTab?.description }}</p>
+        <header v-if="isTool" class="admin-header admin-header--section">
+          <button
+            class="admin-header__back"
+            type="button"
+            @click="currentCategory && navigateCategory(currentCategory.id)"
+          >
+            <i class="fa-solid fa-arrow-left" aria-hidden="true" />
+            <span>К группе</span>
+          </button>
+          <div class="admin-header__identity">
+            <span class="admin-header__icon" aria-hidden="true">
+              <i class="fa-solid" :class="currentTool?.icon" />
+            </span>
+            <div>
+              <span class="eyebrow">{{ currentTool?.parentLabel || currentCategory?.label }}</span>
+              <h1>{{ pageTitle }}</h1>
+              <p class="lead">{{ pageDescription }}</p>
+            </div>
           </div>
-          <span class="admin-state">
-            <i class="fa-solid" :class="loading ? 'fa-spinner' : 'fa-circle-check'" aria-hidden="true" />
-            {{ loading ? 'Обработка запроса' : 'API доступен' }}
-          </span>
         </header>
 
         <section
@@ -115,20 +200,41 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
               <dd><code>{{ feedback.error.exception }}</code></dd>
             </div>
             <div>
-              <dt>Код события</dt>
+              <dt>Код запроса</dt>
               <dd><code>{{ feedback.error.requestId || feedback.requestId || '—' }}</code></dd>
             </div>
           </dl>
         </section>
 
-        <section class="admin-workspace__content">
-          <AdminOverview v-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" />
+        <section class="admin-workspace__content" :class="{ 'admin-workspace__content--dashboard': isHome || isCategory }">
+          <AdminDashboard
+            v-if="isHome"
+            :categories="groupedTabs"
+            :overview="overview"
+            :hardware="hardware"
+            :loading="loading"
+            @select="navigateTool"
+            @select-category="navigateCategory"
+          />
+          <AdminCategoryView
+            v-else-if="isCategory && currentCategory"
+            :category="currentCategory"
+            :overview="overview"
+            :hardware="hardware"
+            :loading="loading"
+            @select="navigateTool"
+          />
+          <AdminOverview v-else-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" />
           <AdminSiteSettings
             v-else-if="activeTab === 'settings'"
             :settings="siteSettings"
             :loading="loading"
             :updated-at="siteSettingsUpdatedAt"
             :storage-ready="siteSettingsStorageReady"
+            :image-uploading="siteSocialImageUploading"
+            :image-error="siteSocialImageError"
+            @upload-image="uploadSiteSocialImage"
+            @clear-image="clearSiteSocialImage"
             @save="saveSiteSettings"
           />
           <AdminSlides
@@ -227,7 +333,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
           />
           <AdminCatalogs
             v-else-if="activeTab === 'catalogs'"
-            v-model:name="catalogName"
+            :name="catalogName"
             :rows="catalogRows"
             :key-field="catalogKey"
             :original-key="originalCatalogKey"
@@ -237,6 +343,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             @remove="deleteCatalogEntry"
             @save="saveCatalogEntry"
           />
+
         </section>
       </div>
     </main>

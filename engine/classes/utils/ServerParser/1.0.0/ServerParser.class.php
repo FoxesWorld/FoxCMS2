@@ -36,7 +36,7 @@ final class ServerParser
             if (!in_array($this->userGroupTag, $groups, true)) {
                 continue;
             }
-            if (($server['enabled'] ?? 'false') === 'true' || $this->parseAll) {
+            if (filter_var($server['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) || $this->parseAll) {
                 $server['serverGroups'] = $groups;
                 $visible[] = $server;
             }

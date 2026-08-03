@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import JsonValueEditor from './JsonValueEditor.vue'
 import { normalizeJsonValue } from './jsonValue'
-import type { JsonFieldOptions, JsonRootKind, JsonValue } from './types'
+import type { JsonFieldControls, JsonFieldOptions, JsonRootKind, JsonValue } from './types'
 import './json-form.css'
 
 const props = withDefaults(defineProps<{
@@ -12,12 +12,14 @@ const props = withDefaults(defineProps<{
   rootKind?: JsonRootKind
   disabled?: boolean
   fieldOptions?: JsonFieldOptions
+  fieldControls?: JsonFieldControls
 }>(), {
   samples: () => [],
   label: '',
   rootKind: 'auto',
   disabled: false,
   fieldOptions: () => ({}),
+  fieldControls: () => ({}),
 })
 
 const emit = defineEmits<{ 'update:modelValue': [value: JsonValue] }>()
@@ -33,6 +35,7 @@ const normalizedSamples = computed(() => props.samples.map((sample) => normalize
       :locked-kind="rootKind === 'auto' ? null : rootKind"
       :disabled="disabled"
       :field-options="fieldOptions"
+      :field-controls="fieldControls"
       :depth="0"
       @update:model-value="emit('update:modelValue', $event)"
     />

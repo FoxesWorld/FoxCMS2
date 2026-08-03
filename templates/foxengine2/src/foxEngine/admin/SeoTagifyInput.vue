@@ -92,13 +92,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <input
-    ref="input"
-    class="seo-tagify-input"
-    type="text"
-    :value="modelValue"
-    :placeholder="placeholder"
-    autocomplete="off"
-    spellcheck="false"
-  >
+  <div class="admin-tagify-field">
+    <input
+      ref="input"
+      class="admin-tagify-field__input seo-tagify-input"
+      type="text"
+      :value="modelValue"
+      :placeholder="placeholder"
+      autocomplete="off"
+      spellcheck="false"
+    >
+  </div>
 </template>

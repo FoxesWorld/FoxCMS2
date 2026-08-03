@@ -28,6 +28,7 @@ export default defineConfig({
       '@modules': engineModules,
       'vue': resolve(themeModules, 'vue', 'dist', 'vue.runtime.esm-bundler.js'),
       'vue-router': resolve(themeModules, 'vue-router', 'dist', 'vue-router.mjs'),
+      '@pqina/pintura': resolve(themeModules, '@pqina', 'pintura'),
     },
     dedupe: ['vue', 'vue-router'],
   },

@@ -7,6 +7,71 @@
   border-radius: 15px;
   background: var(--color-surface-soft);
 }
+
+.image-upload-field__content {
+  min-width: 0;
+  display: grid;
+  gap: 11px;
+}
+.image-upload-field.is-editing {
+  padding: 0;
+  overflow: hidden;
+}
+.pintura-inline-editor {
+  min-width: 0;
+  width: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(360px, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 15px;
+  color: var(--color-text);
+  background: var(--color-surface-strong);
+}
+.pintura-inline-editor--external {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+.pintura-inline-editor__header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+}
+.pintura-inline-editor__header > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.pintura-inline-editor__header strong { font-size: .88rem; }
+.pintura-inline-editor__header small {
+  color: var(--color-text-muted);
+  font-size: .7rem;
+  line-height: 1.35;
+}
+.pintura-inline-editor__mount {
+  min-width: 0;
+  min-height: 480px;
+  height: min(68dvh, 720px);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.pintura-inline-editor--external .pintura-inline-editor__mount {
+  min-height: 0;
+  height: 100%;
+}
+.pintura-inline-editor__mount > .PinturaRootWrapper,
+.pintura-inline-editor__mount > .PinturaRoot,
+.pintura-inline-editor__mount .PinturaRoot {
+  width: 100%;
+  height: 100%;
+}
 .image-upload-field__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .image-upload-field__header > div { min-width: 0; display: grid; gap: 3px; }
 .image-upload-field__header strong { font-size: .88rem; }
@@ -62,6 +127,10 @@
 @keyframes image-upload-spin { to { transform: rotate(1turn); } }
 @media (max-width:700px) {
   .image-upload-field__header { flex-direction: column; }
+  .pintura-inline-editor { grid-template-rows: auto minmax(320px, 1fr); }
+  .pintura-inline-editor__header { align-items: flex-start; flex-direction: column; }
+  .pintura-inline-editor__header .button { width: 100%; }
+  .pintura-inline-editor__mount { min-height: 420px; height: min(68dvh, 620px); }
   .image-upload-field__dropzone { grid-template-columns: 42px minmax(0,1fr); }
   .image-upload-field__dropzone > .button { grid-column: 1/-1; width: 100%; }
   .image-upload-field__actions .button { width: 100%; }

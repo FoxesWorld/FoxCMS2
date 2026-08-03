@@ -77,6 +77,8 @@ $requiredFiles = [
     'database/migrations/014_rules_expert_claim_key.sql',
     'database/migrations/015_consolidate_user_badges.sql',
     'database/migrations/016_revoke_public_badge_claim_key.sql',
+    'database/migrations/017_public_badge_claim_access.sql',
+    'database/migrations/018_expand_server_image_column.sql',
     'database/repair-legacy-schema.sql',
     'scripts/migrate-user-storage.php',
 ];
@@ -236,6 +238,20 @@ if ($skipDatabase) {
             foreach (array_diff($requiredColumns, $presentColumns) as $missingColumn) {
                 $fail('Required column is missing: ' . $table . '.' . $missingColumn);
             }
+        }
+
+        $serverImageColumn = $database->getRow(
+            "SELECT `DATA_TYPE`, `CHARACTER_MAXIMUM_LENGTH` FROM information_schema.COLUMNS "
+            . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'servers' "
+            . "AND COLUMN_NAME = 'serverImage' LIMIT 1"
+        );
+        $serverImageType = strtolower((string)($serverImageColumn['DATA_TYPE'] ?? ''));
+        $serverImageLength = (int)($serverImageColumn['CHARACTER_MAXIMUM_LENGTH'] ?? 0);
+        if (in_array($serverImageType, ['text', 'mediumtext', 'longtext'], true)
+            || $serverImageLength >= 512) {
+            $pass('servers.serverImage accepts canonical upload paths.');
+        } else {
+            $fail('servers.serverImage is too short; migration 018 is pending or incomplete.');
         }
 
         $columnStatement = $database->query(

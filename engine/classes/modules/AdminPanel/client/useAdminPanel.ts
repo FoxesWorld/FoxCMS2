@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowReactive, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, shallowReactive, watch } from 'vue'
 import { appBootstrap } from '@/app/context'
 import { FoxesApiError, foxesApi } from '@/api'
 import { invalidateContentRegistry } from '@/content/contentData'
@@ -8,6 +8,28 @@ import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, norma
 import type { JsonObject, JsonValue } from '@/forms/json-form'
 
 export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
+export type CatalogName = 'infobox' | 'badges' | 'groups'
+export type AdminToolId = Exclude<Tab, 'catalogs'> | 'catalog-infobox' | 'catalog-badges' | 'catalog-groups'
+export type AdminSection = 'home' | AdminToolId
+export type AdminView = 'home' | Tab
+export type AdminCategoryId = 'observability' | 'community' | 'content' | 'infrastructure'
+export interface AdminToolDefinition {
+  id: AdminToolId
+  tab: Tab
+  category: AdminCategoryId
+  label: string
+  description: string
+  icon: string
+  catalog?: CatalogName
+  parentLabel?: string
+  parentIcon?: string
+}
+export interface AdminCategoryDefinition {
+  id: AdminCategoryId
+  label: string
+  description: string
+  icon: string
+}
 export interface AdminErrorDetails {
   action: string
   exception: string
@@ -298,8 +320,8 @@ export interface ServerRow extends JsonRow {
   host?: string
   port?: number | string
   ignoreDirs?: unknown
-  enabled?: string | boolean
-  checkLib?: string | boolean
+  enabled?: string | boolean | number
+  checkLib?: string | boolean | number
   serverGroups?: unknown
   serverDescription?: string
   serverVersion?: string
@@ -333,9 +355,19 @@ export interface UserDraft {
   serversOnline: JsonValue
 }
 
+
+
+function normalizeServerArray(value: unknown, splitLegacy = false): JsonValue[] {
+  const decoded = decodeJsonValue(value, [])
+  if (Array.isArray(decoded)) return decoded
+  if (splitLegacy && typeof decoded === 'string') {
+    return decoded.split(/[\r\n,]+/).map((entry) => entry.trim()).filter(Boolean)
+  }
+  return []
+}
 export function useAdminPanel() {
   const isAdmin = appBootstrap.frontend.capabilities.includes('admin.panel')
-  const activeTab = ref<Tab>('overview')
+  const activeTab = ref<AdminView>('home')
   const loading = ref(false)
   const feedback = ref<Feedback | null>(null)
   const overview = ref<Overview | null>(null)
@@ -367,6 +399,8 @@ export function useAdminPanel() {
   })
   const siteSettingsUpdatedAt = ref('')
   const siteSettingsStorageReady = ref(false)
+  const siteSocialImageUploading = ref(false)
+  const siteSocialImageError = ref('')
   const maintenance = reactive<MaintenanceSettings>({
     enabled: false,
     allowedGroups: ['admin'],
@@ -442,24 +476,56 @@ export function useAdminPanel() {
   const logEntries = ref<LogEntry[]>([])
   const autoRefreshLogs = ref(false)
   let logTimer: number | undefined
-  const catalogName = ref<'infobox' | 'badges' | 'groups'>('infobox')
+  const catalogName = ref<CatalogName>('infobox')
   const catalogRows = ref<JsonRow[]>([])
   const catalogFields = ref<string[]>([])
   const catalogDraft = ref<JsonObject>({})
   const originalCatalogKey = ref('')
 
-  const tabs: Array<{ id: Tab; label: string; description: string; icon: string }> = [
-    { id: 'overview', label: 'Обзор', description: 'Состояние системы и основные показатели', icon: 'fa-chart-line' },
-    { id: 'settings', label: 'Настройки сайта', description: 'Title, SEO, индексация и социальные карточки', icon: 'fa-sliders' },
-    { id: 'slides', label: 'Слайды', description: 'Главный экран и порядок публикаций', icon: 'fa-images' },
-    { id: 'content', label: 'Контент', description: 'Страницы проекта и полные страницы бейджей', icon: 'fa-newspaper' },
-    { id: 'maintenance', label: 'Техработы', description: 'Режим обслуживания и доступ групп', icon: 'fa-screwdriver-wrench' },
-    { id: 'users', label: 'Пользователи', description: 'Аккаунты, группы и профильные данные', icon: 'fa-users' },
-    { id: 'servers', label: 'Серверы', description: 'Игровые серверы и параметры запуска', icon: 'fa-server' },
-    { id: 'files', label: 'Файлы', description: 'Управление каталогом uploads', icon: 'fa-folder-open' },
-    { id: 'logs', label: 'Журналы', description: 'Системные события и ошибки', icon: 'fa-rectangle-list' },
-    { id: 'catalogs', label: 'Каталоги', description: 'Справочники и структурированные данные', icon: 'fa-table-list' },
+  const categories: AdminCategoryDefinition[] = [
+    {
+      id: 'observability',
+      label: 'Обзор и контроль',
+      description: 'Состояние проекта, метрики и диагностика',
+      icon: 'fa-chart-line',
+    },
+    {
+      id: 'community',
+      label: 'Сообщество',
+      description: 'Игроки, группы, награды и справочники',
+      icon: 'fa-users',
+    },
+    {
+      id: 'content',
+      label: 'Контент и оформление',
+      description: 'Страницы, слайды, SEO и параметры сайта',
+      icon: 'fa-layer-group',
+    },
+    {
+      id: 'infrastructure',
+      label: 'Инфраструктура',
+      description: 'Серверы, хранилище и режим обслуживания',
+      icon: 'fa-server',
+    },
   ]
+  const tabs: AdminToolDefinition[] = [
+    { id: 'overview', tab: 'overview', category: 'observability', label: 'Обзор', description: 'Сводка проекта и данные об оборудовании', icon: 'fa-chart-line' },
+    { id: 'logs', tab: 'logs', category: 'observability', label: 'Журналы', description: 'Запросы, ошибки и диагностический контекст', icon: 'fa-rectangle-list' },
+    { id: 'users', tab: 'users', category: 'community', label: 'Пользователи', description: 'Профили, группы, баланс и награды', icon: 'fa-users' },
+    { id: 'catalog-infobox', tab: 'catalogs', category: 'community', catalog: 'infobox', parentLabel: 'Каталоги', parentIcon: 'fa-table-list', label: 'InfoBox', description: 'Информационные блоки и справочные записи', icon: 'fa-circle-info' },
+    { id: 'catalog-badges', tab: 'catalogs', category: 'community', catalog: 'badges', parentLabel: 'Каталоги', parentIcon: 'fa-table-list', label: 'Бейджи', description: 'Награды, изображения и параметры бейджей', icon: 'fa-award' },
+    { id: 'catalog-groups', tab: 'catalogs', category: 'community', catalog: 'groups', parentLabel: 'Каталоги', parentIcon: 'fa-table-list', label: 'Группы', description: 'Роли, цвета и права групп пользователей', icon: 'fa-user-group' },
+    { id: 'content', tab: 'content', category: 'content', label: 'Страницы', description: 'Проектные страницы, бейджи и ключи выдачи', icon: 'fa-newspaper' },
+    { id: 'slides', tab: 'slides', category: 'content', label: 'Слайды', description: 'Главный слайдер, изображения и переходы', icon: 'fa-images' },
+    { id: 'settings', tab: 'settings', category: 'content', label: 'Настройки сайта', description: 'Title, SEO, метаданные и оформление', icon: 'fa-sliders' },
+    { id: 'servers', tab: 'servers', category: 'infrastructure', label: 'Серверы', description: 'Игровая сеть, runtime JDK и параметры запуска', icon: 'fa-server' },
+    { id: 'files', tab: 'files', category: 'infrastructure', label: 'Файлы', description: 'Хранилище uploads, загрузка и каталоги', icon: 'fa-folder-open' },
+    { id: 'maintenance', tab: 'maintenance', category: 'infrastructure', label: 'Обслуживание', description: 'Технический режим и доступ групп', icon: 'fa-screwdriver-wrench' },
+  ]
+  const groupedTabs = computed(() => categories.map((category) => ({
+    ...category,
+    tools: tabs.filter((tab) => tab.category === category.id),
+  })))
   const catalogKey = computed(() => ({ infobox: 'group_name', badges: 'badgeName', groups: 'groupTag' })[catalogName.value])
 
   function setGroups(groups: GroupOption[]): void { groupOptions.value = groups }
@@ -518,6 +584,30 @@ export function useAdminPanel() {
     Object.assign(siteSettings, response.settings)
     siteSettingsUpdatedAt.value = response.updatedAt || ''
     siteSettingsStorageReady.value = response.storageReady
+    siteSocialImageError.value = ''
+  }
+  function clearSiteSocialImage(): void {
+    siteSettings.ogImage = ''
+    siteSocialImageError.value = ''
+  }
+  async function uploadSiteSocialImage(file: File): Promise<void> {
+    if (siteSocialImageUploading.value) return
+    const body = new FormData()
+    body.set('admPanel', 'uploadSiteSocialImage')
+    body.set('image', file, file.name)
+    siteSocialImageUploading.value = true
+    siteSocialImageError.value = ''
+    try {
+      const response = await run(() => foxesApi.postFormData<Feedback & { image: string }>(body))
+      if (response?.image) {
+        siteSettings.ogImage = response.image
+        feedback.value = response
+      } else {
+        siteSocialImageError.value = feedback.value?.message || 'Не удалось загрузить изображение социальной карточки.'
+      }
+    } finally {
+      siteSocialImageUploading.value = false
+    }
   }
   async function saveSiteSettings(): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback & {
@@ -877,12 +967,12 @@ export function useAdminPanel() {
       option.value === rawRuntime || option.versions.includes(rawRuntime)
     ))?.value ?? rawRuntime
     Object.assign(serverDraft, server, {
-      enabled: server.enabled === true || server.enabled === 'true',
-      checkLib: server.checkLib === true || server.checkLib === 'true',
-      ignoreDirs: decodeJsonValue(server.ignoreDirs, []),
+      enabled: server.enabled === true || server.enabled === 'true' || Number(server.enabled) === 1,
+      checkLib: server.checkLib === true || server.checkLib === 'true' || Number(server.checkLib) === 1,
+      ignoreDirs: normalizeServerArray(server.ignoreDirs, true),
       serverGroups: Array.isArray(server.serverGroups) ? server.serverGroups.map(String) : [],
       jreVersion: runtimeFamily,
-      modsInfo: decodeJsonValue(server.modsInfo, []),
+      modsInfo: normalizeServerArray(server.modsInfo),
     })
   }
   function clearServerImage(): void {
@@ -913,9 +1003,9 @@ export function useAdminPanel() {
   async function saveServer(): Promise<void> {
     const entry = {
       ...serverDraft,
-      ignoreDirs: serverDraft.ignoreDirs,
+      ignoreDirs: normalizeServerArray(serverDraft.ignoreDirs, true),
       serverGroups: [...serverDraft.serverGroups],
-      modsInfo: serverDraft.modsInfo,
+      modsInfo: normalizeServerArray(serverDraft.modsInfo),
     }
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'saveServer', originalName: selectedServer.value?.serverName ?? '', entry: JSON.stringify(entry) }))
     if (response) { feedback.value = response; await loadServers(); newServer() }
@@ -1032,33 +1122,43 @@ export function useAdminPanel() {
       await loadCatalog()
     }
   }
-  async function activate(tab: Tab): Promise<void> {
-    activeTab.value = tab
-    if (tab === 'overview') await loadOverview()
-    if (tab === 'settings') await loadSiteSettings()
-    if (tab === 'slides') await loadSlides()
-    if (tab === 'content') await loadContent()
-    if (tab === 'maintenance') await loadMaintenance()
-    if (tab === 'users') await loadUsers()
-    if (tab === 'servers') { await loadServers(); if (!selectedServer.value) newServer() }
-    if (tab === 'files') await loadFiles()
-    if (tab === 'logs') await loadLogs()
-    if (tab === 'catalogs') await loadCatalog()
+  async function activate(section: AdminSection): Promise<void> {
+    feedback.value = null
+    if (section === 'home') {
+      activeTab.value = 'home'
+      if (!overview.value || !hardware.value) await loadOverview()
+      return
+    }
+    const tool = tabs.find((entry) => entry.id === section)
+    if (!tool) {
+      activeTab.value = 'home'
+      return
+    }
+    activeTab.value = tool.tab
+    if (tool.catalog) catalogName.value = tool.catalog
+    if (tool.tab === 'overview') await loadOverview()
+    if (tool.tab === 'settings') await loadSiteSettings()
+    if (tool.tab === 'slides') await loadSlides()
+    if (tool.tab === 'content') await loadContent()
+    if (tool.tab === 'maintenance') await loadMaintenance()
+    if (tool.tab === 'users') await loadUsers()
+    if (tool.tab === 'servers') { await loadServers(); if (!selectedServer.value) newServer() }
+    if (tool.tab === 'files') await loadFiles()
+    if (tool.tab === 'logs') await loadLogs()
+    if (tool.tab === 'catalogs') await loadCatalog()
   }
   watch(logFile, () => void loadLogs())
   watch(autoRefreshLogs, updateLogTimer)
-  watch(catalogName, () => void loadCatalog())
-  onMounted(() => { if (isAdmin) void loadOverview() })
   onUnmounted(() => { if (logTimer) window.clearInterval(logTimer) })
 
   return {
-    isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady,
+    isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
     maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, badgeClaimKeys, issuedBadgeClaimCode, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
-    originalCatalogKey, tabs, catalogKey, formatTimestamp,
-    loadSiteSettings, saveSiteSettings, loadMaintenance,
+    originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp,
+    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
     loadContent, ensureBadgePage, removeBadgePage, issueBadgeClaimKey, revokeBadgeClaimKey, clearIssuedBadgeClaimCode, saveProjectPages, saveBadgePage, deleteBadgePage,
     loadUsers, searchUsers, editUser, saveUser, grantBadgeToSelectedUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer,

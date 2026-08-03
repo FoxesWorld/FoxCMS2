@@ -11,6 +11,8 @@ export interface MonitorResponse {
   totalPlayersOnline?: number
   totalPlayersMax?: number
   todaysRecord?: number
+  emptyReason?: 'no_accessible_servers'
+  message?: string
 }
 export interface LastUserRecord {
   login: string

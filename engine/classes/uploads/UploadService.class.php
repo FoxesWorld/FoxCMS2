@@ -121,6 +121,7 @@ final class UploadService
             UploadPurpose::NEWS_COVER => 'news-' . bin2hex(random_bytes(16)) . '.' . $upload->extension,
             UploadPurpose::SLIDER_IMAGE => 'slide-' . bin2hex(random_bytes(16)) . '.' . $upload->extension,
             UploadPurpose::SERVER_IMAGE => 'server-' . bin2hex(random_bytes(16)) . '.' . $upload->extension,
+            UploadPurpose::SITE_SOCIAL_IMAGE => 'social-card-' . bin2hex(random_bytes(16)) . '.' . $upload->extension,
             UploadPurpose::PROFILE_PHOTO => 'profile-photo-' . bin2hex(random_bytes(12)) . '.' . $upload->extension,
             UploadPurpose::MINECRAFT_SKIN => Uuid::canonical($this->policies->ownerUuid($context)) . '-skin.png',
             UploadPurpose::MINECRAFT_CAPE => Uuid::canonical($this->policies->ownerUuid($context)) . '-cape.png',

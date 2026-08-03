@@ -55,6 +55,7 @@ final class UploadPolicyFactory
                 UploadPermission::SLIDER_IMAGE,
                 $authorize,
             ),
+            UploadPurpose::SITE_SOCIAL_IMAGE => $this->siteSocialImagePolicy($authorize),
             UploadPurpose::SERVER_IMAGE => $this->serverImagePolicy($authorize),
             UploadPurpose::PROFILE_PHOTO => new UploadPolicy(
                 purpose: $purpose,
@@ -122,6 +123,30 @@ final class UploadPolicyFactory
             maximumWidth: $maximumDimension,
             maximumHeight: $maximumDimension,
             maximumPixels: $maximumPixels,
+            image: true,
+        );
+    }
+
+    private function siteSocialImagePolicy(bool $authorize): UploadPolicy
+    {
+        if ($authorize) {
+            $this->assertAdminOrPermission(UploadPermission::SITE_SOCIAL_IMAGE);
+        }
+        return new UploadPolicy(
+            purpose: UploadPurpose::SITE_SOCIAL_IMAGE,
+            directory: 'site',
+            createDirectory: true,
+            maximumBytes: 12_582_912,
+            mimeExtensions: [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+            ],
+            minimumWidth: 600,
+            minimumHeight: 315,
+            maximumWidth: 8192,
+            maximumHeight: 8192,
+            maximumPixels: 33_554_432,
             image: true,
         );
     }

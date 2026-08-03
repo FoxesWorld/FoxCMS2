@@ -1944,6 +1944,58 @@ body,.app-shell,.site-header,.content-surface,.sidebar-card,.site-footer,.cookie
     background: var(--color-surface-soft);
 }
 
+.admin-upload-panel__content {
+    min-width: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.admin-upload-editor {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto minmax(480px, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-surface-strong);
+}
+
+.admin-upload-editor__header {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.admin-upload-editor__header > div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.admin-upload-editor__header small {
+    color: var(--color-text-muted);
+    font-size: .72rem;
+}
+
+.admin-upload-editor__mount {
+    min-width: 0;
+    min-height: 480px;
+    height: min(68dvh, 720px);
+    overflow: hidden;
+}
+
+.admin-upload-editor__mount > .PinturaRootWrapper,
+.admin-upload-editor__mount > .PinturaRoot,
+.admin-upload-editor__mount .PinturaRoot {
+    width: 100%;
+    height: 100%;
+}
+
 .admin-upload-panel__header,
 .admin-file-tool--directory > div {
     min-width: 0;
@@ -2057,7 +2109,7 @@ body,.app-shell,.site-header,.content-surface,.sidebar-card,.site-footer,.cookie
 .admin-upload-selection {
     min-width: 0;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 34px;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
     padding: 10px;
@@ -2101,19 +2153,27 @@ body,.app-shell,.site-header,.content-surface,.sidebar-card,.site-footer,.cookie
     font-size: .68rem;
 }
 
-.admin-upload-selection > button {
+.admin-upload-selection__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.admin-upload-selection__actions > button {
     width: 34px;
     height: 34px;
     display: grid;
     place-items: center;
     border: 1px solid var(--color-border);
     border-radius: 9px;
-    color: var(--color-danger);
+    color: var(--color-text-muted);
     background: transparent;
     cursor: pointer;
 }
 
-.admin-upload-selection > button:hover:not(:disabled) {
+.admin-upload-selection__actions > button:last-child { color: var(--color-danger); }
+.admin-upload-selection__actions > button:hover:not(:disabled) { background: var(--color-surface-soft); }
+.admin-upload-selection__actions > button:last-child:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
@@ -2670,4 +2730,10 @@ body,.app-shell,.site-header,.content-surface,.sidebar-card,.site-footer,.cookie
     .rules-list > li:hover {
         transform: none;
     }
+}
+@media (max-width: 700px) {
+    .admin-upload-editor { grid-template-rows: auto minmax(400px, 1fr); }
+    .admin-upload-editor__header { align-items: flex-start; flex-direction: column; }
+    .admin-upload-editor__header .button { width: 100%; }
+    .admin-upload-editor__mount { min-height: 400px; height: min(66dvh, 600px); }
 }

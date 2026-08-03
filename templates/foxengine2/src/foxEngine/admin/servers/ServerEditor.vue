@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
+import SeoTagifyInput from '../SeoTagifyInput.vue'
 import { JsonFormEditor, collectJsonSamples } from '@/forms/json-form'
 import { serverImageUrl } from '@/domain/serverImage'
 import type { JsonValue } from '@/forms/json-form'
@@ -26,11 +27,44 @@ const emit = defineEmits<{
   save: []
 }>()
 
-type StructuredServerField = 'ignoreDirs' | 'modsInfo'
+type StructuredServerField = 'modsInfo'
 
 function samplesFor(field: StructuredServerField): JsonValue[] {
   return collectJsonSamples(props.samples, field)
 }
+
+function normalizeIgnoreDirectories(value: unknown): string[] {
+  let source: unknown[] = []
+  if (Array.isArray(value)) {
+    source = value
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed !== '') {
+      try {
+        const decoded = JSON.parse(trimmed)
+        source = Array.isArray(decoded) ? decoded : trimmed.split(/[\r\n,;]+/u)
+      } catch {
+        source = trimmed.split(/[\r\n,;]+/u)
+      }
+    }
+  }
+
+  const unique = new Map<string, string>()
+  for (const raw of source) {
+    if (typeof raw !== 'string' && typeof raw !== 'number') continue
+    const directory = String(raw).trim().replace(/\\/gu, '/').replace(/\/{2,}/gu, '/')
+    if (!directory) continue
+    unique.set(directory.toLocaleLowerCase('ru'), directory)
+  }
+  return [...unique.values()]
+}
+
+const ignoreDirectories = computed({
+  get: () => normalizeIgnoreDirectories(props.draft.ignoreDirs).join(', '),
+  set: (value: string) => {
+    props.draft.ignoreDirs = normalizeIgnoreDirectories(value)
+  },
+})
 
 const selectedJdk = computed(() => props.jdkOptions.find((option) => option.value === props.draft.jreVersion) ?? null)
 const runtimeValue = computed(() => props.draft.jreVersion.trim())
@@ -251,13 +285,13 @@ function serverStyle(): Record<string, string> {
 
         <article class="admin-user-data-card">
           <header><div><strong>Игнорируемые каталоги</strong><small>Исключения синхронизации</small></div></header>
-          <JsonFormEditor
-            :model-value="draft.ignoreDirs"
-            :samples="samplesFor('ignoreDirs')"
-            label="Игнорируемые каталоги"
-            root-kind="array"
-            @update:model-value="draft.ignoreDirs = $event"
+          <SeoTagifyInput
+            v-model="ignoreDirectories"
+            placeholder="Добавьте каталог и нажмите Enter"
           />
+          <small class="admin-tagify-field__hint">
+            Добавляйте каталоги по одному. Enter, запятая и точка с запятой завершают тег.
+          </small>
         </article>
 
         <article class="admin-user-data-card admin-user-data-card--wide">

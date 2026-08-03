@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { FileEntry } from '@modules/AdminPanel/client/useAdminPanel'
+import { editImageWithPintura, isPinturaEditableImage } from '@/media/pinturaImageEditor'
 
 const MAX_UPLOAD_BYTES = 67_108_864
 
@@ -32,6 +33,10 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const dragDepth = ref(0)
 const searchQuery = ref('')
 const failedPreviews = ref<Set<string>>(new Set())
+const editingImage = ref(false)
+const imageEditError = ref('')
+const imageEditorHost = ref<HTMLElement | null>(null)
+let imageEditorAbortController: AbortController | null = null
 const previewableExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'bmp', 'ico', 'svg'])
 const activeExtensions = new Set(['php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phar', 'cgi', 'pl', 'py', 'sh', 'bash', 'html', 'htm', 'shtml', 'xhtml', 'js', 'mjs', 'svg', 'xml', 'htaccess'])
 
@@ -47,8 +52,10 @@ const isDragging = computed(() => dragDepth.value > 0)
 const selectedUploadTooLarge = computed(() => (props.selectedUpload?.size ?? 0) > MAX_UPLOAD_BYTES)
 const selectedUploadEmpty = computed(() => props.selectedUpload !== null && props.selectedUpload.size < 1)
 const selectedUploadValid = computed(() => props.selectedUpload !== null && !selectedUploadTooLarge.value && !selectedUploadEmpty.value)
+const selectedUploadEditable = computed(() => props.selectedUpload ? isPinturaEditableImage(props.selectedUpload) : false)
 const uploadBlockedReason = computed(() => {
   if (props.uploading) return 'Файл уже загружается. Дождитесь завершения операции.'
+  if (editingImage.value) return 'Изображение открыто в редакторе Pintura.'
   if (props.loading) return 'Содержимое каталога обновляется. Загрузка станет доступна после завершения перехода.'
   if (!props.writable) return 'Текущий каталог недоступен для записи процессу PHP. Проверьте владельца, группу и права каталога на сервере.'
   if (!props.selectedUpload) return 'Сначала выберите файл или перетащите его в область загрузки.'
@@ -103,20 +110,74 @@ function markPreviewFailed(entry: FileEntry): void {
 }
 
 function chooseFile(): void {
-  if (!props.writable || props.loading) return
+  if (!props.writable || props.loading || editingImage.value) return
   fileInput.value?.click()
 }
 
-function selectFile(file: File | null): void {
-  emit('selectUpload', file)
+async function selectFile(file: File | null): Promise<void> {
+  imageEditError.value = ''
+  if (!file) {
+    emit('selectUpload', null)
+    return
+  }
+  if (!isPinturaEditableImage(file)) {
+    emit('selectUpload', file)
+    return
+  }
+
+  await editRasterImage(file)
+}
+
+async function editRasterImage(file: File): Promise<void> {
+  editingImage.value = true
+  await nextTick()
+  const target = imageEditorHost.value
+  if (!target) {
+    editingImage.value = false
+    imageEditError.value = 'Контейнер встроенного редактора изображения не найден.'
+    return
+  }
+
+  const controller = new AbortController()
+  imageEditorAbortController = controller
+  try {
+    const edited = await editImageWithPintura(file, {
+      target,
+      aspectRatio: false,
+      quality: 0.9,
+      maximumWidth: 8192,
+      maximumHeight: 8192,
+      targetFit: 'contain',
+      upscale: false,
+      signal: controller.signal,
+    })
+    if (edited) emit('selectUpload', edited)
+  } catch (error) {
+    imageEditError.value = error instanceof Error ? error.message : 'Не удалось отредактировать изображение.'
+  } finally {
+    if (imageEditorAbortController === controller) imageEditorAbortController = null
+    editingImage.value = false
+  }
+}
+
+function cancelImageEditing(): void {
+  imageEditorAbortController?.abort()
+}
+
+async function editSelectedUpload(): Promise<void> {
+  if (!props.selectedUpload || !selectedUploadEditable.value || editingImage.value) return
+  await editRasterImage(props.selectedUpload)
 }
 
 function onFileInput(event: Event): void {
-  selectFile((event.target as HTMLInputElement).files?.[0] ?? null)
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0] ?? null
+  target.value = ''
+  void selectFile(file)
 }
 
 function clearUpload(): void {
-  selectFile(null)
+  void selectFile(null)
   if (fileInput.value) fileInput.value.value = ''
 }
 
@@ -131,8 +192,8 @@ function onDragLeave(): void {
 
 function onDrop(event: DragEvent): void {
   dragDepth.value = 0
-  if (!props.writable || props.loading) return
-  selectFile(event.dataTransfer?.files?.[0] ?? null)
+  if (!props.writable || props.loading || editingImage.value) return
+  void selectFile(event.dataTransfer?.files?.[0] ?? null)
 }
 
 function updateDirectoryName(event: Event): void {
@@ -152,6 +213,11 @@ function formatDate(value: number): string {
   if (!value) return '—'
   return new Intl.DateTimeFormat('ru', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value * 1000))
 }
+
+onBeforeUnmount(() => {
+  imageEditorAbortController?.abort()
+  imageEditorAbortController = null
+})
 </script>
 
 <template>
@@ -184,15 +250,30 @@ function formatDate(value: number): string {
           <span class="admin-upload-panel__icon"><i class="fa-solid fa-upload" aria-hidden="true" /></span>
           <div>
             <strong>Загрузка файла</strong>
-            <small>Любой тип и расширение · до 64 МиБ</small>
+            <small>{{ editingImage ? 'Открыт редактор Pintura…' : 'Растровые изображения редактируются перед загрузкой · до 64 МиБ' }}</small>
           </div>
         </header>
 
+        <section v-if="editingImage" class="admin-upload-editor">
+          <header class="admin-upload-editor__header">
+            <div>
+              <strong>Редактор изображения</strong>
+              <small>Pintura встроена в область загрузки файлов</small>
+            </div>
+            <button class="button button--ghost" type="button" @click="cancelImageEditing">
+              <i class="fa-solid fa-xmark" aria-hidden="true" />
+              <span>Отмена</span>
+            </button>
+          </header>
+          <div ref="imageEditorHost" class="admin-upload-editor__mount" />
+        </section>
+
+        <div v-show="!editingImage" class="admin-upload-panel__content">
         <div
           class="admin-upload-dropzone"
           :class="{
             'is-dragging': isDragging,
-            'is-disabled': !writable || loading,
+            'is-disabled': !writable || loading || editingImage,
             'has-file': selectedUpload,
             'has-error': selectedUploadTooLarge || selectedUploadEmpty,
             'has-warning': selectedUploadIsActive,
@@ -202,13 +283,13 @@ function formatDate(value: number): string {
           @dragleave.prevent="onDragLeave"
           @drop.prevent="onDrop"
         >
-          <input ref="fileInput" type="file" @change="onFileInput">
+          <input ref="fileInput" type="file" :disabled="editingImage" @change="onFileInput">
           <i class="fa-solid fa-upload" aria-hidden="true" />
           <div>
-            <strong>{{ selectedUpload ? 'Файл выбран' : 'Перетащите файл сюда' }}</strong>
-            <span>{{ selectedUpload ? 'Можно заменить его другим файлом' : 'или выберите его через системный диалог' }}</span>
+            <strong>{{ editingImage ? 'Редактирование изображения' : selectedUpload ? 'Файл выбран' : 'Перетащите файл сюда' }}</strong>
+            <span>{{ editingImage ? 'Завершите обработку в Pintura или закройте редактор' : selectedUpload ? 'Можно заменить его другим файлом' : 'для растрового изображения автоматически откроется Pintura' }}</span>
           </div>
-          <button class="button button--ghost" type="button" :disabled="!writable || loading" @click="chooseFile">
+          <button class="button button--ghost" type="button" :disabled="!writable || loading || editingImage" @click="chooseFile">
             <i class="fa-solid fa-folder-open" aria-hidden="true" />
             <span>{{ selectedUpload ? 'Выбрать другой' : 'Выбрать файл' }}</span>
           </button>
@@ -221,15 +302,27 @@ function formatDate(value: number): string {
             <span>{{ selectedUploadType }} · {{ formatBytes(selectedUpload.size) }}</span>
             <code :title="selectedUploadTarget">{{ selectedUploadTarget }}</code>
           </div>
-          <button type="button" title="Очистить выбор" :disabled="loading" @click="clearUpload">
-            <i class="fa-solid fa-xmark" aria-hidden="true" />
-          </button>
+          <div class="admin-upload-selection__actions">
+            <button
+              v-if="selectedUploadEditable"
+              type="button"
+              title="Повторно открыть в Pintura"
+              :disabled="loading || editingImage"
+              @click="editSelectedUpload"
+            >
+              <i class="fa-solid fa-crop-simple" aria-hidden="true" />
+            </button>
+            <button type="button" title="Очистить выбор" :disabled="loading || editingImage" @click="clearUpload">
+              <i class="fa-solid fa-xmark" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
-        <p v-if="selectedUploadTooLarge" class="admin-upload-panel__error">Файл превышает лимит 64 МиБ.</p>
+        <p v-if="imageEditError" class="admin-upload-panel__error">{{ imageEditError }}</p>
+        <p v-else-if="selectedUploadTooLarge" class="admin-upload-panel__error">Файл превышает лимит 64 МиБ.</p>
         <p v-else-if="selectedUploadEmpty" class="admin-upload-panel__error">Пустой файл загрузить нельзя.</p>
         <p v-else-if="selectedUploadIsActive" class="admin-upload-panel__warning">Активный формат разрешён. Файл будет публично доступен в /uploads; исполняемость и Content-Type определяются конфигурацией веб-сервера.</p>
-        <p v-else class="admin-upload-panel__note">Имя, расширение и содержимое файла сохраняются без преобразования. Существующий файл не перезаписывается автоматически.</p>
+        <p v-else class="admin-upload-panel__note">Обычные файлы сохраняются без преобразования. JPEG, PNG, WebP, GIF, AVIF и BMP проходят через Pintura; SVG и Minecraft skin/cape редактором не обрабатываются.</p>
 
         <button
           class="button button--primary admin-upload-submit"
@@ -252,6 +345,7 @@ function formatDate(value: number): string {
           <i class="fa-solid fa-circle-exclamation" aria-hidden="true" />
           <span><strong>Загрузка недоступна.</strong> {{ uploadBlockedReason }}</span>
         </p>
+        </div>
       </section>
 
       <form class="admin-file-tool admin-file-tool--directory" @submit.prevent="emit('createDirectory')">
