@@ -6,7 +6,7 @@ define('profile', true);
 
 final class User extends Module
 {
-    public function __construct($db, $logger, HttpRequest $request, UserSession $session, array $config = [])
+    public function __construct(db $db, Logger $logger, HttpRequest $request, UserSession $session, array $config = [])
     {
         if (!$request->has('user_doaction')) {
             return;

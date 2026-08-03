@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import type { NavigationDefinition } from '@engine/domain/bootstrap'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { appBootstrap } from '@engine/app/context'
+import { themeAsset, type NavigationDefinition } from '@engine/domain/bootstrap'
 import { accountNavigationIcon } from '@theme/domain/accountNavigation'
+import { balanceCurrencyIconPath, formatBalanceAmount, type BalanceMatrix } from '@engine/domain/userBalance'
 
-defineProps<{
+const props = defineProps<{
   displayName: string
   profilePhoto: string
+  balance: BalanceMatrix
   isGuest: boolean
   guestItems: NavigationDefinition[]
   accountItems: NavigationDefinition[]
@@ -14,6 +17,11 @@ const emit = defineEmits<{ activate: [item: NavigationDefinition] }>()
 const menuOpen = ref(false)
 const profileMenu = ref<HTMLElement | null>(null)
 const photoLoadFailed = ref(false)
+const balanceCurrencies = computed(() => props.balance.currencies.map((currency) => ({
+  ...currency,
+  formatted: formatBalanceAmount(currency.amount),
+  icon: themeAsset(appBootstrap, balanceCurrencyIconPath(currency.code)),
+})))
 
 function activate(item: NavigationDefinition): void {
   menuOpen.value = false
@@ -74,6 +82,29 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOutside))
         role="menu"
         aria-label="Меню пользователя"
       >
+        <div
+          class="profile-dropdown__item profile-dropdown__item--balance"
+          role="menuitem"
+          aria-disabled="true"
+          tabindex="-1"
+          aria-label="Баланс пользователя"
+        >
+          <span class="profile-dropdown__balance-matrix">
+            <span
+              v-for="currency in balanceCurrencies"
+              :key="currency.code"
+              class="profile-dropdown__balance-row"
+              :class="`profile-dropdown__balance-row--${currency.code}`"
+            >
+              <img :src="currency.icon" alt="" aria-hidden="true">
+              <span>
+                <small>{{ currency.name }}</small>
+                <strong>{{ currency.formatted }}</strong>
+              </span>
+            </span>
+          </span>
+        </div>
+
         <button
           v-for="item in accountItems"
           :key="`${item.intent}:${item.route}:${item.action}`"

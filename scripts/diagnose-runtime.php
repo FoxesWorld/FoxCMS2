@@ -72,6 +72,11 @@ $requiredFiles = [
     'database/migrations/003_uuid_user_identity.sql',
     'database/migrations/004_repair_legacy_schema.sql',
     'database/migrations/005_enforce_profile_runtime_fields.sql',
+    'database/migrations/010_badge_claim_keys.sql',
+    'database/migrations/013_rules_expert_badge.sql',
+    'database/migrations/014_rules_expert_claim_key.sql',
+    'database/migrations/015_consolidate_user_badges.sql',
+    'database/migrations/016_revoke_public_badge_claim_key.sql',
     'database/repair-legacy-schema.sql',
     'scripts/migrate-user-storage.php',
 ];
@@ -209,11 +214,12 @@ if ($skipDatabase) {
             'servers' => ['id', 'serverName', 'host', 'port', 'ignoreDirs', 'enabled', 'checkLib', 'serverGroups', 'serverDescription', 'serverVersion', 'jreVersion', 'serverImage', 'modsInfo', 'mainClass', 'forgeVersion', 'client', 'mcpVersion', 'forgeGroup'],
             'infobox' => ['id', 'group_name', 'start_timestamp', 'end_timestamp', 'title', 'text', 'image', 'button_text', 'button_url'],
             'badgesList' => ['id', 'badgeName', 'description', 'img'],
+            'badgeClaimKeys' => ['id', 'badgeId', 'tokenHash', 'tokenHint', 'usageMode', 'accessMode', 'usesCount', 'enabled', 'createdAt', 'updatedAt', 'createdByUuid'],
+            'badgeKeyClaims' => ['id', 'badgeId', 'keyId', 'userUuid', 'claimedAt'],
             'antiBrute' => ['id', 'time', 'recordTime', 'ip', 'attempts'],
             'usersession' => ['id', 'userUuid', 'serverId', 'accessToken', 'expiresAt', 'updatedAt'],
             'password_reset_tokens' => ['userUuid', 'tokenHash', 'expiresAt', 'createdAt'],
             'user_hardware_reports' => ['userUuid', 'cpuIdHash', 'cpu', 'gpus', 'payload', 'updatedAt'],
-            'userBadges' => ['id', 'userUuid', 'badges'],
         ];
         foreach ($requiredSchema as $table => $requiredColumns) {
             $columnQuery = $database->prepare(

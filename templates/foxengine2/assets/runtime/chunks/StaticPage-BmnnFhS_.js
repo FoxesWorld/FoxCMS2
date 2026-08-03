@@ -1,2 +1,0 @@
-import{F as e,k as t,w as n}from"../theme.js";var r=[`innerHTML`],i=t({__name:`StaticPage`,props:{page:{}},setup(t){return(i,a)=>(e(),n(`div`,{class:`static-page-html`,innerHTML:t.page.html},null,8,r))}});export{i as t};
-//# sourceMappingURL=StaticPage-BmnnFhS_.js.map

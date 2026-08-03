@@ -22,6 +22,7 @@ final class Application
 
     public function run(): void
     {
+        RequestTelemetry::annotate(['applicationPhase' => 'dispatch']);
         $maintenance = (new MaintenanceModeRepository($this->db))->current();
 
         // Authentication and remember-token restoration must run before the
@@ -70,16 +71,25 @@ final class Application
             return;
         }
 
+        RequestTelemetry::deviation(
+            'maintenance.access_blocked',
+            'maintenance_mode_active',
+            'Request was blocked by maintenance mode.',
+            'notice',
+            ['maintenanceMode' => false],
+            ['maintenanceMode' => true],
+            [
+                'component' => 'maintenance',
+                'actorGroup' => $this->session->group(),
+            ],
+        );
+
         if ($this->request->isPost() || $this->request->expectsJson()) {
-            http_response_code(503);
-            header('Content-Type: application/json; charset=UTF-8');
-            header('Cache-Control: no-store');
-            header('Retry-After: 300');
-            exit(json_encode([
+            JsonResponse::send([
                 'type' => 'warning',
                 'code' => 'maintenance_mode',
                 'message' => (string)($settings['title'] ?? 'Ведутся технические работы.'),
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            ], 503, ['Retry-After' => '300']);
         }
 
         (new MaintenanceRenderer($this->config, $settings, $this->session))->render();
@@ -138,15 +148,32 @@ final class Application
         foreach ([
             ENGINE_DIR . 'classes/GenericPDO/GenericSelector.class.php',
             ENGINE_DIR . 'classes/GenericPDO/GenericUpdater.class.php',
+            ENGINE_DIR . 'classes/http/HttpException.class.php',
+            ENGINE_DIR . 'classes/http/JsonResponse.class.php',
             ENGINE_DIR . 'classes/http/HttpRequest.class.php',
+            ENGINE_DIR . 'classes/modules/AuthReg/AuthFailure.class.php',
+            ENGINE_DIR . 'classes/modules/AuthReg/AuthInputValidator.class.php',
             ENGINE_DIR . 'classes/identity/UserIdentityException.class.php',
             ENGINE_DIR . 'classes/identity/Uuid.class.php',
+            ENGINE_DIR . 'classes/domain/BalanceMatrix.class.php',
             ENGINE_DIR . 'classes/session/UserSession.class.php',
+            ENGINE_DIR . 'classes/observability/TraceContext.class.php',
+            ENGINE_DIR . 'classes/observability/RequestTelemetry.class.php',
+            ENGINE_DIR . 'classes/observability/OperationTrace.class.php',
+            ENGINE_DIR . 'classes/observability/LogQueryService.class.php',
             ENGINE_DIR . 'classes/repositories/GroupRepository.class.php',
             ENGINE_DIR . 'classes/repositories/MaintenanceModeRepository.class.php',
             ENGINE_DIR . 'classes/repositories/SiteSettingsRepository.class.php',
+            ENGINE_DIR . 'classes/files/SafeUploadName.class.php',
+            ENGINE_DIR . 'classes/files/PublicFileLocator.class.php',
+            ENGINE_DIR . 'classes/files/ArtifactRepository.class.php',
             ENGINE_DIR . 'classes/services/MaintenanceModePolicy.class.php',
+            ENGINE_DIR . 'classes/services/HardwareReportService.class.php',
+            ENGINE_DIR . 'classes/services/HardwareInventoryStatisticsService.class.php',
+            ENGINE_DIR . 'classes/services/UserTextureLocator.class.php',
+            ENGINE_DIR . 'classes/services/BadgeClaimService.class.php',
             ENGINE_DIR . 'classes/services/RuntimeJdkCatalog.class.php',
+            ENGINE_DIR . 'classes/support/ExceptionContext.class.php',
             ENGINE_DIR . 'classes/support/UtilityLoader.class.php',
             ENGINE_DIR . 'classes/security/CsrfToken.class.php',
             ENGINE_DIR . 'classes/security/RememberToken.class.php',
@@ -154,6 +181,11 @@ final class Application
             ENGINE_DIR . 'classes/uploads/UploadPermission.class.php',
             ENGINE_DIR . 'classes/uploads/UploadPurpose.class.php',
             ENGINE_DIR . 'classes/uploads/UploadResult.class.php',
+            ENGINE_DIR . 'classes/uploads/UploadPolicy.class.php',
+            ENGINE_DIR . 'classes/uploads/UploadPolicyFactory.class.php',
+            ENGINE_DIR . 'classes/uploads/InspectedUpload.class.php',
+            ENGINE_DIR . 'classes/uploads/UploadFilesystem.class.php',
+            ENGINE_DIR . 'classes/uploads/UploadFileInspector.class.php',
             ENGINE_DIR . 'classes/uploads/UploadService.class.php',
             ENGINE_DIR . 'classes/modules/Module.class.php',
             ENGINE_DIR . 'classes/frontend/FrontendRegistry.class.php',
@@ -192,8 +224,96 @@ final class Application
         $this->logger = new Logger('lastlog');
         $this->request = HttpRequest::fromGlobals($this->network);
         $this->session = new UserSession($this->db, $this->config, $this->network);
-        $this->session->synchronizeWithDatabase();
-        $this->touchCurrentUser();
+        $observability = is_array($this->config['observability'] ?? null)
+            ? $this->config['observability']
+            : [];
+        RequestTelemetry::bootstrap($this->logger, $this->request, $this->session, $observability);
+        RuntimeErrorHandler::adoptRequestId(RequestTelemetry::requestId());
+        RequestTelemetry::annotate([
+            'environment' => (string)($this->config['environment']['name'] ?? 'production'),
+            'serviceVersion' => (string)($this->config['siteSettings']['ServiceVersion'] ?? 'unknown'),
+        ]);
+
+        $sessionStartedAt = hrtime(true);
+        $wasAuthenticated = $this->session->isLogged();
+        $previousActorUuid = $this->session->uuid();
+        $previousActorLogin = $this->session->login();
+        try {
+            $this->session->synchronizeWithDatabase();
+            $this->touchCurrentUser();
+            $authenticated = $this->session->isLogged();
+            $sessionDuration = round(max(0, hrtime(true) - $sessionStartedAt) / 1_000_000, 3);
+            $sessionState = !$wasAuthenticated
+                ? 'guest_confirmed'
+                : ($authenticated ? 'database_refreshed' : 'invalidated');
+            RequestTelemetry::annotate([
+                'actorUuid' => $this->session->uuid(),
+                'actorLogin' => $this->session->login(),
+                'actorGroup' => $this->session->group(),
+                'authenticated' => $authenticated,
+                'sessionState' => $sessionState,
+            ]);
+
+            if ($wasAuthenticated && !$authenticated) {
+                RequestTelemetry::deviation(
+                    'session.synchronize.invalidated',
+                    'session_identity_not_found',
+                    'Authenticated session was invalidated because its user identity could not be refreshed.',
+                    'warning',
+                    ['sessionState' => 'database_refreshed'],
+                    ['sessionState' => 'invalidated'],
+                    [
+                        'component' => 'session',
+                        'previousActorUuid' => $previousActorUuid,
+                        'previousActorLogin' => $previousActorLogin,
+                        'durationMs' => $sessionDuration,
+                    ],
+                );
+            } elseif ($authenticated) {
+                RequestTelemetry::event(
+                    'session.synchronize.completed',
+                    sprintf(
+                        'Session refreshed from the users table for %s [%s] in %.3f ms.',
+                        $this->session->login(),
+                        $this->session->group(),
+                        $sessionDuration,
+                    ),
+                    [
+                        'component' => 'session',
+                        'operation' => 'session.synchronize',
+                        'sessionState' => $sessionState,
+                        'durationMs' => $sessionDuration,
+                        'authenticated' => true,
+                    ],
+                    'DEBUG',
+                    'success',
+                );
+            } elseif ($sessionDuration > 250) {
+                RequestTelemetry::deviation(
+                    'session.synchronize.slow_guest',
+                    'guest_session_synchronization_slow',
+                    'Guest session initialization exceeded the expected duration.',
+                    'notice',
+                    ['maximumDurationMs' => 250],
+                    ['durationMs' => $sessionDuration],
+                    ['component' => 'session', 'sessionState' => $sessionState],
+                );
+            }
+        } catch (Throwable $error) {
+            RequestTelemetry::failure(
+                'session.synchronize.failed',
+                $error,
+                'Session synchronization failed before request dispatch.',
+                [
+                    'component' => 'session',
+                    'previousActorUuid' => $previousActorUuid,
+                    'previousActorLogin' => $previousActorLogin,
+                    'durationMs' => round(max(0, hrtime(true) - $sessionStartedAt) / 1_000_000, 3),
+                ],
+            );
+            throw $error;
+        }
+
         $this->modules = new ModulesLoader(
             $this->db,
             $this->logger,

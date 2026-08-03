@@ -1,0 +1,2 @@
+var e=/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;function t(t){if(typeof t!=`string`||!e.test(t))return;let n=document.querySelector(`[name="${t}"]`);!n||n.disabled||(n.focus({preventScroll:!0}),n.scrollIntoView({behavior:`smooth`,block:`center`}))}export{t};
+//# sourceMappingURL=focusFormField-ChLKIv2r.js.map

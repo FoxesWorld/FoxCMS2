@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 final class LostPassword
 {
-    public function __construct(private db $db, private array $config = [])
+    public function __construct(
+        private db $db,
+        private Logger $logger,
+        private array $config = [],
+    )
     {
     }
 
@@ -64,8 +68,24 @@ final class LostPassword
                     'resetToken' => $baseUrl . '/#/reset-password?token=' . rawurlencode($token),
                 ],
             );
+            $this->logger->event(
+                'password_reset.request.delivered',
+                'Password reset instruction was generated and sent.',
+                [
+                    'component' => 'password_reset',
+                    'operation' => 'request',
+                    'targetUserUuid' => $userUuid,
+                ],
+                'INFO',
+                'success',
+            );
         } catch (Throwable $exception) {
-            error_log('Password reset request failed: ' . $exception->getMessage());
+            $this->logger->exception(
+                'password_reset.request.failed',
+                $exception,
+                'Password reset request processing failed.',
+                ['component' => 'password_reset'],
+            );
         }
 
         $this->accepted();
@@ -78,10 +98,9 @@ final class LostPassword
 
     private function respond(string $message, string $type): never
     {
-        header('Content-Type: application/json; charset=UTF-8');
-        exit(json_encode([
+        JsonResponse::send([
             'message' => $message,
             'type' => $type,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        ]);
     }
 }

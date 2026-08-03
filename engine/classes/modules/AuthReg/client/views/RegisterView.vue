@@ -2,10 +2,21 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import RegisterPage from '@theme/userOptions/content/guest/Reg.vue'
-import { foxesApi } from '@/api'
+import { foxesApi, foxesApiFailureFeedback } from '@/api'
 import { queuePayloadToast, showToast, toastFeedback } from '@/notifications/toasts'
+import { focusFormField } from '@/forms/focusFormField'
 
-interface RegisterResponse { type: 'success' | 'error' | 'warn' | string; message: string }
+interface RegisterResponse {
+  type: 'success' | 'error' | 'warning' | 'warn' | string
+  message: string
+  code?: string
+  field?: string
+  requestId?: string
+  correlationId?: string
+  authenticated?: boolean
+  userUuid?: string
+}
+
 const router = useRouter()
 const form = reactive({ login: '', email: '', password1: '', password2: '', dataProcessing: false, acceptRules: false })
 const submitting = ref(false)
@@ -33,18 +44,51 @@ function generatePassword(): void {
   showToast('Надёжный пароль создан и подставлен в оба поля.', 'info', 3500)
 }
 
+interface LocalValidationFailure { message: string; field: string }
+
+function localValidationFailure(): LocalValidationFailure | null {
+  const login = form.login.trim()
+  const email = form.email.trim()
+  if (!login) return { message: 'Введите логин.', field: 'login' }
+  if (login.length < 3) return { message: 'Логин должен содержать не менее 3 символов.', field: 'login' }
+  if (!/^[A-Za-z0-9_.-]+$/.test(login)) {
+    return {
+      message: 'Логин содержит недопустимые символы. Разрешены латинские буквы, цифры, точка, дефис и подчёркивание.',
+      field: 'login',
+    }
+  }
+  if (!email) return { message: 'Введите электронную почту.', field: 'email' }
+  if (/\s/.test(email)) {
+    return {
+      message: 'Электронная почта содержит пробелы или недопустимые управляющие символы.',
+      field: 'email',
+    }
+  }
+  if (!form.password1) return { message: 'Введите пароль.', field: 'password1' }
+  if (form.password1.length > 72) {
+    return { message: 'Пароль не должен превышать 72 символа.', field: 'password1' }
+  }
+  if (form.password1 !== form.password2) return { message: 'Пароли не совпадают.', field: 'password2' }
+  if (/[^\x21-\x7E]/.test(form.password1)) {
+    return {
+      message: 'Пароль содержит недопустимые символы. Используйте латинские буквы, цифры и специальные символы.',
+      field: 'password1',
+    }
+  }
+  return null
+}
+
 async function submit(): Promise<void> {
   feedback.value = null
   if (!form.acceptRules || !form.dataProcessing) {
     feedback.value = toastFeedback({ type: 'error', message: 'Нужно принять правила и условия обработки данных.' })
     return
   }
-  if (form.password1 !== form.password2) {
-    feedback.value = toastFeedback({ type: 'error', message: 'Пароли не совпадают.' })
-    return
-  }
-  if (form.password1.length < 8 || /[А-Яа-яЁё]/.test(form.password1)) {
-    feedback.value = toastFeedback({ type: 'error', message: 'Пароль должен содержать минимум 8 символов без кириллицы.' })
+
+  const validationFailure = localValidationFailure()
+  if (validationFailure) {
+    feedback.value = toastFeedback({ type: 'error', message: validationFailure.message })
+    focusFormField(validationFailure.field)
     return
   }
 
@@ -58,11 +102,32 @@ async function submit(): Promise<void> {
       password2: form.password2,
     })
     feedback.value = response
-    if (response.type === 'success') { queuePayloadToast(response); window.setTimeout(() => window.location.reload(), 900) }
+    if (response.type === 'success') {
+      queuePayloadToast(response)
+      window.setTimeout(() => window.location.reload(), 900)
+    }
   } catch (error) {
     console.error('[FoxesCraft] Registration failed', error)
-    feedback.value = { type: 'error', message: 'Сервер регистрации временно недоступен.' }
-  } finally { submitting.value = false }
+    const failure = foxesApiFailureFeedback(
+      error,
+      'Сервер регистрации временно недоступен.',
+    )
+    feedback.value = failure
+    focusFormField(failure.field)
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
-<template><RegisterPage :form="form" :strength="strength" :submitting="submitting" :feedback="feedback" @submit="submit" @generate="generatePassword" @navigate="router.push({ name: $event })" /></template>
+
+<template>
+  <RegisterPage
+    :form="form"
+    :strength="strength"
+    :submitting="submitting"
+    :feedback="feedback"
+    @submit="submit"
+    @generate="generatePassword"
+    @navigate="router.push({ name: $event })"
+  />
+</template>

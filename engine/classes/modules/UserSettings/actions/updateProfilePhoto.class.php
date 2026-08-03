@@ -17,6 +17,7 @@ final class UpdateProfilePhoto
 
     public function upload(): never
     {
+        RequestTelemetry::identify('profile.photo.update', ['component' => 'profile']);
         $target = $this->resolveTarget();
         try {
             $result = $this->uploads->store(
@@ -46,13 +47,16 @@ final class UpdateProfilePhoto
             }
         } catch (Throwable $error) {
             @unlink($result->absolutePath());
-            $this->logger->logError('Profile photo database update failed.', [
-                'event' => 'upload.profile.commit_failed',
-                'actorUuid' => $this->session->uuid(),
-                'ownerUuid' => $targetUuid,
-                'target' => $result->relativePath(),
-                'exception' => $error::class,
-            ]);
+            $this->logger->exception(
+                'profile.photo.commit_failed',
+                $error,
+                'Profile photo database update failed.',
+                [
+                    'component' => 'profile',
+                    'targetUserUuid' => $targetUuid,
+                    'target' => $result->relativePath(),
+                ],
+            );
             $this->respond('Не удалось обновить профиль.', 'error', null, 500);
         }
 
@@ -64,12 +68,20 @@ final class UpdateProfilePhoto
                     ['ownerUuid' => $targetUuid],
                 );
             } catch (UploadException $error) {
-                $this->logger->logWarn('Previous profile photo could not be removed.', [
-                    'event' => 'upload.profile.cleanup_failed',
-                    'ownerUuid' => $targetUuid,
-                    'path' => $currentPath,
-                    'reason' => $error->getMessage(),
-                ]);
+                $this->logger->deviation(
+                    'profile.photo.cleanup_failed',
+                    'previous_profile_photo_not_removed',
+                    'Previous profile photo could not be removed after replacement.',
+                    'warning',
+                    ['previousFileRemoved' => true],
+                    ['previousFileRemoved' => false],
+                    [
+                        'component' => 'profile',
+                        'targetUserUuid' => $targetUuid,
+                        'path' => $currentPath,
+                        'reason' => $error->getMessage(),
+                    ],
+                );
             }
         }
 
@@ -77,6 +89,18 @@ final class UpdateProfilePhoto
             $this->session->set('profilePhoto', $publicPath, true);
         }
 
+        $this->logger->event(
+            'profile.photo.updated',
+            'Profile photo updated.',
+            [
+                'component' => 'profile',
+                'operation' => 'update_photo',
+                'targetUserUuid' => $targetUuid,
+                'path' => $result->relativePath(),
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond('Фото профиля обновлено.', 'success', $publicPath . '?v=' . time());
     }
 
@@ -123,13 +147,13 @@ final class UpdateProfilePhoto
 
     private function respond(string $message, string $type, ?string $url = null, int $status = 200): never
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
+        if ($status >= 400) {
+            RequestTelemetry::rejectHttp('profile.photo.rejected', $status, $message);
+        }
         $response = ['message' => $message, 'type' => $type];
         if ($url !== null) {
             $response['url'] = $url;
         }
-        exit(json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        JsonResponse::send($response, $status);
     }
 }

@@ -4,12 +4,14 @@ import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
 import { bootstrapBoolean, bootstrapString, type NavigationDefinition } from '@/domain/bootstrap'
 import { queuePayloadToast } from '@/notifications/toasts'
+import { normalizeBalanceMatrix } from '@/domain/userBalance'
 
 export function useEngineShell() {
   const router = useRouter()
   const isGuest = computed(() => !bootstrapBoolean(appBootstrap, 'isLogged', false))
   const displayName = computed(() => bootstrapString(appBootstrap, 'realname', bootstrapString(appBootstrap, 'login', 'Пользователь')))
   const profilePhoto = computed(() => bootstrapString(appBootstrap, 'profilePhoto'))
+  const balance = computed(() => normalizeBalanceMatrix(appBootstrap.user.balance))
 
   function navigation(area: string): NavigationDefinition[] {
     return appBootstrap.frontend.navigation.filter((item) => item.area === area)
@@ -47,6 +49,7 @@ export function useEngineShell() {
     isGuest,
     displayName,
     profilePhoto,
+    balance,
     siteTitle: appBootstrap.site.title || 'FoxesCraft',
     serviceVersion: appBootstrap.engine.version,
     primaryItems: computed(() => navigation('header').filter((item) => item.intent !== 'admin')),

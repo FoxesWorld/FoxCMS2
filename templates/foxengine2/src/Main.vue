@@ -24,9 +24,6 @@ const route = useRoute()
 const isHome = computed(() => route.name === 'home')
 const isAdmin = computed(() => route.name === 'admin')
 const activeSeason = getSiteSeason()
-const seasonalStyle = {
-  '--season-background-image': `url("${getSeasonBackground(shell.bootstrap, activeSeason)}")`,
-} as CSSProperties
 const logoUrl = themeAsset(shell.bootstrap, 'img/logo.png')
 
 function readStoredTheme(): ColorTheme | null {
@@ -42,6 +39,9 @@ const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const storedTheme = readStoredTheme()
 const followsSystemTheme = ref(storedTheme === null)
 const colorTheme = ref<ColorTheme>(storedTheme ?? (systemThemeQuery.matches ? 'dark' : 'light'))
+const seasonalStyle = computed<CSSProperties>(() => ({
+  '--season-background-image': `url("${getSeasonBackground(shell.bootstrap, activeSeason, colorTheme.value)}")`,
+}))
 
 function applyTheme(theme: ColorTheme): void {
   document.documentElement.dataset.theme = theme
@@ -90,6 +90,7 @@ onBeforeUnmount(() => systemThemeQuery.removeEventListener('change', handleSyste
     <Header
       :display-name="shell.displayName.value"
       :profile-photo="shell.profilePhoto.value"
+      :balance="shell.balance.value"
       :is-guest="shell.isGuest.value"
       :site-title="shell.siteTitle"
       :site-status="shell.bootstrap.site.status"

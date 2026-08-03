@@ -103,6 +103,7 @@ function openUserSettings(): void {
           title="Баланс"
           eyebrow="Личный счёт"
           :entries="balances"
+          variant="balance"
           empty-text="Баланс пока пуст."
         />
       </aside>

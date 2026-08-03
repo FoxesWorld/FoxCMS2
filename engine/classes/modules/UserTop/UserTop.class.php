@@ -11,7 +11,7 @@ final class UserTop
     public function getTopPlayers(): never
     {
         $statement = $this->db->prepare(
-            'SELECT `login`, `serversOnline`, `colorScheme` FROM `users` '
+            'SELECT `uuid`, `login`, `serversOnline`, `colorScheme` FROM `users` '
             . 'WHERE `serversOnline` IS NOT NULL AND `serversOnline` <> :empty '
             . 'ORDER BY `user_id` ASC'
         );

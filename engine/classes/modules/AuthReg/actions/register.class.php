@@ -9,6 +9,8 @@ if (!defined('auth')) {
 
 final class Register
 {
+    private AuthInputValidator $validator;
+
     public function __construct(
         private HttpRequest $request,
         private db $db,
@@ -16,134 +18,142 @@ final class Register
         private UserSession $session,
         private array $config,
     ) {
+        $register = is_array($config['register'] ?? null) ? $config['register'] : [];
+        $this->validator = new AuthInputValidator(
+            (int)($register['maxLoginLength'] ?? 16),
+            (int)($register['passminCount'] ?? 10),
+        );
     }
 
-    public function register(): never
+    /** @return array<string, mixed> */
+    public function register(): array
     {
         global $lang;
 
-        CsrfToken::requireValid($this->request->csrfToken());
-
-        $login = $this->request->string('login');
-        $email = mb_strtolower($this->request->string('email'));
-        $password = $this->request->string('password1');
-        $confirmation = $this->request->string('password2');
-        $maxLoginLength = max(3, min(64, (int)($this->config['register']['maxLoginLength'] ?? 16)));
-        $minPasswordLength = max(8, (int)($this->config['register']['passminCount'] ?? 10));
-
-        if (preg_match('/^[A-Za-z0-9_.-]{3,' . $maxLoginLength . '}$/', $login) !== 1) {
-            $this->respond(
-                'Логин должен содержать 3–' . $maxLoginLength . ' латинских символов, цифр, точек, дефисов или подчёркиваний.',
-                'error',
-                422,
-            );
-        }
-        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || mb_strlen($email) > 254) {
-            $this->respond($lang['noEmail'] ?? 'Укажите корректную электронную почту.', 'error', 422);
-        }
-        if ($password !== $confirmation) {
-            $this->respond($lang['passUnequals'] ?? 'Пароли не совпадают.', 'error', 422);
-        }
-        if (
-            strlen($password) < $minPasswordLength
-            || strlen($password) > 72
-            || preg_match('/[А-Яа-яЁё]/u', $password) === 1
-        ) {
-            $this->respond(
-                'Пароль должен содержать от ' . $minPasswordLength . ' до 72 символов без кириллицы.',
-                'error',
-                422,
-            );
-        }
-
-        $duplicate = $this->db->prepare(
-            'SELECT `login`, `email` FROM `users` WHERE `login` = :login OR `email` = :email LIMIT 1'
+        $input = $this->validator->registration(
+            $this->request->string('login'),
+            $this->request->string('email'),
+            $this->request->string('password1'),
+            $this->request->string('password2'),
+            $this->request->string('realname'),
+            $this->request->string('regCode'),
         );
-        $duplicate->execute([':login' => $login, ':email' => $email]);
-        $existing = $duplicate->fetch(PDO::FETCH_ASSOC);
-        if (is_array($existing)) {
-            $message = strcasecmp((string)($existing['login'] ?? ''), $login) === 0
-                ? ($lang['loginUsed'] ?? 'Этот логин уже используется.')
-                : ($lang['emailUsed'] ?? 'Эта почта уже используется.');
-            $this->respond($message, 'warn', 409);
+
+        $duplicate = $this->duplicateFailure($input['login'], $input['email']);
+        if ($duplicate instanceof AuthFailure) {
+            throw $duplicate;
         }
 
-        $group = $this->resolveGroup($this->request->string('regCode'));
+        $group = $this->resolveGroup($input['registrationCode']);
         $userUuid = Uuid::v7();
         $profilePhoto = UPLOADS_DIR . USR_SUBFOLDER . 'anonymous/avatar.jpg';
-        $realname = trim($this->request->string('realname', $login));
-        if ($realname === '' || mb_strlen($realname) > 64) {
-            $realname = $login;
-        }
         $clientIp = $this->request->clientIp();
 
         try {
             $user = $this->db->transactional(function () use (
-                $login,
-                $email,
-                $password,
+                $input,
                 $group,
-                $realname,
                 $clientIp,
                 $profilePhoto,
                 $userUuid,
             ): array {
                 $insert = $this->db->prepare(
                     'INSERT INTO `users` '
-                    . '(`login`, `uuid`, `password`, `email`, `groupTag`, `realname`, `reg_date`, `reg_ip`, `logged_ip`, `last_date`, `profilePhoto`) '
-                    . 'VALUES (:login, :uuid, :password, :email, :groupTag, :realname, :reg_date, :reg_ip, :logged_ip, :last_date, :profilePhoto)'
+                    . '(`login`, `uuid`, `password`, `email`, `groupTag`, `realname`, '
+                    . '`reg_date`, `reg_ip`, `logged_ip`, `last_date`, `profilePhoto`) '
+                    . 'VALUES (:login, :uuid, :password, :email, :groupTag, :realname, '
+                    . ':regDate, :regIp, :loggedIp, :lastDate, :profilePhoto)'
                 );
                 $insert->execute([
-                    ':login' => $login,
+                    ':login' => $input['login'],
                     ':uuid' => $userUuid,
-                    ':password' => authorize::hashPassword($password),
-                    ':email' => $email,
+                    ':password' => authorize::hashPassword($input['password']),
+                    ':email' => $input['email'],
                     ':groupTag' => $group,
-                    ':realname' => $realname,
-                    ':reg_date' => CURRENT_TIME,
-                    ':reg_ip' => $clientIp,
-                    ':logged_ip' => $clientIp,
-                    ':last_date' => CURRENT_TIME,
+                    ':realname' => $input['realname'],
+                    ':regDate' => CURRENT_TIME,
+                    ':regIp' => $clientIp,
+                    ':loggedIp' => $clientIp,
+                    ':lastDate' => CURRENT_TIME,
                     ':profilePhoto' => $profilePhoto,
                 ]);
 
                 $select = $this->db->prepare(
-                    'SELECT `uuid`, `user_id`, `email`, `login`, `groupTag`, `realname`, `reg_date`, `last_date`, '
-                    . '`logged_ip`, `profilePhoto`, `userStatus`, `land`, `colorScheme`, `badges`, `balance`, '
-                    . '`serversOnline`, `userPerms` '
+                    'SELECT `uuid`, `user_id`, `email`, `login`, `groupTag`, `realname`, '
+                    . '`reg_date`, `last_date`, `logged_ip`, `profilePhoto`, `userStatus`, '
+                    . '`land`, `colorScheme`, `badges`, `balance`, `serversOnline`, `userPerms` '
                     . 'FROM `users` WHERE `uuid` = :uuid LIMIT 1'
                 );
                 $select->execute([':uuid' => $userUuid]);
                 $registered = $select->fetch(PDO::FETCH_ASSOC);
                 if (!is_array($registered)) {
-                    throw new RuntimeException('Registered user could not be loaded.');
+                    throw new RuntimeException('Registered account could not be loaded after insertion.');
                 }
                 return $registered;
             });
-
-            $this->session->authenticate($user);
-            $folder = $this->session->userFolder();
-            if (!is_dir($folder) && !mkdir($folder, 0755, true) && !is_dir($folder)) {
-                $this->logger->logError('Unable to create user directory for ' . $login);
-            }
-
-            $this->logger->logInfo('User registered: ' . $login . ' from ' . $clientIp);
-            $this->sendWelcomeMail($email, $login);
-            $this->respond($lang['regComplete'] ?? 'Регистрация завершена.', 'success');
         } catch (Throwable $error) {
-            $this->logger->logError('Registration failed for ' . $login . ': ' . $error->getMessage());
-            $this->respond('Не удалось создать аккаунт.', 'error', 500);
+            if ($this->isIntegrityViolation($error)) {
+                $duplicate = $this->duplicateFailure($input['login'], $input['email']);
+                if ($duplicate instanceof AuthFailure) {
+                    throw $duplicate;
+                }
+            }
+            throw $error;
         }
+
+        $authenticated = $this->authenticateCreatedAccount($user);
+        $folderCreated = $this->ensureUserDirectory($userUuid);
+        $mailSent = $this->sendWelcomeMail($input['email'], $input['login']);
+
+        $this->logger->event(
+            'auth.registration.completed',
+            'User registration completed.',
+            [
+                'component' => 'authentication',
+                'operation' => 'register',
+                'targetUserUuid' => $userUuid,
+                'assignedGroup' => $group,
+                'authenticated' => $authenticated,
+                'userDirectoryCreated' => $folderCreated,
+                'welcomeMailSent' => $mailSent,
+            ],
+            'INFO',
+            'success',
+        );
+
+        if (!$authenticated) {
+            return [
+                'type' => 'warning',
+                'code' => 'registration_completed_login_required',
+                'message' => 'Аккаунт создан, но автоматический вход не выполнен. Войдите с новым логином и паролем.',
+                'authenticated' => false,
+                'userUuid' => $userUuid,
+            ];
+        }
+
+        return [
+            'type' => 'success',
+            'code' => 'registration_completed',
+            'message' => $lang['regComplete'] ?? 'Регистрация завершена.',
+            'authenticated' => true,
+            'userUuid' => $userUuid,
+        ];
     }
 
     private function resolveGroup(string $code): string
     {
         $groups = new GroupRepository($this->db);
-        $default = GroupRepository::normalizeTag($this->config['register']['baseUserGroupTag'] ?? 'user', 'user');
+        $default = GroupRepository::normalizeTag(
+            $this->config['register']['baseUserGroupTag'] ?? 'user',
+            'user',
+        );
         if (!$groups->exists($default)) {
-            $default = $groups->exists('user') ? 'user' : 'guest';
+            $default = $groups->exists('user') ? 'user' : ($groups->exists('guest') ? 'guest' : '');
         }
-        if ($code === '' || preg_match('/^[A-Za-z0-9_-]{4,64}$/', $code) !== 1) {
+        if ($default === '') {
+            throw new RuntimeException('Registration default group is not configured.');
+        }
+        if ($code === '') {
             return $default;
         }
 
@@ -151,35 +161,141 @@ final class Register
         $statement->execute([':code' => $code]);
         $groupTag = $statement->fetchColumn();
         if (!is_string($groupTag)) {
-            return $default;
+            throw new AuthFailure(
+                'Код регистрации недействителен.',
+                'registration_code_invalid',
+                422,
+                'regCode',
+                expected: ['registrationCodeValid' => true],
+                actual: ['registrationCodeValid' => false],
+            );
         }
+
         $groupTag = GroupRepository::normalizeTag($groupTag, '');
-        return $groupTag !== '' && $groups->exists($groupTag) ? $groupTag : $default;
+        if ($groupTag === '' || !$groups->exists($groupTag)) {
+            throw new AuthFailure(
+                'Код регистрации связан с недоступной группой. Обратитесь к администратору.',
+                'registration_code_group_unavailable',
+                409,
+                'regCode',
+                severity: 'critical',
+                expected: ['registrationGroupAvailable' => true],
+                actual: ['registrationGroupAvailable' => false],
+            );
+        }
+        return $groupTag;
     }
 
-    private function sendWelcomeMail(string $email, string $login): void
+    private function duplicateFailure(string $login, string $email): ?AuthFailure
+    {
+        $statement = $this->db->prepare(
+            'SELECT `login`, `email` FROM `users` WHERE `login` = :login OR `email` = :email LIMIT 1'
+        );
+        $statement->execute([':login' => $login, ':email' => $email]);
+        $existing = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($existing)) {
+            return null;
+        }
+
+        if (strcasecmp((string)($existing['login'] ?? ''), $login) === 0) {
+            return new AuthFailure(
+                'Этот логин уже используется.',
+                'login_already_used',
+                409,
+                'login',
+                'warn',
+                severity: 'notice',
+                expected: ['loginAvailable' => true],
+                actual: ['loginAvailable' => false],
+            );
+        }
+        return new AuthFailure(
+            'Эта электронная почта уже используется.',
+            'email_already_used',
+            409,
+            'email',
+            'warn',
+            severity: 'notice',
+            expected: ['emailAvailable' => true],
+            actual: ['emailAvailable' => false],
+        );
+    }
+
+    /** @param array<string, mixed> $user */
+    private function authenticateCreatedAccount(array $user): bool
+    {
+        try {
+            $this->session->authenticate($user);
+            RequestTelemetry::annotate([
+                'actorUuid' => $this->session->uuid(),
+                'actorLogin' => $this->session->login(),
+                'actorGroup' => $this->session->group(),
+                'authenticated' => true,
+            ]);
+            return true;
+        } catch (Throwable $error) {
+            $this->session->clear();
+            $this->logger->exception(
+                'auth.registration.session_initialization_failed',
+                $error,
+                'Account was created, but its authenticated session could not be initialized.',
+                ['component' => 'authentication'],
+            );
+            return false;
+        }
+    }
+
+    private function ensureUserDirectory(string $userUuid): bool
+    {
+        $folder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER
+            . Uuid::canonical($userUuid) . DIRECTORY_SEPARATOR;
+        if (is_dir($folder)) {
+            return true;
+        }
+        if (mkdir($folder, 0755, true) || is_dir($folder)) {
+            return true;
+        }
+
+        $this->logger->deviation(
+            'auth.registration.user_directory_failed',
+            'user_directory_creation_failed',
+            'Registered user directory could not be created.',
+            'warning',
+            ['directoryCreated' => true],
+            ['directoryCreated' => false],
+            ['component' => 'authentication', 'targetUserUuid' => $userUuid],
+        );
+        return false;
+    }
+
+    private function sendWelcomeMail(string $email, string $login): bool
     {
         try {
             UtilityLoader::load('FoxMail', '1.0.0');
-            $mail = new FoxMail(true);
-            $mail->send($email, 'Добро пожаловать в FoxesCraft', 'welcome.html', ['username' => $login]);
+            (new FoxMail(true))->send(
+                $email,
+                'Добро пожаловать в FoxesCraft',
+                'welcome.html',
+                ['username' => $login],
+            );
+            return true;
         } catch (Throwable $error) {
-            $this->logger->logError('Welcome mail failed for ' . $login . ': ' . $error->getMessage());
+            $this->logger->exception(
+                'auth.registration.welcome_mail_failed',
+                $error,
+                'Welcome mail delivery failed after registration.',
+                [
+                    'component' => 'mail',
+                    'operation' => 'send_welcome_mail',
+                ],
+            );
+            return false;
         }
     }
 
-    private function respond(string $message, string $type, int $status = 200): never
+    private function isIntegrityViolation(Throwable $error): bool
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
-        $encoded = json_encode(
-            ['message' => $message, 'type' => $type],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
-        );
-        if (!is_string($encoded)) {
-            throw new RuntimeException('Unable to encode registration response.');
-        }
-        exit($encoded);
+        return $error instanceof PDOException
+            && str_starts_with((string)$error->getCode(), '23');
     }
 }

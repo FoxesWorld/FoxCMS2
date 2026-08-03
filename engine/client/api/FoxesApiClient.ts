@@ -5,9 +5,26 @@ import { notifyPayload, showToast } from '@/notifications/toasts'
 export interface FoxesApiErrorPayload {
   message?: unknown
   type?: unknown
+  code?: unknown
+  field?: unknown
   requestId?: unknown
+  correlationId?: unknown
   error?: unknown
   [key: string]: unknown
+}
+
+export interface FoxesApiFailureFeedback {
+  type: 'error' | 'warning' | 'warn'
+  message: string
+  code?: string
+  field?: string
+  requestId?: string
+  correlationId?: string
+}
+
+function payloadString(payload: FoxesApiErrorPayload | null, key: keyof FoxesApiErrorPayload): string {
+  const value = payload?.[key]
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function errorMessage(payload: unknown, fallback: string): string {
@@ -18,8 +35,37 @@ function errorMessage(payload: unknown, fallback: string): string {
   return fallback
 }
 
+function feedbackType(payload: FoxesApiErrorPayload | null): FoxesApiFailureFeedback['type'] {
+  const type = payloadString(payload, 'type').toLowerCase()
+  return type === 'warning' || type === 'warn' ? type : 'error'
+}
+
+export function foxesApiFailureFeedback(
+  error: unknown,
+  fallback: string,
+): FoxesApiFailureFeedback {
+  if (!(error instanceof FoxesApiError)) {
+    return { type: 'error', message: fallback }
+  }
+
+  const feedback: FoxesApiFailureFeedback = {
+    type: feedbackType(error.payload),
+    message: error.message.trim() || fallback,
+  }
+  const code = payloadString(error.payload, 'code')
+  const field = payloadString(error.payload, 'field')
+  const requestId = payloadString(error.payload, 'requestId') || error.requestId
+  const correlationId = payloadString(error.payload, 'correlationId') || error.correlationId
+  if (code) feedback.code = code
+  if (field) feedback.field = field
+  if (requestId) feedback.requestId = requestId
+  if (correlationId) feedback.correlationId = correlationId
+  return feedback
+}
+
 export class FoxesApiError extends Error {
   readonly requestId: string
+  readonly correlationId: string
 
   constructor(
     message: string,
@@ -29,7 +75,8 @@ export class FoxesApiError extends Error {
   ) {
     super(message)
     this.name = 'FoxesApiError'
-    this.requestId = typeof payload?.requestId === 'string' ? payload.requestId : ''
+    this.requestId = payloadString(payload, 'requestId')
+    this.correlationId = payloadString(payload, 'correlationId')
   }
 }
 

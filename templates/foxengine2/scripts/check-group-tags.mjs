@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile, readdir } from 'node:fs/promises'
 import { extname, join, relative } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
@@ -29,6 +30,16 @@ const contracts = [
     '<select v-model="draft.serverGroups" multiple',
     ':value="group.groupTag"',
   ]],
+  ['database/migrations/005_group_tag_preflight.sql', [
+    'DROP INDEX `uq_group_tag`',
+    "WHEN `groupNum` = 1 THEN 'admin'",
+    "WHEN `groupNum` = 4 THEN 'user'",
+    "WHEN `groupNum` = 5 THEN 'guest'",
+    "WHEN `groupNum` = 6 THEN 'tester'",
+    "THEN CONCAT('group-', `groupNum`)",
+    "'legacy-'",
+    'ADD UNIQUE KEY `uq_group_tag`',
+  ]],
   ['database/migrations/006_group_tag_identity.sql', [
     'ADD COLUMN `groupTag`',
     'UPDATE `users` AS `user`',
@@ -42,6 +53,32 @@ for (const [relativePath, signatures] of contracts) {
   for (const signature of signatures) {
     if (!text.includes(signature)) failures.push(`${relativePath} missing group-tag contract: ${signature}`)
   }
+}
+
+const immutableMigration006 = await readFile(join(repositoryRoot, 'database/migrations/006_group_tag_identity.sql'))
+const migration006Checksum = createHash('sha256').update(immutableMigration006).digest('hex')
+if (migration006Checksum !== 'c0aa73405ffa80026e06b73c73b87fb6d9bc850777551fdc1294183c4a0a1b93') {
+  failures.push('Historical migration 006_group_tag_identity.sql was modified; use a preflight or later migration instead')
+}
+
+const groupPreflightName = '005_group_tag_preflight.sql'
+const migrationNames = (await readdir(join(repositoryRoot, 'database/migrations'))).filter((name) => name.endsWith('.sql')).sort()
+if (migrationNames.indexOf(groupPreflightName) < 0 || migrationNames.indexOf(groupPreflightName) > migrationNames.indexOf('006_group_tag_identity.sql')) {
+  failures.push('Group-tag preflight must sort before immutable migration 006_group_tag_identity.sql')
+}
+
+const repairSql = await readFile(join(repositoryRoot, 'database/repair-legacy-schema.sql'), 'utf8')
+if (repairSql.includes('SET `groupTag` = LOWER(TRIM(`groupType`))')) {
+  failures.push('Legacy repair must not collapse distinct ranks by assigning groupTag directly from groupType')
+}
+for (const signature of [
+  'DROP INDEX `uq_group_tag`',
+  "WHEN `groupNum` = 1 THEN 'admin'",
+  "THEN CONCAT('group-', `groupNum`)",
+  "'legacy-'",
+  'ADD UNIQUE KEY `uq_group_tag`',
+]) {
+  if (!repairSql.includes(signature)) failures.push(`Legacy repair missing safe group-tag upgrade contract: ${signature}`)
 }
 
 async function sourceFiles(directory) {

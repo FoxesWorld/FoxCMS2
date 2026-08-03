@@ -5,7 +5,13 @@ import PlayerTop from '@theme/userOptions/PlayerTop.vue'
 import { foxesApi } from '@/api'
 
 interface ServerSession { serverName: string; totalTime: number; lastPlayed: number }
-interface Player { login: string; serversOnline: string | ServerSession[] | { servers?: Record<string, Omit<ServerSession, 'serverName'>> }; colorScheme?: string }
+interface Player {
+  uuid: string
+  login: string
+  serversOnline: string | ServerSession[] | { servers?: Record<string, Omit<ServerSession, 'serverName'>> }
+  colorScheme?: string
+  skinHead?: string
+}
 interface ServerInfo { serverName: string }
 
 const router = useRouter()
@@ -15,6 +21,7 @@ const players = ref<Player[]>([])
 const activeServers = ref(new Set<string>())
 const selectedServer = ref('all')
 const colors: Record<string, string> = { Prodigium: '#3498db', Amber: '#c17d22', Celeste: '#37bbd0', Industrial: '#d79c1c' }
+const skinHeadConcurrency = 4
 
 function parseSessions(value: Player['serversOnline']): ServerSession[] {
   let raw: unknown = value
@@ -64,13 +71,39 @@ function segments(player: Player): Array<{ name: string; width: number; color: s
   return total > 0 ? sessions.map((session) => ({ name: session.serverName, width: session.totalTime / total * 100, color: colors[session.serverName] ?? '#82928b' })) : []
 }
 
+async function loadSkinHead(player: Player): Promise<void> {
+  try {
+    const encoded = await foxesApi.postText({
+      sysRequest: 'skin',
+      show: 'head',
+      ...(player.uuid ? { userUuid: player.uuid } : { login: player.login }),
+    })
+    const content = encoded.trim()
+    if (content !== '') player.skinHead = `data:image/png;base64,${content}`
+  } catch (skinHeadError) {
+    console.warn(`[FoxesCraft] Skin head failed for ${player.login}`, skinHeadError)
+  }
+}
+
+async function loadSkinHeads(items: Player[]): Promise<void> {
+  let cursor = 0
+  const workerCount = Math.min(skinHeadConcurrency, items.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < items.length) {
+      const player = items[cursor++]
+      if (player) await loadSkinHead(player)
+    }
+  }))
+}
+
 onMounted(async () => {
   try {
     const [playerData, serverData] = await Promise.all([
       foxesApi.post<Player[]>({ sysRequest: 'topPlayers' }),
       foxesApi.post<ServerInfo[]>({ sysRequest: 'parseServers' }),
     ])
-    players.value = Array.isArray(playerData) ? playerData : []
+    players.value = Array.isArray(playerData) ? playerData.map((player) => ({ ...player, skinHead: '' })) : []
+    void loadSkinHeads(players.value)
     activeServers.value = new Set(Array.isArray(serverData) ? serverData.map((server) => server.serverName) : [])
   } catch (requestError) {
     console.error('[FoxesCraft] Player ranking failed', requestError)

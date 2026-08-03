@@ -66,6 +66,11 @@ STATIC_REQUIRED_FILES = {
     "database/migrations/003_uuid_user_identity.sql": "ux_users_uuid",
     "database/migrations/004_repair_legacy_schema.sql": "SELECT `serversOnline` FROM `users` LIMIT 0",
     "database/migrations/005_enforce_profile_runtime_fields.sql": "SELECT `balance`, `badges`, `serversOnline` FROM `users` LIMIT 0",
+    "database/migrations/010_badge_claim_keys.sql": "`tokenHash` CHAR(64)",
+    "database/migrations/014_rules_expert_claim_key.sql": "INSERT INTO `badgeClaimKeys`",
+    "database/migrations/015_consolidate_user_badges.sql": "DROP TABLE IF EXISTS `userBadges`",
+    "database/migrations/016_revoke_public_badge_claim_key.sql": "activeLegacyPublicBadgeKeys",
+    "database/migrations/017_public_badge_claim_access.sql": "`accessMode` = 'public'",
     "database/repair-legacy-schema.sql": "Safe to run repeatedly",
 }
 

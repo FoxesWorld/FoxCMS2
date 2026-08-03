@@ -11,7 +11,6 @@ final class AntiBrute
 {
     private const TABLE = 'antiBrute';
 
-    private ?string $storedIp = null;
     private ?int $blockedUntil = null;
     private int $attempts = 0;
     private int $maxAttempts;
@@ -22,6 +21,7 @@ final class AntiBrute
         private string $ip,
         private db $db,
         private array $config,
+        private Logger $logger,
         private bool $debug = false,
     ) {
         if (filter_var($this->ip, FILTER_VALIDATE_IP) === false) {
@@ -37,14 +37,35 @@ final class AntiBrute
 
         $this->cleanupExpiredRecords();
         $this->loadRecord();
-        $this->enforceCurrentBlock();
+    }
+
+    public function assertAllowed(): void
+    {
+        if ($this->blockedUntil === null || $this->blockedUntil <= CURRENT_TIME) {
+            return;
+        }
+
+        $retryAfter = max(1, $this->blockedUntil - CURRENT_TIME);
+        throw new AuthFailure(
+            'Слишком много неудачных попыток входа. Повторите через ' . gmdate('H:i:s', $retryAfter) . '.',
+            'authentication_rate_limited',
+            429,
+            headers: ['Retry-After' => (string)$retryAfter],
+            severity: 'warning',
+            expected: ['attemptsBelowLimit' => true],
+            actual: [
+                'attemptsBelowLimit' => false,
+                'attempts' => $this->attempts,
+                'maximumAttempts' => $this->maxAttempts,
+                'retryAfterSeconds' => $retryAfter,
+            ],
+            auditContext: ['component' => 'anti_brute'],
+        );
     }
 
     public function failedAuth(string $ip): void
     {
-        if (!hash_equals($this->ip, $ip)) {
-            throw new InvalidArgumentException('Anti-brute-force IP mismatch.');
-        }
+        $this->assertSameIp($ip);
 
         $statement = $this->db->prepare(
             'INSERT INTO `' . self::TABLE . '` (`ip`, `attempts`, `time`) '
@@ -54,10 +75,24 @@ final class AntiBrute
             . '`recordTime` = CURRENT_TIMESTAMP(4)'
         );
         $statement->execute([':ip' => $this->ip]);
-
         $this->loadRecord();
+
+        $this->logger->deviation(
+            'security.authentication.failed_attempt',
+            'authentication_attempt_failed',
+            'Failed authentication attempt was recorded.',
+            $this->attempts >= $this->maxAttempts ? 'warning' : 'notice',
+            ['attempts' => 0],
+            [
+                'attempts' => $this->attempts,
+                'maximumAttempts' => $this->maxAttempts,
+            ],
+            ['component' => 'anti_brute'],
+        );
+
         if ($this->attempts >= $this->maxAttempts) {
-            $this->blockIp();
+            $this->block();
+            $this->assertAllowed();
         }
     }
 
@@ -67,102 +102,107 @@ final class AntiBrute
             return;
         }
 
+        $previousAttempts = $this->attempts;
+        $wasBlocked = $this->blockedUntil !== null && $this->blockedUntil > CURRENT_TIME;
         $statement = $this->db->prepare(
             'DELETE FROM `' . self::TABLE . '` WHERE `ip` = :ip'
         );
         $statement->execute([':ip' => $this->ip]);
 
-        $this->storedIp = null;
         $this->blockedUntil = null;
         $this->attempts = 0;
+        if ($previousAttempts > 0 || $wasBlocked) {
+            $this->logger->event(
+                'security.authentication.failure_state_cleared',
+                'Authentication failure state was cleared after successful authentication.',
+                [
+                    'component' => 'anti_brute',
+                    'operation' => 'clear',
+                    'previousAttempts' => $previousAttempts,
+                    'wasBlocked' => $wasBlocked,
+                ],
+                'INFO',
+                'success',
+            );
+        }
     }
 
     private function loadRecord(): void
     {
         $statement = $this->db->prepare(
-            'SELECT `ip`, `time`, `attempts` '
-            . 'FROM `' . self::TABLE . '` '
-            . 'WHERE `ip` = :ip LIMIT 1'
+            'SELECT `time`, `attempts` FROM `' . self::TABLE . '` WHERE `ip` = :ip LIMIT 1'
         );
         $statement->execute([':ip' => $this->ip]);
         $record = $statement->fetch(PDO::FETCH_ASSOC);
 
         if (!is_array($record)) {
-            $this->storedIp = null;
             $this->blockedUntil = null;
             $this->attempts = 0;
             return;
         }
 
-        $this->storedIp = (string)$record['ip'];
         $this->blockedUntil = $record['time'] === null ? null : (int)$record['time'];
         $this->attempts = max(0, (int)$record['attempts']);
-
         if ($this->debug) {
-            error_log(sprintf(
-                '[FoxCMS AntiBrute] ip=%s attempts=%d maxAttempts=%d blockedUntil=%s',
-                $this->storedIp,
-                $this->attempts,
-                $this->maxAttempts,
-                $this->blockedUntil === null ? 'none' : (string)$this->blockedUntil,
-            ));
+            $this->logger->debug('Anti-brute state loaded.', [
+                'event' => 'security.authentication.state_loaded',
+                'component' => 'anti_brute',
+                'attempts' => $this->attempts,
+                'maximumAttempts' => $this->maxAttempts,
+                'blocked' => $this->blockedUntil !== null && $this->blockedUntil > CURRENT_TIME,
+                'blockedUntil' => $this->blockedUntil,
+            ]);
         }
     }
 
-    private function enforceCurrentBlock(): void
-    {
-        if ($this->blockedUntil === null || $this->blockedUntil <= CURRENT_TIME) {
-            return;
-        }
-
-        $timeLeft = $this->blockedUntil - CURRENT_TIME;
-        http_response_code(429);
-        header('Retry-After: ' . $timeLeft);
-        header('Cache-Control: no-store');
-        functions::jsonAnswer(
-            'Перед следующей попыткой входа подожди ' . gmdate('H:i:s', $timeLeft),
-            true,
-        );
-    }
-
-    private function blockIp(): void
+    private function block(): void
     {
         if ($this->blockedUntil !== null && $this->blockedUntil > CURRENT_TIME) {
             return;
         }
 
-        $blockedUntil = CURRENT_TIME + $this->banSeconds;
+        $this->blockedUntil = CURRENT_TIME + $this->banSeconds;
         $statement = $this->db->prepare(
-            'UPDATE `' . self::TABLE . '` '
-            . 'SET `time` = :blocked_until '
-            . 'WHERE `ip` = :ip'
+            'UPDATE `' . self::TABLE . '` SET `time` = :blockedUntil WHERE `ip` = :ip'
         );
         $statement->execute([
-            ':blocked_until' => $blockedUntil,
+            ':blockedUntil' => $this->blockedUntil,
             ':ip' => $this->ip,
         ]);
-        $this->blockedUntil = $blockedUntil;
 
-        if (class_exists('Logger')) {
-            (new Logger('AuthLog'))->logInfo(sprintf(
-                'Blocked %s for %d seconds after %d failed authorization attempts',
-                $this->ip,
-                $this->banSeconds,
-                $this->attempts,
-            ));
-        }
+        $this->logger->deviation(
+            'security.authentication.blocked',
+            'authentication_attempt_limit_reached',
+            'Authentication attempts reached the configured limit and were temporarily blocked.',
+            'warning',
+            ['attemptsBelowLimit' => true],
+            [
+                'attemptsBelowLimit' => false,
+                'attempts' => $this->attempts,
+                'maximumAttempts' => $this->maxAttempts,
+                'banSeconds' => $this->banSeconds,
+            ],
+            ['component' => 'anti_brute'],
+        );
     }
 
     private function cleanupExpiredRecords(): void
     {
         $statement = $this->db->prepare(
             'DELETE FROM `' . self::TABLE . '` '
-            . 'WHERE (`time` IS NOT NULL AND `time` < :current_time) '
-            . 'OR (`time` IS NULL AND `recordTime` < FROM_UNIXTIME(:attempt_cutoff))'
+            . 'WHERE (`time` IS NOT NULL AND `time` < :currentTime) '
+            . 'OR (`time` IS NULL AND `recordTime` < FROM_UNIXTIME(:attemptCutoff))'
         );
         $statement->execute([
-            ':current_time' => CURRENT_TIME,
-            ':attempt_cutoff' => CURRENT_TIME - $this->attemptWindowSeconds,
+            ':currentTime' => CURRENT_TIME,
+            ':attemptCutoff' => CURRENT_TIME - $this->attemptWindowSeconds,
         ]);
+    }
+
+    private function assertSameIp(string $ip): void
+    {
+        if (!hash_equals($this->ip, $ip)) {
+            throw new LogicException('Anti-brute-force request context mismatch.');
+        }
     }
 }

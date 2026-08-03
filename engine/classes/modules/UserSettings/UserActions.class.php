@@ -36,11 +36,28 @@ final class UserActions
 
     private function dispatch(string $action): void
     {
+        $handler = match ($action) {
+            'EditUser' => 'editUser',
+            'updateProfilePhoto' => 'updateProfilePhoto',
+            'getUserData' => 'getUserData',
+            'getUserSettings' => 'getUserSettings',
+            'claimBadge' => 'claimBadge',
+            'lostpassword' => 'lostPassword',
+            'resetpassword' => 'resetPassword',
+            default => 'unresolved',
+        };
+        RequestTelemetry::identify('user_settings.' . $action, [
+            'component' => 'user_settings',
+            'action' => $action,
+            'handler' => $handler,
+            'moduleName' => 'UserSettings',
+        ]);
         match ($action) {
             'EditUser' => $this->editUser(),
             'updateProfilePhoto' => $this->updateProfilePhoto(),
             'getUserData' => $this->getUserData(),
             'getUserSettings' => $this->getUserSettings(),
+            'claimBadge' => $this->claimBadge(),
             'lostpassword' => $this->lostPassword(),
             'resetpassword' => $this->resetPassword(),
             default => $this->respond(['message' => 'Unknown user request.', 'type' => 'error'], 400),
@@ -67,18 +84,62 @@ final class UserActions
     private function lostPassword(): never
     {
         require_once __DIR__ . '/actions/lostpassword.class.php';
-        (new LostPassword($this->db, $this->config))->resetPass($this->request->string('email'));
+        (new LostPassword($this->db, $this->logger, $this->config))->resetPass($this->request->string('email'));
     }
 
     private function resetPassword(): never
     {
         require_once __DIR__ . '/actions/resetpassword.class.php';
-        (new ResetPassword($this->db))->reset(
+        (new ResetPassword($this->db, $this->logger))->reset(
             $this->request->string('token'),
             $this->request->string('new_password'),
             $this->request->string('confirm_password'),
         );
     }
+
+
+    private function claimBadge(): never
+    {
+        if (!$this->session->isLogged()) {
+            $this->respond(['message' => 'Нужно войти в аккаунт.', 'type' => 'error'], 401);
+        }
+        CsrfToken::requireValid($this->request->csrfToken());
+
+        $claimCode = trim($this->request->string('claimCode'));
+        $badgeName = trim($this->request->string('badgeName'));
+        if (($claimCode === '') === ($badgeName === '')) {
+            $this->respond([
+                'message' => 'Передайте либо код получения, либо название публичного бейджа.',
+                'type' => 'error',
+            ], 400);
+        }
+
+        $service = new BadgeClaimService($this->db, $this->logger);
+        try {
+            $result = $claimCode !== ''
+                ? $service->claim($claimCode, $this->session->uuid())
+                : $service->claimPublic($badgeName, $this->session->uuid());
+        } catch (HttpException $error) {
+            $this->respond([
+                'message' => $error->getMessage(),
+                'type' => 'error',
+            ], $error->status());
+        }
+        $this->session->set('badges', $result['badgesJson'], true);
+
+        $badge = is_array($result['badge'] ?? null) ? $result['badge'] : [];
+        $badgeName = trim((string)($badge['badgeName'] ?? 'Бейдж'));
+        $alreadyOwned = ($result['alreadyOwned'] ?? false) === true;
+        $this->respond([
+            'message' => $alreadyOwned
+                ? 'Бейдж «' . $badgeName . '» уже есть в вашем профиле.'
+                : 'Бейдж «' . $badgeName . '» добавлен в ваш профиль.',
+            'type' => $alreadyOwned ? 'warning' : 'success',
+            'alreadyOwned' => $alreadyOwned,
+            'badge' => $badge,
+        ]);
+    }
+
 
     private function getUserSettings(): never
     {
@@ -151,10 +212,10 @@ final class UserActions
             $this->respond(['message' => 'Пользователь не найден.', 'type' => 'error'], 404);
         }
 
-        foreach (['badges', 'serversOnline', 'balance'] as $jsonField) {
+        $user['balance'] = BalanceMatrix::normalize($user['balance'] ?? null);
+        foreach (['badges', 'serversOnline'] as $jsonField) {
             if (isset($user[$jsonField]) && is_string($user[$jsonField])) {
-                $fallback = $jsonField === 'serversOnline' ? [] : [];
-                $user[$jsonField] = json_decode($user[$jsonField], true) ?? $fallback;
+                $user[$jsonField] = json_decode($user[$jsonField], true) ?? [];
             }
         }
 
@@ -169,13 +230,13 @@ final class UserActions
 
     private function respond(array $payload, int $status = 200): never
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
-        $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (!is_string($encoded)) {
-            throw new RuntimeException('Unable to encode user response.');
+        if ($status >= 400) {
+            RequestTelemetry::rejectHttp(
+                'user_settings.operation.rejected',
+                $status,
+                (string)($payload['message'] ?? 'User settings operation was rejected.'),
+            );
         }
-        exit($encoded);
+        JsonResponse::send($payload, $status);
     }
 }

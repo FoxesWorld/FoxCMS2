@@ -14,11 +14,11 @@ import AdminCatalogs from '@theme/foxEngine/admin/Catalogs.vue'
 
 const {
   isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady,
-  maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
+  maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, badgeClaimKeys, issuedBadgeClaimCode, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
   servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
-  logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, catalogKey, hardwareMax,
+  logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, catalogKey,
   formatTimestamp, loadSiteSettings, saveSiteSettings, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide,
-  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, loadUsers, searchUsers, editUser, saveUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
+  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, issueBadgeClaimKey, revokeBadgeClaimKey, clearIssuedBadgeClaimCode, loadUsers, searchUsers, editUser, saveUser, grantBadgeToSelectedUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
 } = useAdminPanel()
@@ -122,7 +122,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
         </section>
 
         <section class="admin-workspace__content">
-          <AdminOverview v-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" :hardware-max="hardwareMax" />
+          <AdminOverview v-if="activeTab === 'overview'" :overview="overview" :hardware="hardware" />
           <AdminSiteSettings
             v-else-if="activeTab === 'settings'"
             :settings="siteSettings"
@@ -147,10 +147,15 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             :project-pages="projectPages"
             :badge-pages="badgePages"
             :badges="contentBadges"
+            :claim-keys="badgeClaimKeys"
+            :issued-code="issuedBadgeClaimCode"
             :loading="loading"
             @save-project-pages="saveProjectPages"
             @save-badge-page="saveBadgePage"
             @delete-badge-page="deleteBadgePage"
+            @issue-claim-key="issueBadgeClaimKey"
+            @revoke-claim-key="revokeBadgeClaimKey"
+            @clear-issued-code="clearIssuedBadgeClaimCode"
           />
           <AdminMaintenance
             v-else-if="activeTab === 'maintenance'"
@@ -172,6 +177,7 @@ const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value)
             @search="searchUsers"
             @edit="editUser"
             @save="saveUser"
+            @grant-badge="grantBadgeToSelectedUser"
           />
           <AdminServers
             v-else-if="activeTab === 'servers'"

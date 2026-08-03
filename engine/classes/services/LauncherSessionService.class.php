@@ -4,15 +4,30 @@ declare(strict_types=1);
 
 final class LauncherSessionService
 {
-    public function __construct(private db $database)
-    {
+    public function __construct(
+        private db $database,
+        private ?Logger $logger = null,
+    ) {
     }
 
     /** @return array{userUuid:string,profileId:string,login:string} */
     public function resolve(string $accessToken): array
     {
+        $accessToken = strtolower(trim($accessToken));
         if (preg_match('/^[a-f0-9]{32,128}$/D', $accessToken) !== 1) {
-            throw new RuntimeException('Invalid launcher token.', 401);
+            $this->logger?->deviation(
+                'launcher.session.rejected',
+                'launcher_token_format_invalid',
+                'Launcher session token format is invalid.',
+                'warning',
+                ['tokenFormatValid' => true],
+                [
+                    'tokenFormatValid' => false,
+                    'tokenLength' => strlen($accessToken),
+                ],
+                ['component' => 'launcher_session'],
+            );
+            throw new HttpException('Invalid launcher token.', 401);
         }
 
         $statement = $this->database->prepare(
@@ -28,10 +43,30 @@ final class LauncherSessionService
         ]);
         $row = $statement->fetch(PDO::FETCH_ASSOC);
         if (!is_array($row)) {
-            throw new RuntimeException('Launcher session is invalid or expired.', 401);
+            $this->logger?->deviation(
+                'launcher.session.rejected',
+                'launcher_session_invalid_or_expired',
+                'Launcher session is invalid or expired.',
+                'warning',
+                ['sessionState' => 'active'],
+                ['sessionState' => 'missing_or_expired'],
+                ['component' => 'launcher_session'],
+            );
+            throw new HttpException('Launcher session is invalid or expired.', 401);
         }
 
         $userUuid = Uuid::normalize((string)$row['userUuid']);
+        $this->logger?->event(
+            'launcher.session.resolved',
+            'Launcher session resolved.',
+            [
+                'component' => 'launcher_session',
+                'operation' => 'resolve',
+                'targetUserUuid' => $userUuid,
+            ],
+            'DEBUG',
+            'success',
+        );
         return [
             'userUuid' => $userUuid,
             'profileId' => Uuid::compact($userUuid),
@@ -44,8 +79,11 @@ final class LauncherSessionService
     {
         try {
             return $this->resolve($accessToken);
-        } catch (RuntimeException) {
-            return null;
+        } catch (HttpException $error) {
+            if ($error->status() === 401) {
+                return null;
+            }
+            throw $error;
         }
     }
 

@@ -3,6 +3,7 @@ import { appBootstrap } from '@/app/context'
 import { FoxesApiError, foxesApi } from '@/api'
 import { invalidateContentRegistry } from '@/content/contentData'
 import { bootstrapString } from '@/domain/bootstrap'
+import { normalizeBalanceMatrix } from '@/domain/userBalance'
 import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
 import type { JsonObject, JsonValue } from '@/forms/json-form'
 
@@ -20,7 +21,48 @@ export type Feedback = {
   error?: AdminErrorDetails
 }
 export type JsonRow = Record<string, unknown>
-export interface LogEntry { timestamp: string; time: string; level: string; message: string; tone: string }
+export interface LogDeviation {
+  code?: string
+  severity?: string
+  expected?: unknown
+  actual?: unknown
+}
+export interface LogException {
+  class?: string
+  message?: string
+  file?: string
+  line?: number
+  trace?: string
+}
+export interface LogEntry {
+  timestamp: string
+  time: string
+  level: string
+  event: string
+  message: string
+  tone: string
+  requestId?: string
+  correlationId?: string
+  component?: string
+  operation?: string
+  outcome?: string
+  httpMethod?: string
+  httpPath?: string
+  httpStatus?: number | null
+  durationMs?: number | null
+  actorUuid?: string
+  actorLogin?: string
+  actorGroup?: string
+  requestChannel?: string
+  action?: string
+  handler?: string
+  authenticated?: boolean | null
+  sessionState?: string
+  deviation?: LogDeviation | null
+  exception?: LogException | null
+  context?: Record<string, unknown>
+  malformed?: boolean
+}
 export interface FileEntry {
   name: string
   path: string
@@ -47,7 +89,47 @@ export interface Overview {
   enabledServers: number
   hardwareReports: number
 }
-export interface Hardware { cpu: Record<string, number>; gpu: Record<string, number> }
+export interface HardwareDistribution {
+  label: string
+  count: number
+  percentage: number
+}
+export interface HardwareSummary {
+  totalSystems: number
+  totalMemoryBytes: number
+  averageMemoryBytes: number
+  averageLogicalCpuCount: number
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+}
+export interface HardwareSystem {
+  systemId: string
+  schemaVersion: number
+  updaterVersion: string
+  platform: string
+  osName: string
+  osVersion: string | null
+  kernelVersion: string | null
+  architecture: string
+  cpuBrand: string | null
+  logicalCpuCount: number
+  memoryBytes: number
+  gpuAdapters: string[]
+  firstSeenAt: string | null
+}
+export interface Hardware {
+  summary: HardwareSummary
+  platforms: HardwareDistribution[]
+  operatingSystems: HardwareDistribution[]
+  architectures: HardwareDistribution[]
+  updaterVersions: HardwareDistribution[]
+  cpuVendors: HardwareDistribution[]
+  gpuVendors: HardwareDistribution[]
+  cpuModels: HardwareDistribution[]
+  gpuModels: HardwareDistribution[]
+  memoryBuckets: HardwareDistribution[]
+  systems: HardwareSystem[]
+}
 export interface MaintenanceSettings {
   enabled: boolean
   allowedGroups: string[]
@@ -124,6 +206,27 @@ export interface BadgeCatalogRow {
   pageSlug: string
   pageConfigured: boolean
 }
+export type BadgeClaimUsageMode = 'single' | 'reusable'
+export type BadgeClaimAccessMode = 'code' | 'public'
+export interface BadgeClaimKeyRow {
+  id: number
+  badgeId: number
+  badgeName: string
+  tokenHint: string
+  usageMode: BadgeClaimUsageMode
+  accessMode: BadgeClaimAccessMode
+  usesCount: number
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+  createdByUuid: string
+  claimsCount: number
+  lastClaimedAt: number | null
+}
+export interface IssuedBadgeClaimCode {
+  token: string
+  entry: BadgeClaimKeyRow
+}
 export interface RuntimeContentDocument<T> {
   schema: number
   pages: T[]
@@ -135,6 +238,7 @@ export interface GroupOption {
   groupColor: string
 }
 export interface AdminBadgeOption {
+  id: number
   badgeName: string
   title: string
   description: string
@@ -282,6 +386,8 @@ export function useAdminPanel() {
   const projectPages = ref<ProjectPageDraft[]>([])
   const badgePages = ref<BadgePageDraft[]>([])
   const contentBadges = ref<BadgeCatalogRow[]>([])
+  const badgeClaimKeys = ref<BadgeClaimKeyRow[]>([])
+  const issuedBadgeClaimCode = ref<IssuedBadgeClaimCode | null>(null)
   const groupOptions = ref<GroupOption[]>([])
   const badgeOptions = ref<AdminBadgeOption[]>([])
   const users = ref<UserRow[]>([])
@@ -293,7 +399,7 @@ export function useAdminPanel() {
     email: '',
     userStatus: '',
     groupTag: 'guest',
-    balance: '',
+    balance: normalizeBalanceMatrix(null) as unknown as JsonValue,
     badges: '',
     serversOnline: '',
   })
@@ -355,7 +461,6 @@ export function useAdminPanel() {
     { id: 'catalogs', label: 'Каталоги', description: 'Справочники и структурированные данные', icon: 'fa-table-list' },
   ]
   const catalogKey = computed(() => ({ infobox: 'group_name', badges: 'badgeName', groups: 'groupTag' })[catalogName.value])
-  const hardwareMax = computed(() => Math.max(1, ...Object.values(hardware.value?.cpu ?? {}), ...Object.values(hardware.value?.gpu ?? {})))
 
   function setGroups(groups: GroupOption[]): void { groupOptions.value = groups }
   function formatTimestamp(value?: number | string): string {
@@ -552,11 +657,22 @@ export function useAdminPanel() {
       projectPages: RuntimeContentDocument<ProjectPageDraft>
       badgePages: { pages: BadgePageDraft[] }
       badges: BadgeCatalogRow[]
+      badgeClaimKeys: BadgeClaimKeyRow[]
     }>({ admPanel: 'content' }))
     if (!response) return
     projectPages.value = cloneContent(response.projectPages.pages)
     badgePages.value = cloneContent(response.badgePages.pages)
     contentBadges.value = response.badges.map((badge) => ({ ...badge, id: Number(badge.id) }))
+    badgeClaimKeys.value = response.badgeClaimKeys.map((entry) => ({
+      ...entry,
+      id: Number(entry.id),
+      badgeId: Number(entry.badgeId),
+      usesCount: Number(entry.usesCount),
+      claimsCount: Number(entry.claimsCount),
+      createdAt: Number(entry.createdAt),
+      updatedAt: Number(entry.updatedAt),
+      lastClaimedAt: entry.lastClaimedAt === null ? null : Number(entry.lastClaimedAt),
+    }))
   }
   function ensureBadgePage(badge: BadgeCatalogRow): BadgePageDraft {
     const existing = badgePages.value.find((page) => page.slug === badge.pageSlug)
@@ -574,6 +690,34 @@ export function useAdminPanel() {
     if (!badge) return
     const index = badgePages.value.findIndex((page) => page.slug === badge.pageSlug)
     if (index >= 0) badgePages.value.splice(index, 1)
+  }
+  async function issueBadgeClaimKey(badgeId: number, usageMode: BadgeClaimUsageMode): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & IssuedBadgeClaimCode>({
+      admPanel: 'issueBadgeClaimKey',
+      badgeId,
+      usageMode,
+    }))
+    if (!response) return
+    feedback.value = response
+    issuedBadgeClaimCode.value = { token: response.token, entry: response.entry }
+    badgeClaimKeys.value = [
+      response.entry,
+      ...badgeClaimKeys.value.filter((entry) => entry.id !== response.entry.id),
+    ]
+  }
+  async function revokeBadgeClaimKey(keyId: number): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & { entry: BadgeClaimKeyRow }>({
+      admPanel: 'revokeBadgeClaimKey',
+      keyId,
+    }))
+    if (!response) return
+    feedback.value = response
+    const index = badgeClaimKeys.value.findIndex((entry) => entry.id === keyId)
+    if (index >= 0) badgeClaimKeys.value.splice(index, 1, response.entry)
+    if (issuedBadgeClaimCode.value?.entry.id === keyId) issuedBadgeClaimCode.value = null
+  }
+  function clearIssuedBadgeClaimCode(): void {
+    issuedBadgeClaimCode.value = null
   }
   async function saveProjectPages(): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback & { document: RuntimeContentDocument<ProjectPageDraft> }>({
@@ -616,7 +760,7 @@ export function useAdminPanel() {
     const preferredUuid = options.selectUuid ?? selectedUser.value?.uuid ?? ''
     users.value = response.items
     setGroups(response.groups)
-    badgeOptions.value = response.badgeOptions
+    badgeOptions.value = response.badgeOptions.map((badge) => ({ ...badge, id: Number(badge.id) }))
 
     if (options.autoSelect === false) return
     const preferred = preferredUuid
@@ -640,7 +784,7 @@ export function useAdminPanel() {
     userDraft.email = String(user.email ?? '')
     userDraft.userStatus = String(user.userStatus ?? '')
     userDraft.groupTag = user.groupTag || 'guest'
-    userDraft.balance = decodeJsonValue(user.balance)
+    userDraft.balance = normalizeBalanceMatrix(decodeJsonValue(user.balance)) as unknown as JsonValue
     userDraft.badges = decodeJsonValue(user.badges)
     userDraft.serversOnline = decodeJsonValue(user.serversOnline)
   }
@@ -654,7 +798,6 @@ export function useAdminPanel() {
       userStatus: userDraft.userStatus,
       groupTag: userDraft.groupTag,
       balance: userDraft.balance,
-      badges: userDraft.badges,
       serversOnline: userDraft.serversOnline,
     }
     const response = await run(() => foxesApi.post<Feedback>({ admPanel: 'updateUser', userUuid: selectedUuid, entry: JSON.stringify(entry) }))
@@ -670,6 +813,23 @@ export function useAdminPanel() {
       await loadUsers({ selectUuid: selectedUuid, autoSelect: false })
     }
   }
+  async function grantBadgeToSelectedUser(badgeId: number): Promise<void> {
+    if (!selectedUser.value || badgeId <= 0) return
+    const selectedUuid = selectedUser.value.uuid
+    const response = await run(() => foxesApi.post<Feedback & { key: BadgeClaimKeyRow }>({
+      admPanel: 'grantBadgeToUser',
+      userUuid: selectedUuid,
+      badgeId,
+    }))
+    if (!response) return
+    feedback.value = response
+    badgeClaimKeys.value = [
+      response.key,
+      ...badgeClaimKeys.value.filter((entry) => entry.id !== response.key.id),
+    ]
+    await loadUsers({ selectUuid: selectedUuid })
+  }
+
   async function loadServers(): Promise<void> {
     const response = await run(() => foxesApi.post<{
       items: ServerRow[]
@@ -893,15 +1053,15 @@ export function useAdminPanel() {
 
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady,
-    maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, groupOptions, badgeOptions,
+    maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, badgeClaimKeys, issuedBadgeClaimCode, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
-    originalCatalogKey, tabs, catalogKey, hardwareMax, formatTimestamp,
+    originalCatalogKey, tabs, catalogKey, formatTimestamp,
     loadSiteSettings, saveSiteSettings, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
-    loadContent, ensureBadgePage, removeBadgePage, saveProjectPages, saveBadgePage, deleteBadgePage,
-    loadUsers, searchUsers, editUser, saveUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
+    loadContent, ensureBadgePage, removeBadgePage, issueBadgeClaimKey, revokeBadgeClaimKey, clearIssuedBadgeClaimCode, saveProjectPages, saveBadgePage, deleteBadgePage,
+    loadUsers, searchUsers, editUser, saveUser, grantBadgeToSelectedUser, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,

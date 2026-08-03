@@ -7,7 +7,7 @@ const contracts = [
     "loadPriority(MODULES_DIR, 'preInit', ['AuthReg'])",
     'enforceMaintenance($maintenance)',
     'new MaintenanceRenderer(',
-    'http_response_code(503)',
+    '], 503',
   ]],
   ['engine/classes/services/MaintenanceModePolicy.class.php', [
     '$session->isAdmin()',
@@ -21,8 +21,8 @@ const contracts = [
     'public function save(',
   ]],
   ['engine/classes/modules/AdminPanel/AdminOptions.class.php', [
-    "case 'maintenance':",
-    "case 'saveMaintenance':",
+    "'maintenance' => 'maintenance'",
+    "'saveMaintenance' => 'saveMaintenance'",
     'MaintenanceModeRepository',
   ]],
   ['engine/classes/modules/AuthReg/AuthReg.class.php', [
@@ -30,7 +30,7 @@ const contracts = [
     "'code' => 'maintenance_mode'",
     "$this->request->boolean('maintenanceAccess')",
     'MaintenanceModePolicy::allows($maintenance, $this->session)',
-    "'code' => 'maintenance_group_required'",
+    'maintenance_group_required',
     '$this->session->clear()',
   ]],
   ['engine/classes/modules/AuthReg/actions/authorise.class.php', [
@@ -97,7 +97,7 @@ for (const legacy of ["'code' => 'administrator_required'", 'Эта форма �
   if (authManager.includes(legacy) || renderer.includes(legacy)) failures.push(`legacy administrator-only maintenance access remains: ${legacy}`)
 }
 if (!authManager.includes("'auth' => $this->authenticate($maintenance)")) failures.push('maintenance settings are not passed into authentication')
-if (!authManager.includes("'message' => 'Группа этой учётной записи не допущена во время технических работ.'")) failures.push('disallowed maintenance group response is missing')
+if (!authManager.includes("'Группа этой учётной записи не допущена во время технических работ.'")) failures.push('disallowed maintenance group response is missing')
 
 if (failures.length) {
   console.error('Maintenance mode check failed:')

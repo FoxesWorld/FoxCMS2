@@ -24,11 +24,12 @@ final class HealthCheckService
             'image', 'button_text', 'button_url',
         ],
         'badgesList' => ['id', 'badgeName', 'description', 'img'],
+        'badgeClaimKeys' => ['id', 'badgeId', 'tokenHash', 'tokenHint', 'usageMode', 'usesCount', 'enabled', 'createdAt', 'updatedAt', 'createdByUuid'],
+        'badgeKeyClaims' => ['id', 'badgeId', 'keyId', 'userUuid', 'claimedAt'],
         'antiBrute' => ['id', 'time', 'recordTime', 'ip', 'attempts'],
         'usersession' => ['id', 'userUuid', 'serverId', 'accessToken', 'expiresAt', 'updatedAt'],
         'password_reset_tokens' => ['userUuid', 'tokenHash', 'expiresAt', 'createdAt'],
         'user_hardware_reports' => ['userUuid', 'cpuIdHash', 'cpu', 'gpus', 'payload', 'updatedAt'],
-        'userBadges' => ['id', 'userUuid', 'badges'],
     ];
     public function __construct(
         private db $database,

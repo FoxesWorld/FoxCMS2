@@ -22,21 +22,32 @@ final class EditUser
 
     public function update(): never
     {
+        RequestTelemetry::identify('profile.update', ['component' => 'profile']);
         try {
-            $this->updateProfile();
+            $result = $this->updateProfile();
+            $this->logger->event(
+                'profile.update.completed',
+                'User profile updated.',
+                array_merge(['component' => 'profile'], $result),
+                'INFO',
+                'success',
+            );
             $this->respond('Профиль обновлён.', 'success');
         } catch (DomainException | InvalidArgumentException $exception) {
             $this->respond($exception->getMessage(), 'error', 422);
         } catch (Throwable $exception) {
-            $this->logger->logError('Profile update failed', [
-                'userUuid' => $this->session->uuid(),
-                'error' => $exception->getMessage(),
-            ]);
+            $this->logger->exception(
+                'profile.update.failed',
+                $exception,
+                'Profile update failed unexpectedly.',
+                ['component' => 'profile'],
+            );
             $this->respond('Не удалось обновить профиль.', 'error', 500);
         }
     }
 
-    private function updateProfile(): void
+    /** @return array{targetUserUuid:string,fields:list<string>,passwordChanged:bool} */
+    private function updateProfile(): array
     {
         if (!$this->session->isLogged()) {
             throw new DomainException('Нужно войти в аккаунт.');
@@ -93,7 +104,18 @@ final class EditUser
 
         if (Uuid::equals($sessionUuid, $targetUuid)) {
             $this->session->refreshFromDatabase();
+            RequestTelemetry::annotate([
+                'actorUuid' => $this->session->uuid(),
+                'actorLogin' => $this->session->login(),
+                'actorGroup' => $this->session->group(),
+            ]);
         }
+
+        return [
+            'targetUserUuid' => $targetUuid,
+            'fields' => array_values(array_diff(array_keys($updates), ['password', 'token'])),
+            'passwordChanged' => array_key_exists('password', $updates),
+        ];
     }
 
     private function loadTarget(string $userUuid): ?array
@@ -203,11 +225,12 @@ final class EditUser
 
     private function respond(string $message, string $type, int $status = 200): never
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        exit(json_encode([
+        if ($status >= 400) {
+            RequestTelemetry::rejectHttp('profile.update.rejected', $status, $message);
+        }
+        JsonResponse::send([
             'message' => $message,
             'type' => $type,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        ], $status);
     }
 }

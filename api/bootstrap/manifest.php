@@ -12,16 +12,37 @@ declare(strict_types=1);
 $config = require __DIR__ . '/config.php';
 require_once __DIR__ . '/artifact-catalog.php';
 require_once __DIR__ . '/runtime-catalog.php';
+require_once __DIR__ . '/hardware-report.php';
+require_once __DIR__ . '/hardware-inventory.php';
 $requestId = createRequestId();
+$requestMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, If-None-Match');
 header('X-FoxesCraft-Request-Id: ' . $requestId);
 header('X-FoxesCraft-Manifest-Schema: 1');
 
+if ($requestMethod === 'OPTIONS') {
+    header('Cache-Control: no-store');
+    http_response_code(204);
+    exit;
+}
+if (!in_array($requestMethod, ['GET', 'POST'], true)) {
+    header('Allow: GET, POST, OPTIONS');
+    respondWithError(405, 'bootstrap_manifest_method_not_allowed', 'Bootstrap manifest accepts GET or POST requests.');
+}
+
 try {
+    if ($requestMethod === 'POST') {
+        registerHardwareInventory($config, $requestId);
+    } else {
+        header('X-FoxesCraft-Hardware-Inventory: not-provided');
+    }
+
     $storageDirectory = requireAbsoluteDirectory(isset($config['storage_directory']) ? $config['storage_directory'] : null);
     $cacheMaxAge = requireNonNegativeInteger(isset($config['cache_max_age']) ? $config['cache_max_age'] : 60, 'cache_max_age');
     $platform = catalogRequestPlatform();
@@ -63,12 +84,15 @@ try {
 
     $etag = '"' . hash('sha256', $encoded) . '"';
     header('ETag: ' . $etag);
-    header(sprintf('Cache-Control: public, max-age=%d, stale-while-revalidate=300', $cacheMaxAge));
-
-    $requestEtag = trim(isset($_SERVER['HTTP_IF_NONE_MATCH']) ? (string) $_SERVER['HTTP_IF_NONE_MATCH'] : '');
-    if ($requestEtag !== '' && hash_equals($etag, $requestEtag)) {
-        http_response_code(304);
-        exit;
+    if ($requestMethod === 'GET') {
+        header(sprintf('Cache-Control: public, max-age=%d, stale-while-revalidate=300', $cacheMaxAge));
+        $requestEtag = trim(isset($_SERVER['HTTP_IF_NONE_MATCH']) ? (string) $_SERVER['HTTP_IF_NONE_MATCH'] : '');
+        if ($requestEtag !== '' && hash_equals($etag, $requestEtag)) {
+            http_response_code(304);
+            exit;
+        }
+    } else {
+        header('Cache-Control: no-store');
     }
 
     header('Content-Length: ' . strlen($encoded));
@@ -99,9 +123,45 @@ try {
     respondWithError(
         500,
         'bootstrap_manifest_internal_error',
-        'Bootstrap manifest cannot be generated because an unexpected server error occurred.',
-        array('exception' => get_class($exception), 'reason' => $exception->getMessage())
+        'Bootstrap manifest cannot be generated because an unexpected server error occurred.'
     );
+}
+
+/** @param array<string, mixed> $bootstrapConfig */
+function registerHardwareInventory(array $bootstrapConfig, string $requestId): void
+{
+    $inventoryConfig = is_array($bootstrapConfig['hardware_inventory'] ?? null)
+        ? $bootstrapConfig['hardware_inventory']
+        : [];
+    if (($inventoryConfig['enabled'] ?? true) !== true) {
+        header('X-FoxesCraft-Hardware-Inventory: disabled');
+        return;
+    }
+
+    $maxPayloadBytes = (int)($inventoryConfig['max_payload_bytes'] ?? 32768);
+    if ($maxPayloadBytes < 4096 || $maxPayloadBytes > 131072) {
+        fail(500, 'bootstrap_configuration_invalid', 'Hardware inventory payload limit is invalid.');
+    }
+
+    $report = BootstrapHardwareReport::fromHttpBody($maxPayloadBytes);
+    $databaseConfig = is_array($bootstrapConfig['database'] ?? null)
+        ? $bootstrapConfig['database']
+        : [];
+
+    try {
+        $repository = new BootstrapHardwareInventoryRepository($databaseConfig);
+        $inserted = $repository->insertIfMissing($report);
+        header('X-FoxesCraft-Hardware-Inventory: ' . ($inserted ? 'inserted' : 'existing'));
+    } catch (Throwable $exception) {
+        header('X-FoxesCraft-Hardware-Inventory: unavailable');
+        error_log(sprintf(
+            '[FoxesCraft hardware inventory] request=%s system_hwid_prefix=%s exception=%s message=%s',
+            $requestId,
+            substr($report->systemHwid(), 0, 12),
+            get_class($exception),
+            $exception->getMessage()
+        ));
+    }
 }
 
 function publicArtifact(array $artifact): array

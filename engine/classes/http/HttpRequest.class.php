@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 final class HttpRequest
 {
+    private const TELEMETRY_ACTION_FIELDS = [
+        'sysRequest' => 'system_requests',
+        'admPanel' => 'admin_panel',
+        'user_doaction' => 'user_settings',
+        'userAction' => 'authentication',
+        'newsAction' => 'news',
+    ];
+
     private array $post;
     private array $query;
     private array $cookies;
@@ -151,6 +159,87 @@ final class HttpRequest
         return str_contains(strtolower($this->header('Accept')), 'application/json')
             || strtolower($this->header('X-Requested-With')) === 'xmlhttprequest'
             || str_starts_with($this->path(), '/api/');
+    }
+
+    /** @return array<string, mixed> */
+    public function telemetryContext(): array
+    {
+        $actionField = '';
+        $action = '';
+        $channel = '';
+        foreach (self::TELEMETRY_ACTION_FIELDS as $field => $candidateChannel) {
+            $candidate = $this->scalarString($this->post[$field] ?? $this->query[$field] ?? '', '');
+            if ($candidate === '') {
+                continue;
+            }
+            $actionField = $field;
+            $action = $this->safeTelemetryValue($candidate);
+            $channel = $candidateChannel;
+            break;
+        }
+
+        if ($channel === '') {
+            $channel = str_starts_with($this->path(), '/api/')
+                ? 'api'
+                : ($this->isPost() ? 'form' : ($this->expectsJson() ? 'ajax' : 'frontend'));
+        }
+
+        $context = [
+            'requestChannel' => $channel,
+            'requestInputKeys' => $this->safeTelemetryKeys($this->post),
+            'queryKeys' => $this->safeTelemetryKeys($this->query),
+            'uploadFields' => $this->safeTelemetryKeys($this->files),
+            'expectsJson' => $this->expectsJson(),
+        ];
+        if ($actionField !== '') {
+            $context['actionField'] = $actionField;
+            $context['action'] = $action;
+        }
+
+        $contentType = mb_substr($this->header('Content-Type'), 0, 160);
+        if ($contentType !== '') {
+            $context['contentType'] = $contentType;
+        }
+        $contentLength = filter_var($this->header('Content-Length'), FILTER_VALIDATE_INT);
+        if ($contentLength !== false && $contentLength >= 0) {
+            $context['contentLength'] = (int)$contentLength;
+        }
+        return $context;
+    }
+
+    public function telemetryOperation(): string
+    {
+        $context = $this->telemetryContext();
+        $channel = (string)($context['requestChannel'] ?? 'request');
+        $action = (string)($context['action'] ?? 'request');
+        return $channel . '.' . ($action !== '' ? $action : 'request');
+    }
+
+    /** @param array<int|string, mixed> $values @return list<string> */
+    private function safeTelemetryKeys(array $values): array
+    {
+        $keys = [];
+        foreach (array_keys($values) as $key) {
+            if (!is_string($key) || preg_match('/^[A-Za-z0-9_.-]{1,64}$/D', $key) !== 1) {
+                continue;
+            }
+            $normalized = preg_replace('/[^a-z0-9]/', '', strtolower($key)) ?? '';
+            if (preg_match('/(?:password|passwd|secret|token|authorization|cookie|csrf|securekey)/', $normalized) === 1) {
+                continue;
+            }
+            $keys[] = $key;
+            if (count($keys) >= 40) {
+                break;
+            }
+        }
+        sort($keys, SORT_STRING);
+        return $keys;
+    }
+
+    private function safeTelemetryValue(string $value): string
+    {
+        $value = preg_replace('/[^A-Za-z0-9_.-]+/', '.', trim($value)) ?? '';
+        return trim(substr($value, 0, 96), '.-');
     }
 
     private function scalarString(mixed $value, string $default): string

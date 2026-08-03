@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `colorScheme` VARCHAR(16) NOT NULL DEFAULT '#B5B8B1',
     `token` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     `units` BIGINT NOT NULL DEFAULT 0,
-    `balance` LONGTEXT NOT NULL DEFAULT '[]',
+    `balance` LONGTEXT NOT NULL DEFAULT '{"version":1,"currencies":[{"code":"units","name":"Units","amount":0,"symbol":"U","primary":true},{"code":"crystals","name":"Crystals","amount":0,"symbol":"C","primary":false}]}',
     `badges` LONGTEXT NOT NULL DEFAULT '[]',
     `serversOnline` LONGTEXT NOT NULL DEFAULT '{}',
     `userPerms` LONGTEXT NOT NULL DEFAULT '{}',
@@ -280,7 +280,7 @@ SET @fox_sql = IF(
           AND COLUMN_NAME = 'balance'
     ),
     'SELECT 1',
-    'ALTER TABLE `users` ADD COLUMN `balance` LONGTEXT NOT NULL DEFAULT ''[]'''
+    'ALTER TABLE `users` ADD COLUMN `balance` LONGTEXT NOT NULL DEFAULT ''{"version":1,"currencies":[{"code":"units","name":"Units","amount":0,"symbol":"U","primary":true},{"code":"crystals","name":"Crystals","amount":0,"symbol":"C","primary":false}]}'''
 );
 PREPARE fox_stmt FROM @fox_sql;
 EXECUTE fox_stmt;
@@ -342,7 +342,97 @@ INNER JOIN (
 ) AS `duplicate` ON `duplicate`.`uuid` = `user`.`uuid`
 SET `user`.`uuid` = LOWER(UUID());
 
-UPDATE `users` SET `balance` = '[]' WHERE `balance` IS NULL OR TRIM(`balance`) = '';
+DROP TEMPORARY TABLE IF EXISTS `fox_balance_upgrade_016`;
+
+CREATE TEMPORARY TABLE `fox_balance_upgrade_016` (
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `balance_text` LONGTEXT NULL,
+    `units_fallback_text` LONGTEXT NULL,
+    `units_raw` VARCHAR(128) NULL,
+    `crystals_raw` VARCHAR(128) NULL,
+    `units_amount` DECIMAL(20, 0) NOT NULL DEFAULT 0,
+    `crystals_amount` DECIMAL(20, 0) NOT NULL DEFAULT 0,
+    `is_canonical` TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB;
+
+-- Stage raw legacy values as text. No arithmetic or implicit numeric coercion is
+-- performed against users.balance or users.units at this point.
+INSERT INTO `fox_balance_upgrade_016` (`user_id`, `balance_text`, `units_fallback_text`)
+SELECT
+    `user_id`,
+    CAST(`balance` AS CHAR CHARACTER SET utf8mb4),
+    CAST(`units` AS CHAR CHARACTER SET utf8mb4)
+FROM `users`;
+
+-- JSON functions are called only after invalid source values have been replaced
+-- by a valid empty object.
+UPDATE `fox_balance_upgrade_016`
+SET `balance_text` = '{}'
+WHERE `balance_text` IS NULL
+   OR JSON_VALID(`balance_text`) = 0;
+
+UPDATE `fox_balance_upgrade_016`
+SET `is_canonical` = CASE
+    WHEN JSON_TYPE(JSON_EXTRACT(`balance_text`, '$.currencies')) = 'ARRAY' THEN 1
+    ELSE 0
+END;
+
+-- Read both historical singleton-object arrays and flat objects. All COALESCE
+-- operands are strings, so MariaDB cannot coerce the complete JSON document to DOUBLE.
+UPDATE `fox_balance_upgrade_016`
+SET
+    `units_raw` = COALESCE(
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$.units')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$.Units')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[0].units')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[1].units')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[0].Units')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[1].Units')), 'null'),
+        NULLIF(TRIM(`units_fallback_text`), ''),
+        '0'
+    ),
+    `crystals_raw` = COALESCE(
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$.crystals')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$.Crystals')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[0].crystals')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[1].crystals')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[0].Crystals')), 'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`balance_text`, '$[1].Crystals')), 'null'),
+        '0'
+    )
+WHERE `is_canonical` = 0;
+
+UPDATE `fox_balance_upgrade_016`
+SET
+    `units_raw` = TRIM(COALESCE(`units_raw`, '0')),
+    `crystals_raw` = TRIM(COALESCE(`crystals_raw`, '0'))
+WHERE `is_canonical` = 0;
+
+-- Numeric conversion is executed only for rows that already passed a strict
+-- digits-only check. Invalid legacy values remain zero.
+UPDATE `fox_balance_upgrade_016`
+SET `units_amount` = LEAST(CAST(`units_raw` AS DECIMAL(20, 0)), 9007199254740991)
+WHERE `is_canonical` = 0
+  AND `units_raw` REGEXP '^[0-9]+$';
+
+UPDATE `fox_balance_upgrade_016`
+SET `crystals_amount` = LEAST(CAST(`crystals_raw` AS DECIMAL(20, 0)), 9007199254740991)
+WHERE `is_canonical` = 0
+  AND `crystals_raw` REGEXP '^[0-9]+$';
+
+UPDATE `users` AS `user`
+INNER JOIN `fox_balance_upgrade_016` AS `upgrade`
+    ON `upgrade`.`user_id` = `user`.`user_id`
+   AND `upgrade`.`is_canonical` = 0
+SET `user`.`balance` = CONCAT(
+    '{"version":1,"currencies":[',
+    '{"code":"units","name":"Units","amount":', `upgrade`.`units_amount`, ',"symbol":"U","primary":true},',
+    '{"code":"crystals","name":"Crystals","amount":', `upgrade`.`crystals_amount`, ',"symbol":"C","primary":false}',
+    ']}'
+);
+
+DROP TEMPORARY TABLE `fox_balance_upgrade_016`;
 UPDATE `users` SET `badges` = '[]' WHERE `badges` IS NULL OR TRIM(`badges`) = '';
 UPDATE `users` SET `serversOnline` = '{}' WHERE `serversOnline` IS NULL OR TRIM(`serversOnline`) = '';
 UPDATE `users` SET `userPerms` = '{}' WHERE `userPerms` IS NULL OR TRIM(`userPerms`) = '';
@@ -352,7 +442,7 @@ ALTER TABLE `users`
     MODIFY COLUMN `login` VARCHAR(64) NOT NULL,
     MODIFY COLUMN `serversOnline` LONGTEXT NOT NULL DEFAULT '{}',
     MODIFY COLUMN `badges` LONGTEXT NOT NULL DEFAULT '[]',
-    MODIFY COLUMN `balance` LONGTEXT NOT NULL DEFAULT '[]',
+    MODIFY COLUMN `balance` LONGTEXT NOT NULL DEFAULT '{"version":1,"currencies":[{"code":"units","name":"Units","amount":0,"symbol":"U","primary":true},{"code":"crystals","name":"Crystals","amount":0,"symbol":"C","primary":false}]}',
     MODIFY COLUMN `userPerms` LONGTEXT NOT NULL DEFAULT '{}';
 
 SET @fox_sql = IF(
@@ -1452,88 +1542,75 @@ PREPARE fox_stmt FROM @fox_sql;
 EXECUTE fox_stmt;
 DEALLOCATE PREPARE fox_stmt;
 
-CREATE TABLE IF NOT EXISTS `userBadges` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `userUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    `badges` LONGTEXT NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `ux_user_badges_user_uuid` (`userUuid`),
-    CONSTRAINT `fk_user_badges_user_uuid` FOREIGN KEY (`userUuid`) REFERENCES `users` (`uuid`) ON UPDATE RESTRICT ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-SET @fox_sql = IF(
+-- users.badges is the canonical badge store. Import a legacy projection only
+-- when the canonical value is empty, then remove the duplicate table.
+SET @fox_user_badges_exists = IF(
     EXISTS(
-        SELECT 1 FROM information_schema.COLUMNS
+        SELECT 1 FROM information_schema.TABLES
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'userBadges'
-          AND COLUMN_NAME = 'id'
     ),
-    'SELECT 1',
-    'ALTER TABLE `userBadges` ADD COLUMN `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST'
+    1,
+    0
 );
-PREPARE fox_stmt FROM @fox_sql;
-EXECUTE fox_stmt;
-DEALLOCATE PREPARE fox_stmt;
 
-SET @fox_sql = IF(
+SET @fox_user_badges_has_uuid = IF(
     EXISTS(
         SELECT 1 FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'userBadges'
           AND COLUMN_NAME = 'userUuid'
     ),
-    'SELECT 1',
-    'ALTER TABLE `userBadges` ADD COLUMN `userUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL AFTER `id`'
+    1,
+    0
 );
-PREPARE fox_stmt FROM @fox_sql;
-EXECUTE fox_stmt;
-DEALLOCATE PREPARE fox_stmt;
 
-SET @fox_sql = IF(
-    EXISTS(
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'userBadges'
-          AND COLUMN_NAME = 'badges'
-    ),
-    'SELECT 1',
-    'ALTER TABLE `userBadges` ADD COLUMN `badges` LONGTEXT NULL'
-);
-PREPARE fox_stmt FROM @fox_sql;
-EXECUTE fox_stmt;
-DEALLOCATE PREPARE fox_stmt;
-
-SET @fox_sql = IF(
+SET @fox_user_badges_has_login = IF(
     EXISTS(
         SELECT 1 FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'userBadges'
           AND COLUMN_NAME = 'userLogin'
     ),
-    'UPDATE `userBadges` AS `assignment` INNER JOIN `users` AS `user` ON `user`.`login` = `assignment`.`userLogin` SET `assignment`.`userUuid` = `user`.`uuid` WHERE `assignment`.`userUuid` IS NULL',
+    1,
+    0
+);
+
+SET @fox_user_badges_has_badges = IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'userBadges'
+          AND COLUMN_NAME = 'badges'
+    ),
+    1,
+    0
+);
+
+SET @fox_sql = IF(
+    @fox_user_badges_exists = 1
+    AND @fox_user_badges_has_uuid = 1
+    AND @fox_user_badges_has_badges = 1,
+    'UPDATE `users` AS `user` INNER JOIN `userBadges` AS `assignment` ON `assignment`.`userUuid` = `user`.`uuid` SET `user`.`badges` = `assignment`.`badges` WHERE COALESCE(NULLIF(TRIM(`user`.`badges`), ''''), ''[]'') = ''[]'' AND COALESCE(NULLIF(TRIM(`assignment`.`badges`), ''''), ''[]'') <> ''[]''',
     'SELECT 1'
 );
 PREPARE fox_stmt FROM @fox_sql;
 EXECUTE fox_stmt;
 DEALLOCATE PREPARE fox_stmt;
 
-DELETE FROM `userBadges` WHERE `userUuid` IS NULL;
-ALTER TABLE `userBadges` MODIFY COLUMN `userUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL;
-
 SET @fox_sql = IF(
-    EXISTS(
-        SELECT 1 FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'userBadges'
-          AND COLUMN_NAME = 'userUuid'
-          AND NON_UNIQUE = 0
-    ),
-    'SELECT 1',
-    'ALTER TABLE `userBadges` ADD UNIQUE KEY `ux_user_badges_user_uuid` (`userUuid`)'
+    @fox_user_badges_exists = 1
+    AND @fox_user_badges_has_uuid = 0
+    AND @fox_user_badges_has_login = 1
+    AND @fox_user_badges_has_badges = 1,
+    'UPDATE `users` AS `user` INNER JOIN `userBadges` AS `assignment` ON `assignment`.`userLogin` = `user`.`login` SET `user`.`badges` = `assignment`.`badges` WHERE COALESCE(NULLIF(TRIM(`user`.`badges`), ''''), ''[]'') = ''[]'' AND COALESCE(NULLIF(TRIM(`assignment`.`badges`), ''''), ''[]'') <> ''[]''',
+    'SELECT 1'
 );
 PREPARE fox_stmt FROM @fox_sql;
 EXECUTE fox_stmt;
 DEALLOCATE PREPARE fox_stmt;
+
+DROP TABLE IF EXISTS `userBadges`;
 
 -- Stable group tags replace numeric group identifiers in all runtime contracts.
 -- Numeric columns remain temporarily as legacy migration bridges only.
@@ -1552,20 +1629,58 @@ PREPARE fox_stmt FROM @fox_sql;
 EXECUTE fox_stmt;
 DEALLOCATE PREPARE fox_stmt;
 
-UPDATE `groupAssociation`
-SET `groupTag` = LOWER(TRIM(`groupType`))
-WHERE `groupTag` IS NULL OR TRIM(`groupTag`) = '';
+-- A partially upgraded legacy database may already have uq_group_tag while many
+-- rows still have NULL tags. Drop it before normalization so several legacy
+-- groups with groupType=admin do not collide during a multi-row UPDATE.
+SET @fox_sql = IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'groupAssociation'
+          AND INDEX_NAME = 'uq_group_tag'
+    ),
+    'ALTER TABLE `groupAssociation` DROP INDEX `uq_group_tag`',
+    'SELECT 1'
+);
+PREPARE fox_stmt FROM @fox_sql;
+EXECUTE fox_stmt;
+DEALLOCATE PREPARE fox_stmt;
 
+-- groupType is a broad legacy class, not a unique group identity. Only the
+-- four canonical numeric groups inherit the public runtime tags. Every other
+-- legacy rank receives its own stable group-<number> identity.
 UPDATE `groupAssociation`
-SET `groupTag` = CONCAT('group-', `groupNum`)
-WHERE `groupTag` IS NULL
-   OR `groupTag` NOT REGEXP '^[a-z][a-z0-9_-]{0,63}$';
+SET `groupTag` = CASE
+    WHEN `groupNum` = 1 THEN 'admin'
+    WHEN `groupNum` = 4 THEN 'user'
+    WHEN `groupNum` = 5 THEN 'guest'
+    WHEN `groupNum` = 6 THEN 'tester'
+    WHEN `groupTag` IS NULL
+      OR TRIM(`groupTag`) = ''
+      OR LOWER(TRIM(`groupTag`)) IN ('admin', 'user', 'guest', 'tester')
+      OR LOWER(TRIM(`groupTag`)) NOT REGEXP '^[a-z][a-z0-9_-]{0,63}$'
+        THEN CONCAT('group-', `groupNum`)
+    ELSE LOWER(TRIM(`groupTag`))
+END;
 
+-- Preserve every legacy group. If malformed historical data still produces
+-- duplicate tags, keep the oldest row and assign deterministic identities to
+-- the remaining rows instead of deleting or merging them.
 UPDATE `groupAssociation` AS `target`
-INNER JOIN `groupAssociation` AS `keeper`
-    ON `keeper`.`groupTag` = `target`.`groupTag`
-   AND `keeper`.`groupNum` < `target`.`groupNum`
-SET `target`.`groupTag` = CONCAT(LEFT(`target`.`groupTag`, 48), '-', `target`.`groupNum`);
+INNER JOIN (
+    SELECT `groupTag`, MIN(`id`) AS `keeper_id`
+    FROM `groupAssociation`
+    GROUP BY `groupTag`
+    HAVING COUNT(*) > 1
+) AS `duplicate`
+    ON `duplicate`.`groupTag` = `target`.`groupTag`
+   AND `duplicate`.`keeper_id` <> `target`.`id`
+SET `target`.`groupTag` = CONCAT(
+    'legacy-',
+    `target`.`id`,
+    '-',
+    LEFT(SHA2(CONCAT(`target`.`id`, ':', `target`.`groupNum`, ':', `target`.`groupName`), 256), 12)
+);
 
 ALTER TABLE `groupAssociation`
     MODIFY COLUMN `groupTag` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL;

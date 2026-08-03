@@ -4,7 +4,8 @@ import ProfilePage from '@theme/userOptions/userOptions/Profile.vue'
 import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
 import { loadBadges, type BadgeDefinition } from '@/content/contentData'
-import { bootstrapString } from '@/domain/bootstrap'
+import { bootstrapString, themeAsset } from '@/domain/bootstrap'
+import { balanceCurrencyIconPath, formatBalanceAmount, normalizeBalanceMatrix } from '@/domain/userBalance'
 import type { ProfileBadge, ProfileEntry, ProfileRecord } from '@/contracts/user-pages'
 
 interface Props { value: string }
@@ -53,22 +54,6 @@ function formatDuration(seconds: number): string {
   if (hours > 0) return `${hours.toLocaleString('ru')} ч ${minutes} мин`
   if (minutes > 0) return `${minutes} мин`
   return `${safe} сек`
-}
-
-function flattenEntries(value: unknown): ProfileEntry[] {
-  const parsed = parseUnknown(value)
-  if (Array.isArray(parsed)) {
-    return parsed.flatMap((item, index) => {
-      if (item && typeof item === 'object') {
-        return Object.entries(item as Record<string, unknown>).map(([key, entry]) => ({ label: key, value: String(entry) }))
-      }
-      return [{ label: String(index + 1), value: String(item) }]
-    })
-  }
-  if (parsed && typeof parsed === 'object') {
-    return Object.entries(parsed as Record<string, unknown>).map(([key, entry]) => ({ label: key, value: String(entry) }))
-  }
-  return parsed ? [{ label: 'Значение', value: String(parsed) }] : []
 }
 
 function badgeAssignments(value: unknown): BadgeAssignment[] {
@@ -130,7 +115,13 @@ function serverEntries(value: unknown): ProfileEntry[] {
   }).filter((entry) => entry.label !== 'version')
 }
 
-const balances = computed(() => flattenEntries(profile.value?.balance))
+const balances = computed<ProfileEntry[]>(() => normalizeBalanceMatrix(profile.value?.balance).currencies.map((currency) => ({
+  label: currency.name,
+  value: `${formatBalanceAmount(currency.amount)} ${currency.symbol}`,
+  detail: currency.primary ? 'Основная валюта проекта' : 'Премиальная валюта проекта',
+  icon: themeAsset(appBootstrap, balanceCurrencyIconPath(currency.code)),
+  kind: currency.code,
+})))
 const servers = computed(() => serverEntries(profile.value?.serversOnline))
 const badges = computed<ProfileBadge[]>(() => {
   const definitions = new Map<string, BadgeDefinition>()

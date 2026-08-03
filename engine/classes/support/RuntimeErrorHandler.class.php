@@ -36,6 +36,19 @@ final class RuntimeErrorHandler
         ini_set('display_startup_errors', $debug ? '1' : '0');
     }
 
+    public static function adoptRequestId(string $requestId): void
+    {
+        $requestId = trim($requestId);
+        if (preg_match('/^[A-Za-z0-9_.:-]{8,96}$/D', $requestId) === 1) {
+            self::$requestId = $requestId;
+        }
+    }
+
+    public static function requestId(): string
+    {
+        return self::$requestId;
+    }
+
     public static function handleError(
         int $severity,
         string $message,
@@ -47,6 +60,24 @@ final class RuntimeErrorHandler
         }
 
         self::writeLog('PHP error', $message, $file, $line, null, $severity);
+        if (class_exists(RequestTelemetry::class, false)
+            && in_array($severity, [E_WARNING, E_USER_WARNING, E_CORE_WARNING, E_COMPILE_WARNING], true)) {
+            RequestTelemetry::deviation(
+                'runtime.php_warning',
+                'php_runtime_warning',
+                'PHP emitted a runtime warning.',
+                'warning',
+                ['warningEmitted' => false],
+                [
+                    'warningEmitted' => true,
+                    'severity' => $severity,
+                    'message' => $message,
+                    'file' => self::relativePath($file),
+                    'line' => $line,
+                ],
+                ['component' => 'runtime'],
+            );
+        }
 
         if (in_array($severity, [E_USER_ERROR, E_RECOVERABLE_ERROR], true)) {
             throw new ErrorException($message, 0, $severity, $file, $line);
@@ -63,6 +94,19 @@ final class RuntimeErrorHandler
         }
 
         self::$handlingFailure = true;
+        if (class_exists(RequestTelemetry::class, false)) {
+            $telemetryRequestId = RequestTelemetry::requestId();
+            if ($telemetryRequestId !== '') {
+                self::adoptRequestId($telemetryRequestId);
+            }
+            RequestTelemetry::failure(
+                'runtime.unhandled_exception',
+                $throwable,
+                'Request terminated by an unhandled exception.',
+                ['component' => 'runtime'],
+            );
+            RequestTelemetry::complete(500, ['completionMode' => 'exception_handler']);
+        }
         self::writeLog(
             get_class($throwable),
             $throwable->getMessage(),
@@ -77,6 +121,14 @@ final class RuntimeErrorHandler
             header('Cache-Control: no-store');
             header('X-Content-Type-Options: nosniff');
             header('X-FoxCMS-Request-Id: ' . self::$requestId);
+            header('X-Request-ID: ' . self::$requestId);
+            if (class_exists(RequestTelemetry::class, false) && RequestTelemetry::correlationId() !== '') {
+                header('X-Correlation-ID: ' . RequestTelemetry::correlationId());
+            }
+            header('X-Request-ID: ' . self::$requestId);
+            if (class_exists(RequestTelemetry::class, false) && RequestTelemetry::correlationId() !== '') {
+                header('X-Correlation-ID: ' . RequestTelemetry::correlationId());
+            }
         }
 
         if (self::expectsJson()) {
@@ -90,6 +142,9 @@ final class RuntimeErrorHandler
                     ? $throwable->getMessage()
                     : 'Internal server error.',
                 'requestId' => self::$requestId,
+                'correlationId' => class_exists(RequestTelemetry::class, false)
+                    ? RequestTelemetry::correlationId()
+                    : self::$requestId,
             ];
 
             if (self::$debug) {
@@ -125,6 +180,27 @@ final class RuntimeErrorHandler
         }
 
         self::$handlingFailure = true;
+        if (class_exists(RequestTelemetry::class, false)) {
+            $telemetryRequestId = RequestTelemetry::requestId();
+            if ($telemetryRequestId !== '') {
+                self::adoptRequestId($telemetryRequestId);
+            }
+            RequestTelemetry::deviation(
+                'runtime.fatal_error',
+                'unhandled_fatal_error',
+                'Request terminated by an unhandled fatal runtime error.',
+                'critical',
+                ['completion' => 'controlled'],
+                [
+                    'errorType' => (int)$error['type'],
+                    'errorMessage' => (string)$error['message'],
+                    'errorFile' => self::relativePath((string)$error['file']),
+                    'errorLine' => (int)$error['line'],
+                ],
+                ['component' => 'runtime'],
+            );
+            RequestTelemetry::complete(500, ['completionMode' => 'runtime_shutdown']);
+        }
         self::writeLog(
             'Fatal shutdown error',
             (string)$error['message'],
@@ -169,7 +245,6 @@ final class RuntimeErrorHandler
             'line' => $line,
             'method' => (string)($_SERVER['REQUEST_METHOD'] ?? 'CLI'),
             'uri' => self::sanitizeUri((string)($_SERVER['REQUEST_URI'] ?? '')),
-            'remoteIp' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
         ];
 
         if ($trace !== null && $trace !== '') {

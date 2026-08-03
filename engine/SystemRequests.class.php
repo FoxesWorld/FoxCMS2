@@ -8,9 +8,37 @@ require_once __DIR__ . '/classes/services/LauncherSessionService.class.php';
 final class SystemRequests
 {
     private const REQUEST_HEADER = 'sysRequest';
+    private const ACTION_HANDLERS = [
+        'getJre' => 'handleGetJre',
+        'parseServers' => 'handleParseServers',
+        'getLangPack' => 'handleGetLangPack',
+        'parseMonitor' => 'handleParseMonitor',
+        'topPlayers' => 'handleTopPlayers',
+        'infoBox' => 'handleInfoBox',
+        'skin' => 'handleSkin',
+        'userHead' => 'handleUserHead',
+        'skinPath' => 'handleSkinPath',
+        'skinPreview' => 'handleSkinPreviewRequest',
+        'serverImage' => 'handleServerImage',
+        'uploadFile' => 'handleUploadFile',
+        'deleteFile' => 'handleDeleteFile',
+        'loadFiles' => 'handleLoadFiles',
+        'downloadLatest' => 'handleDownloadLatest',
+        'downloadUpdater' => 'handleDownloadUpdater',
+        'startedPlaying' => 'handleStartedPlaying',
+        'playing' => 'handlePlaying',
+        'checkStatus' => 'handleCheckStatus',
+        'donePlaying' => 'handleDonePlaying',
+        'getUserData' => 'handleLauncherUserData',
+    ];
 
     private LauncherSessionService $launcherSessions;
     private UploadService $uploads;
+    private PlayTimeService $playTime;
+    private HardwareReportService $hardwareReports;
+    private PublicFileLocator $publicFiles;
+    private ArtifactRepository $artifacts;
+    private UserTextureLocator $textures;
 
     public function __construct(
         private db $db,
@@ -19,8 +47,13 @@ final class SystemRequests
         private UserSession $userSession,
         private array $config = [],
     ) {
-        $this->launcherSessions = new LauncherSessionService($db);
+        $this->launcherSessions = new LauncherSessionService($db, $logger);
         $this->uploads = new UploadService($db, $userSession, $logger, $request);
+        $this->playTime = new PlayTimeService($db, $logger);
+        $this->hardwareReports = new HardwareReportService($db, $logger);
+        $this->publicFiles = new PublicFileLocator(ROOT_DIR);
+        $this->artifacts = new ArtifactRepository(ROOT_DIR, ROOT_DIR . UPLOADS_DIR);
+        $this->textures = new UserTextureLocator(ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER);
     }
 
     public function requestListener(): void
@@ -29,95 +62,66 @@ final class SystemRequests
         if ($action === '') {
             return;
         }
+        $handler = self::ACTION_HANDLERS[$action] ?? null;
+        RequestTelemetry::identify('system_requests.' . $action, [
+            'component' => 'system_requests',
+            'action' => $action,
+            'handler' => is_string($handler) ? $handler : 'unresolved',
+            'moduleName' => 'SystemRequests',
+        ]);
         if (!$this->request->isPost()) {
-            $this->jsonError('Method not allowed.', 405, ['Allow' => 'POST']);
+            RequestTelemetry::rejectHttp(
+                'system_request.rejected',
+                405,
+                'System request used an unsupported HTTP method.',
+                ['action' => $action],
+            );
+            JsonResponse::error('Method not allowed.', 405, ['Allow' => 'POST']);
+        }
+
+        if (!is_string($handler) || !method_exists($this, $handler)) {
+            RequestTelemetry::rejectHttp(
+                'system_request.rejected',
+                400,
+                'Unknown system request action.',
+                ['action' => $action],
+            );
+            JsonResponse::error('Unknown system request.', 400);
         }
 
         try {
-            switch ($action) {
-                case 'getJre':
-                    $this->handleGetJre();
-                    break;
-                case 'parseServers':
-                    $this->handleParseServers();
-                    break;
-                case 'getLangPack':
-                    $this->handleGetLangPack();
-                    break;
-                case 'parseMonitor':
-                    $this->handleParseMonitor();
-                    break;
-                case 'topPlayers':
-                    (new UserTop($this->db, $this->logger))->getTopPlayers();
-                    break;
-                case 'infoBox':
-                    $this->handleInfoBox();
-                    break;
-                case 'skin':
-                    $this->handleSkinPreview($this->request->string('show') === 'head');
-                    break;
-                case 'userHead':
-                    $this->handleUserHead();
-                    break;
-                case 'skinPath':
-                    $this->handleSkinPath();
-                    break;
-                case 'skinPreview':
-                    $this->handleSkinPreview(false);
-                    break;
-                case 'serverImage':
-                    $this->handleServerImage();
-                    break;
-                case 'uploadFile':
-                    $this->handleUploadFile();
-                    break;
-                case 'deleteFile':
-                    $this->handleDeleteFile();
-                    break;
-                case 'loadFiles':
-                    $this->handleLoadFiles();
-                    break;
-                case 'downloadLatest':
-                    $this->handleDownloadLatest();
-                    break;
-                case 'downloadUpdater':
-                    $this->handleDownloadUpdater();
-                    break;
-                case 'startedPlaying':
-                    $this->playTime()->start(
-                        $this->authenticatedLauncherUuid(),
-                        $this->request->string('serverName'),
-                        $this->request->string('uuid'),
-                    );
-                    break;
-                case 'playing':
-                    $this->playTime()->heartbeat(
-                        $this->authenticatedLauncherUuid(),
-                        $this->request->string('uuid'),
-                    );
-                    break;
-                case 'checkStatus':
-                    $this->playTime()->status(
-                        $this->authenticatedLauncherUuid(),
-                        $this->request->string('serverName'),
-                        $this->request->string('uuid'),
-                    );
-                    break;
-                case 'donePlaying':
-                    $this->playTime()->finish(
-                        $this->authenticatedLauncherUuid(),
-                        $this->request->string('serverName'),
-                        $this->request->string('uuid'),
-                    );
-                    break;
-                case 'getUserData':
-                    $this->handleLauncherUserData();
-                    break;
-                default:
-                    $this->jsonError('Unknown system request.', 400);
+            $this->{$handler}();
+        } catch (HttpException $error) {
+            RequestTelemetry::rejectHttp(
+                'system_request.rejected',
+                $error->status(),
+                $error->getMessage(),
+                ['action' => $action],
+            );
+            JsonResponse::error($error->getMessage(), $error->status(), $error->headers());
+        } catch (DomainException | InvalidArgumentException $error) {
+            RequestTelemetry::rejectHttp(
+                'system_request.rejected',
+                400,
+                $error->getMessage(),
+                ['action' => $action],
+            );
+            JsonResponse::error($error->getMessage(), 400);
+        } catch (Throwable $error) {
+            RequestTelemetry::failure(
+                'system_request.failed',
+                $error,
+                'System request failed unexpectedly.',
+                ['action' => $action],
+            );
+            $requestId = RequestTelemetry::requestId();
+            if ($requestId === '') {
+                $requestId = ExceptionContext::requestId('system-request');
             }
-        } catch (DomainException | InvalidArgumentException $exception) {
-            $this->jsonError($exception->getMessage(), 400);
+            JsonResponse::error(
+                'Внутренняя ошибка обработки запроса. Код события: ' . $requestId . '.',
+                500,
+            );
         }
     }
 
@@ -125,7 +129,7 @@ final class SystemRequests
     {
         UtilityLoader::load('GetJre', '1.0.0');
         $runtime = new GetJre($this->request->string('jreVersion'), $this->config);
-        $this->json($runtime->jsonSerialize());
+        JsonResponse::send($runtime->jsonSerialize());
     }
 
     private function handleParseServers(): never
@@ -137,7 +141,7 @@ final class SystemRequests
 
         UtilityLoader::load('ServerParser', '1.0.0');
         $parser = new ServerParser($this->db, $this->userSession->uuid());
-        $this->rawJson($parser->parseServers($serverName !== '' ? $serverName : null));
+        JsonResponse::rawJson($parser->parseServers($serverName !== '' ? $serverName : null));
     }
 
     private function handleGetLangPack(): never
@@ -146,9 +150,9 @@ final class SystemRequests
 
         $key = $this->request->string('langPackKey');
         if (preg_match('/^[A-Za-z0-9_.-]{1,64}$/D', $key) !== 1 || !array_key_exists($key, $lang)) {
-            $this->jsonError('Language entry not found.', 404);
+            throw new HttpException('Language entry not found.', 404);
         }
-        $this->json(['key' => $key, 'value' => $lang[$key]]);
+        JsonResponse::send(['key' => $key, 'value' => $lang[$key]]);
     }
 
     private function handleParseMonitor(): never
@@ -160,7 +164,12 @@ final class SystemRequests
             $parser->parseServers(),
             ['out' => 2, 'record_day' => 86400],
         );
-        $this->rawJson($monitor->outputMonitoringData());
+        JsonResponse::rawJson($monitor->outputMonitoringData());
+    }
+
+    private function handleTopPlayers(): void
+    {
+        (new UserTop($this->db, $this->logger))->getTopPlayers();
     }
 
     private function handleInfoBox(): never
@@ -177,10 +186,20 @@ final class SystemRequests
         throw new LogicException('InfoBox did not terminate the request.');
     }
 
-    private function handleSkinPreview(bool $headOnly): never
+    private function handleSkin(): never
+    {
+        $this->renderSkinPreview($this->request->string('show') === 'head');
+    }
+
+    private function handleSkinPreviewRequest(): never
+    {
+        $this->renderSkinPreview(false);
+    }
+
+    private function renderSkinPreview(bool $headOnly): never
     {
         if (!extension_loaded('gd')) {
-            $this->jsonError('GD extension is unavailable.', 503);
+            throw new HttpException('GD extension is unavailable.', 503);
         }
 
         $side = $this->request->string('side');
@@ -203,22 +222,29 @@ final class SystemRequests
             }
             $identity = LoadUserInfo::byLogin($login, $this->db)->userInfoArray();
         }
+
+        $defaultSkin = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . 'default_skin.png';
         $identityUuid = (string)($identity['uuid'] ?? '');
-        [$skin, $cape] = Uuid::isValid($identityUuid)
-            ? $this->skinFiles($identityUuid)
-            : [ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . 'default_skin.png', ''];
-        if (!is_file($skin) || !skinViewer2D::isValidSkin($skin)) {
-            $skin = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . 'default_skin.png';
+        if (Uuid::isValid($identityUuid)) {
+            $files = $this->textures->locate($identityUuid);
+            $skin = $files['skin'];
+            $cape = $files['cape'];
+        } else {
+            $skin = $defaultSkin;
+            $cape = '';
         }
         if (!is_file($skin) || !skinViewer2D::isValidSkin($skin)) {
-            $this->jsonError('Skin is unavailable.', 404);
+            $skin = $defaultSkin;
+        }
+        if (!is_file($skin) || !skinViewer2D::isValidSkin($skin)) {
+            throw new HttpException('Skin is unavailable.', 404);
         }
 
         $image = $headOnly
             ? skinViewer2D::createHead($skin, 64)
             : skinViewer2D::createPreview($skin, is_file($cape) ? $cape : false, $side ?: false);
         if (!$image instanceof GdImage) {
-            $this->jsonError('Unable to render skin preview.', 500);
+            throw new RuntimeException('Unable to render skin preview.');
         }
         try {
             ob_start();
@@ -228,9 +254,9 @@ final class SystemRequests
             imagedestroy($image);
         }
         if (!is_string($content)) {
-            $this->jsonError('Unable to encode skin preview.', 500);
+            throw new RuntimeException('Unable to encode skin preview.');
         }
-        $this->text(base64_encode($content), 'text/plain; charset=US-ASCII');
+        JsonResponse::text(base64_encode($content), 'text/plain; charset=US-ASCII');
     }
 
     private function handleUserHead(): never
@@ -242,26 +268,29 @@ final class SystemRequests
 
         UtilityLoader::load('LoadUserInfo', '1.0.0');
         $userData = LoadUserInfo::byLogin($login, $this->db)->userInfoArray();
-        $relative = (string)($userData['profilePhoto'] ?? '');
-        $path = $this->safePublicFile($relative, ROOT_DIR . UPLOADS_DIR, 5_242_880);
+        $path = $this->publicFiles->resolve(
+            (string)($userData['profilePhoto'] ?? ''),
+            ROOT_DIR . UPLOADS_DIR,
+            5_242_880,
+        );
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
         if (!is_string($mime) || !str_starts_with($mime, 'image/')) {
-            $this->jsonError('Invalid profile image.', 415);
+            throw new HttpException('Invalid profile image.', 415);
         }
         $content = file_get_contents($path);
         if (!is_string($content)) {
-            $this->jsonError('Unable to read profile image.', 500);
+            throw new RuntimeException('Unable to read profile image.');
         }
-        $this->text(base64_encode($content), 'text/plain; charset=US-ASCII');
+        JsonResponse::text(base64_encode($content), 'text/plain; charset=US-ASCII');
     }
 
     private function handleSkinPath(): never
     {
         if (!$this->userSession->isLogged()) {
-            $this->jsonError('Authentication required.', 401);
+            throw new HttpException('Authentication required.', 401);
         }
         $files = $this->userSession->gameFiles();
-        $this->json([
+        JsonResponse::send([
             'skin' => str_replace('\\', '/', substr($files['skin'], strlen(ROOT_DIR))),
             'cape' => str_replace('\\', '/', substr($files['cape'], strlen(ROOT_DIR))),
         ]);
@@ -278,7 +307,7 @@ final class SystemRequests
             if (preg_match('#^/uploads/servers/[A-Za-z0-9_.-]{1,180}\.(?:png|jpe?g|webp)$#iD', $reference) !== 1) {
                 throw new InvalidArgumentException('Invalid uploaded server image path.');
             }
-            $path = $this->safePublicFile(
+            $path = $this->publicFiles->resolve(
                 ltrim($reference, '/'),
                 ROOT_DIR . UPLOADS_DIR . 'servers',
                 12_582_912,
@@ -287,8 +316,9 @@ final class SystemRequests
             if (preg_match('/^[A-Za-z0-9_.-]{1,96}\.(?:png|jpe?g|webp)$/iD', $reference) !== 1) {
                 throw new InvalidArgumentException('Invalid server image name.');
             }
-            $path = $this->safePublicFile(
-                'templates/' . (string)$this->config['siteSettings']['siteTpl'] . '/assets/img/servers/' . $reference,
+            $path = $this->publicFiles->resolve(
+                'templates/' . (string)$this->config['siteSettings']['siteTpl']
+                    . '/assets/img/servers/' . $reference,
                 TEMPLATE_DIR,
                 10_485_760,
             );
@@ -296,17 +326,20 @@ final class SystemRequests
 
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
         if (!is_string($mime) || !in_array(strtolower($mime), ['image/jpeg', 'image/png', 'image/webp'], true)) {
-            $this->jsonError('Invalid server image.', 415);
+            throw new HttpException('Invalid server image.', 415);
         }
         $content = file_get_contents($path);
         if (!is_string($content)) {
-            $this->jsonError('Unable to read server image.', 500);
+            throw new RuntimeException('Unable to read server image.');
         }
-        $this->text(base64_encode($content), 'text/plain; charset=US-ASCII');
+        JsonResponse::text(base64_encode($content), 'text/plain; charset=US-ASCII');
     }
 
     private function handleUploadFile(): never
     {
+        if (!$this->userSession->isLogged()) {
+            throw new HttpException('Authentication required.', 401);
+        }
         $type = $this->request->string('type');
         $purpose = match ($type) {
             'skin' => UploadPurpose::MINECRAFT_SKIN,
@@ -321,10 +354,10 @@ final class SystemRequests
                 ['ownerUuid' => $targetUuid],
             );
         } catch (UploadException $error) {
-            $this->jsonError($error->getMessage(), $error->httpStatus());
+            throw new HttpException($error->getMessage(), $error->httpStatus(), [], $error);
         }
 
-        $this->json([
+        JsonResponse::send([
             'message' => $type === 'skin' ? 'Скин загружен.' : 'Плащ загружен.',
             'type' => 'success',
             'upload' => $result,
@@ -338,10 +371,10 @@ final class SystemRequests
         $this->requireBrowserMutation();
         $type = $this->request->string('type');
         $targetUuid = $this->resolveMutationUserUuid();
-        [$skin, $cape] = $this->skinFiles($targetUuid);
+        $files = $this->textures->locate($targetUuid);
         $path = match ($type) {
-            'skin' => $skin,
-            'cloak' => $cape,
+            'skin' => $files['skin'],
+            'cloak' => $files['cape'],
             default => null,
         };
         if (!is_string($path)) {
@@ -352,33 +385,36 @@ final class SystemRequests
             ? ($lang['userProfile']['skin'] ?? 'skin')
             : ($lang['userProfile']['cape'] ?? 'cape');
         if (!is_file($path)) {
-            $this->jsonError('У вас нет ' . $label . '.', 404);
+            throw new HttpException('У вас нет ' . $label . '.', 404);
         }
-        if (!unlink($path)) {
-            $this->jsonError('Не удалось удалить ' . $label . '.', 500);
+        if (is_link($path) || !unlink($path)) {
+            throw new RuntimeException('Unable to delete user texture.');
         }
-        $this->logger->logInfo('User texture deleted', [
-            'userUuid' => $targetUuid,
-            'type' => $type,
-        ]);
-        $this->json(['message' => ucfirst($label) . ' удалён.', 'type' => 'success']);
+        $this->logger->event('user.texture.deleted', 'User texture deleted.', [
+            'component' => 'user_texture',
+            'operation' => 'delete',
+            'targetUserUuid' => $targetUuid,
+            'textureType' => $type,
+        ], 'INFO', 'success');
+        JsonResponse::send(['message' => ucfirst($label) . ' удалён.', 'type' => 'success']);
     }
 
     private function handleLoadFiles(): never
     {
-        $client = $this->request->string('client');
-        $version = $this->request->string('version');
-        $platform = $this->request->integer('platform', 0);
-        $scanner = new GameScanner($client, $version, $platform, $this->config);
+        $scanner = new GameScanner(
+            $this->request->string('client'),
+            $this->request->string('version'),
+            $this->request->integer('platform', 0),
+            $this->config,
+        );
         $scanner->scan();
-        $this->rawJson($scanner->toJson());
+        JsonResponse::rawJson($scanner->toJson());
     }
 
     private function handleDownloadLatest(): never
     {
         $platform = $this->safeDirectorySegment($this->request->string('platform'), 'platform');
-        $artifact = $this->latestArtifact('uploads/files/launcher/' . $platform, ['jar']);
-        $this->json($artifact);
+        JsonResponse::send($this->artifacts->latest('uploads/files/launcher/' . $platform, ['jar']));
     }
 
     private function handleDownloadUpdater(): never
@@ -391,14 +427,48 @@ final class SystemRequests
 
         $systemInformation = $this->request->string('systemInformation');
         if ($systemInformation !== '') {
-            $token = $this->launcherToken();
-            $launcher = $this->launcherSessions->authenticate($token);
+            $launcher = $this->launcherSessions->authenticate($this->launcherToken());
             if ($launcher !== null) {
-                $this->storeHardwareReport($systemInformation, $launcher['userUuid']);
+                $this->hardwareReports->store($systemInformation, $launcher['userUuid']);
             }
         }
 
-        $this->json($this->latestArtifact($root, ['jar', 'exe', 'zip', 'msi', 'AppImage']));
+        JsonResponse::send($this->artifacts->latest($root, ['jar', 'exe', 'zip', 'msi', 'AppImage']));
+    }
+
+    private function handleStartedPlaying(): void
+    {
+        $this->playTime->start(
+            $this->authenticatedLauncherUuid(),
+            $this->request->string('serverName'),
+            $this->request->string('uuid'),
+        );
+    }
+
+    private function handlePlaying(): void
+    {
+        $this->playTime->heartbeat(
+            $this->authenticatedLauncherUuid(),
+            $this->request->string('uuid'),
+        );
+    }
+
+    private function handleCheckStatus(): void
+    {
+        $this->playTime->status(
+            $this->authenticatedLauncherUuid(),
+            $this->request->string('serverName'),
+            $this->request->string('uuid'),
+        );
+    }
+
+    private function handleDonePlaying(): void
+    {
+        $this->playTime->finish(
+            $this->authenticatedLauncherUuid(),
+            $this->request->string('serverName'),
+            $this->request->string('uuid'),
+        );
     }
 
     private function handleLauncherUserData(): never
@@ -406,13 +476,13 @@ final class SystemRequests
         $launcher = $this->launcherSessions->requireAuthenticated($this->launcherToken());
         $requestedProfile = strtolower($this->request->string('uuid'));
         if ($requestedProfile !== '' && !Uuid::equals($launcher['userUuid'], $requestedProfile)) {
-            $this->jsonError('Launcher profile mismatch.', 403);
+            throw new HttpException('Launcher profile mismatch.', 403);
         }
 
         UtilityLoader::load('LoadUserInfo', '1.0.0');
         $userData = LoadUserInfo::byUuid($launcher['userUuid'], $this->db)->userInfoArray();
         $group = (new GroupRepository($this->db))->find((string)($userData['groupTag'] ?? 'guest'));
-        $this->json([
+        JsonResponse::send([
             'login' => (string)($userData['login'] ?? ''),
             'realname' => (string)($userData['realname'] ?? ''),
             'colorScheme' => (string)($userData['colorScheme'] ?? ''),
@@ -422,11 +492,6 @@ final class SystemRequests
             'groupTag' => (string)($group['groupTag'] ?? 'guest'),
             'groupName' => (string)($group['groupName'] ?? 'Гости'),
         ]);
-    }
-
-    private function playTime(): PlayTimeService
-    {
-        return new PlayTimeService($this->db, $this->logger);
     }
 
     private function authenticatedLauncherUuid(): string
@@ -442,7 +507,7 @@ final class SystemRequests
         $token = strtolower($this->request->string('accessToken'));
         if ($token === '') {
             $authorization = $this->request->header('Authorization');
-            if (str_starts_with($authorization, 'Bearer ')) {
+            if (strncasecmp($authorization, 'Bearer ', 7) === 0) {
                 $token = strtolower(trim(substr($authorization, 7)));
             }
         }
@@ -457,8 +522,9 @@ final class SystemRequests
             throw new InvalidArgumentException('Некорректный UUID пользователя.');
         }
         $targetIdentity = Uuid::normalize($targetIdentity);
-        if ($authorize && !$this->userSession->isAdmin() && !Uuid::equals($this->userSession->uuid(), $targetIdentity)) {
-            $this->jsonError('Insufficient rights.', 403);
+        if ($authorize && !$this->userSession->isAdmin()
+            && !Uuid::equals($this->userSession->uuid(), $targetIdentity)) {
+            throw new HttpException('Insufficient rights.', 403);
         }
 
         $placeholders = [];
@@ -474,7 +540,7 @@ final class SystemRequests
         $statement->execute($parameters);
         $storedUuid = $statement->fetchColumn();
         if (!is_string($storedUuid) || !Uuid::isValid($storedUuid)) {
-            $this->jsonError('User not found.', 404);
+            throw new HttpException('User not found.', 404);
         }
         return Uuid::normalize($storedUuid);
     }
@@ -482,116 +548,9 @@ final class SystemRequests
     private function requireBrowserMutation(): void
     {
         if (!$this->userSession->isLogged()) {
-            $this->jsonError('Authentication required.', 401);
+            throw new HttpException('Authentication required.', 401);
         }
         CsrfToken::requireValid($this->request->csrfToken());
-    }
-
-    /** @return array{0:string,1:string} */
-    private function skinFiles(string $userUuid): array
-    {
-        $canonical = Uuid::canonical($userUuid);
-        $compact = Uuid::compact($userUuid);
-        $canonicalFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $canonical . DIRECTORY_SEPARATOR;
-        $compactFolder = ROOT_DIR . UPLOADS_DIR . USR_SUBFOLDER . $compact . DIRECTORY_SEPARATOR;
-        $skinCandidates = [
-            $canonicalFolder . $canonical . '-skin.png',
-            $canonicalFolder . $compact . '-skin.png',
-            $compactFolder . $canonical . '-skin.png',
-            $compactFolder . $compact . '-skin.png',
-        ];
-        $capeCandidates = [
-            $canonicalFolder . $canonical . '-cape.png',
-            $canonicalFolder . $compact . '-cape.png',
-            $compactFolder . $canonical . '-cape.png',
-            $compactFolder . $compact . '-cape.png',
-        ];
-        return [
-            $this->firstExistingFile($skinCandidates) ?? $skinCandidates[0],
-            $this->firstExistingFile($capeCandidates) ?? $capeCandidates[0],
-        ];
-    }
-
-    /** @param list<string> $paths */
-    private function firstExistingFile(array $paths): ?string
-    {
-        foreach ($paths as $path) {
-            if (is_file($path)) {
-                return $path;
-            }
-        }
-        return null;
-    }
-
-    private function safePublicFile(string $relativePath, string $allowedRoot, int $maximumBytes): string
-    {
-        $relativePath = str_replace('\\', '/', trim($relativePath));
-        if ($relativePath === '' || str_contains($relativePath, "\0")) {
-            throw new DomainException('File not found.');
-        }
-        $root = realpath($allowedRoot);
-        $file = realpath(ROOT_DIR . DIRECTORY_SEPARATOR . ltrim($relativePath, '/'));
-        if (
-            $root === false
-            || $file === false
-            || !is_file($file)
-            || !str_starts_with($file, rtrim($root, '/\\') . DIRECTORY_SEPARATOR)
-        ) {
-            throw new DomainException('File not found.');
-        }
-        $size = filesize($file);
-        if (!is_int($size) || $size < 0 || $size > $maximumBytes) {
-            throw new DomainException('File exceeds the allowed size.');
-        }
-        return $file;
-    }
-
-    /** @return array{filename:string,hash:string,sha256:string,size:int} */
-    private function latestArtifact(string $relativeDirectory, array $extensions): array
-    {
-        $directory = realpath(ROOT_DIR . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDirectory));
-        $uploadsRoot = realpath(ROOT_DIR . UPLOADS_DIR);
-        if (
-            $directory === false
-            || $uploadsRoot === false
-            || !is_dir($directory)
-            || !str_starts_with($directory, rtrim($uploadsRoot, '/\\') . DIRECTORY_SEPARATOR)
-        ) {
-            throw new DomainException('Artifact directory not found.');
-        }
-
-        $files = [];
-        foreach (new DirectoryIterator($directory) as $entry) {
-            if (!$entry->isFile() || $entry->isLink()) {
-                continue;
-            }
-            $extension = $entry->getExtension();
-            if (!in_array($extension, $extensions, true) && !in_array(strtolower($extension), array_map('strtolower', $extensions), true)) {
-                continue;
-            }
-            $files[] = $entry->getRealPath();
-        }
-        $files = array_values(array_filter($files, 'is_string'));
-        if ($files === []) {
-            throw new DomainException('Artifact not found.');
-        }
-        usort($files, static function (string $left, string $right): int {
-            return version_compare(pathinfo($right, PATHINFO_FILENAME), pathinfo($left, PATHINFO_FILENAME));
-        });
-        $file = $files[0];
-        $md5 = hash_file('md5', $file);
-        $sha256 = hash_file('sha256', $file);
-        $size = filesize($file);
-        if (!is_string($md5) || !is_string($sha256) || !is_int($size)) {
-            throw new RuntimeException('Unable to fingerprint artifact.');
-        }
-
-        return [
-            'filename' => str_replace('\\', '/', substr($file, strlen(ROOT_DIR))),
-            'hash' => $md5,
-            'sha256' => $sha256,
-            'size' => $size,
-        ];
     }
 
     private function safeDirectorySegment(string $value, string $name): string
@@ -600,100 +559,5 @@ final class SystemRequests
             throw new InvalidArgumentException('Invalid ' . $name . '.');
         }
         return $value;
-    }
-
-    private function storeHardwareReport(string $json, string $userUuid): void
-    {
-        $userUuid = Uuid::normalize($userUuid);
-        if (strlen($json) > 65_536) {
-            throw new InvalidArgumentException('Hardware report is too large.');
-        }
-        try {
-            $report = json_decode($json, true, 8, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new InvalidArgumentException('Malformed hardware report.');
-        }
-        if (!is_array($report) || array_is_list($report)) {
-            throw new InvalidArgumentException('Hardware report must be an object.');
-        }
-
-        $sanitized = [];
-        foreach (array_slice($report, 0, 32, true) as $key => $value) {
-            if (!is_string($key) || preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/D', $key) !== 1) {
-                continue;
-            }
-            if (is_array($value)) {
-                $sanitized[$key] = array_slice($value, 0, 32);
-            } elseif (is_scalar($value) || $value === null) {
-                $sanitized[$key] = is_string($value) ? mb_substr($value, 0, 4096) : $value;
-            }
-        }
-
-        $cpu = mb_substr((string)($sanitized['cpu'] ?? $sanitized['cpuName'] ?? ''), 0, 255);
-        $rawGpus = $sanitized['gpus'] ?? $sanitized['gpu'] ?? [];
-        $gpus = is_array($rawGpus) ? array_values(array_map(
-            static fn (mixed $value): string => mb_substr((string)$value, 0, 255),
-            array_slice($rawGpus, 0, 16),
-        )) : [mb_substr((string)$rawGpus, 0, 255)];
-        $cpuId = trim((string)($sanitized['cpuId'] ?? ''));
-        $payload = json_encode($sanitized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $gpuJson = json_encode($gpus, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-
-        $statement = $this->db->prepare(
-            'INSERT INTO `user_hardware_reports` (`userUuid`, `cpuIdHash`, `cpu`, `gpus`, `payload`) '
-            . 'VALUES (:userUuid, :cpuIdHash, :cpu, :gpus, :payload) '
-            . 'ON DUPLICATE KEY UPDATE '
-            . '`cpuIdHash` = VALUES(`cpuIdHash`), `cpu` = VALUES(`cpu`), '
-            . '`gpus` = VALUES(`gpus`), `payload` = VALUES(`payload`), '
-            . '`updatedAt` = CURRENT_TIMESTAMP(4)'
-        );
-        $statement->execute([
-            ':userUuid' => $userUuid,
-            ':cpuIdHash' => $cpuId === '' ? null : hash('sha256', $cpuId),
-            ':cpu' => $cpu,
-            ':gpus' => $gpuJson,
-            ':payload' => $payload,
-        ]);
-    }
-
-    private function json(array|JsonSerializable $payload, int $status = 200, array $headers = []): never
-    {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
-        foreach ($headers as $name => $value) {
-            if (is_string($name) && is_scalar($value)) {
-                header($name . ': ' . (string)$value);
-            }
-        }
-        $encoded = json_encode(
-            $payload,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
-        );
-        if (!is_string($encoded)) {
-            throw new RuntimeException('Unable to encode system response.');
-        }
-        exit($encoded);
-    }
-
-    private function rawJson(string $payload, int $status = 200): never
-    {
-        json_decode($payload, true, 32, JSON_THROW_ON_ERROR);
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
-        exit($payload);
-    }
-
-    private function text(string $payload, string $contentType): never
-    {
-        header('Content-Type: ' . $contentType);
-        header('Cache-Control: no-store');
-        exit($payload);
-    }
-
-    private function jsonError(string $message, int $status, array $headers = []): never
-    {
-        $this->json(['message' => $message, 'type' => 'error'], $status, $headers);
     }
 }

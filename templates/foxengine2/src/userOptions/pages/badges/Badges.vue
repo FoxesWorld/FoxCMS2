@@ -3,10 +3,33 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { BadgeDefinition } from '@engine/content/contentData'
 
+interface BadgeClaimFeedback {
+  type: 'success' | 'warning' | 'error'
+  message: string
+}
+interface ClaimedBadge {
+  id: number
+  badgeName: string
+  title: string
+  description: string
+  image: string | null
+  acquiredAt: number
+}
+
 const props = defineProps<{
   badges: readonly BadgeDefinition[]
   loading: boolean
   error: boolean
+  claimCode: string
+  authenticated: boolean
+  claiming: boolean
+  claimFeedback: BadgeClaimFeedback | null
+  claimedBadge: ClaimedBadge | null
+}>()
+
+const emit = defineEmits<{
+  'update:claimCode': [value: string]
+  claim: []
 }>()
 
 const router = useRouter()
@@ -22,6 +45,10 @@ const filteredBadges = computed(() => {
   )
 })
 const configuredCount = computed(() => props.badges.filter((badge) => badge.pageConfigured).length)
+
+function updateClaimCode(event: Event): void {
+  emit('update:claimCode', (event.target as HTMLInputElement).value)
+}
 
 function openBadge(badge: BadgeDefinition): void {
   if (!badge.pageConfigured) return
@@ -52,6 +79,65 @@ function handleRowKeydown(event: KeyboardEvent, badge: BadgeDefinition): void {
         <div><dt>Полные страницы</dt><dd>{{ configuredCount }}</dd></div>
       </dl>
     </header>
+
+    <section class="badge-claim-panel" :class="{ 'is-guest': !authenticated }">
+      <div class="badge-claim-panel__intro">
+        <span class="badge-claim-panel__icon" aria-hidden="true"><i class="fa-solid fa-key" /></span>
+        <div>
+          <span class="eyebrow">Получение бейджа</span>
+          <h2>Активировать код</h2>
+          <p v-if="authenticated">Введите одноразовый или многоразовый код. Бейдж будет добавлен только в текущий авторизованный профиль.</p>
+          <p v-else>Для применения кода необходимо войти в аккаунт.</p>
+        </div>
+      </div>
+
+      <form class="badge-claim-panel__form" @submit.prevent="emit('claim')">
+        <label>
+          <span class="visually-hidden">Код получения бейджа</span>
+          <i class="fa-solid fa-key" aria-hidden="true" />
+          <input
+            :value="claimCode"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="fcb_..."
+            :disabled="!authenticated || claiming"
+            @input="updateClaimCode"
+          >
+        </label>
+        <button class="button button--primary" type="submit" :disabled="!authenticated || claiming || !claimCode.trim()">
+          <i class="fa-solid" :class="claiming ? 'fa-spinner' : 'fa-award'" aria-hidden="true" />
+          <span>{{ claiming ? 'Проверяем код' : 'Получить бейдж' }}</span>
+        </button>
+      </form>
+
+      <div
+        v-if="claimFeedback"
+        class="badge-claim-feedback"
+        :class="`is-${claimFeedback.type}`"
+        role="status"
+      >
+        <i
+          class="fa-solid"
+          :class="claimFeedback.type === 'success' ? 'fa-circle-check' : claimFeedback.type === 'warning' ? 'fa-circle-exclamation' : 'fa-circle-xmark'"
+          aria-hidden="true"
+        />
+        <span>{{ claimFeedback.message }}</span>
+      </div>
+
+      <article v-if="claimedBadge" class="badge-claim-result">
+        <span class="badge-claim-result__image">
+          <img v-if="claimedBadge.image" :src="claimedBadge.image" :alt="claimedBadge.title" decoding="async">
+          <i v-else class="fa-solid fa-award" aria-hidden="true" />
+        </span>
+        <div>
+          <small>Бейдж профиля</small>
+          <strong>{{ claimedBadge.title }}</strong>
+          <p>{{ claimedBadge.description || 'Особая отметка участника Лисьего Мира.' }}</p>
+        </div>
+      </article>
+    </section>
 
     <label class="badges-directory__search">
       <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />

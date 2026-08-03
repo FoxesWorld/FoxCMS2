@@ -12,7 +12,39 @@ final class Logger
     private const MAX_BYTES = 8_388_608;
     private const RETAIN_BYTES = 2_097_152;
     private const LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
+    private const DEVIATION_SEVERITIES = ['notice', 'warning', 'critical'];
+    private const PROMOTED_FIELDS = [
+        'requestId',
+        'correlationId',
+        'component',
+        'operation',
+        'outcome',
+        'durationMs',
+        'httpMethod',
+        'httpPath',
+        'httpStatus',
+        'actorUuid',
+        'actorLogin',
+        'actorGroup',
+        'requestChannel',
+        'actionField',
+        'action',
+        'handler',
+        'authenticated',
+        'sessionState',
+        'moduleName',
+        'moduleClass',
+        'modulePriority',
+        'loadedCount',
+        'loadedModules',
+        'skippedCount',
+        'skippedModules',
+        'exception',
+        'deviation',
+    ];
 
+    /** @var array<string, mixed> */
+    private static array $globalContext = [];
     private string $file;
 
     public function __construct(string $logName)
@@ -26,6 +58,30 @@ final class Logger
             throw new RuntimeException('Unable to create the log directory.');
         }
         $this->file = $directory . DIRECTORY_SEPARATOR . $logName . '.log';
+    }
+
+    public static function setGlobalContext(array $context): void
+    {
+        self::$globalContext = self::normalizeContextKeys($context);
+    }
+
+    public static function mergeGlobalContext(array $context): void
+    {
+        self::$globalContext = array_replace(
+            self::$globalContext,
+            self::normalizeContextKeys($context),
+        );
+    }
+
+    public static function clearGlobalContext(): void
+    {
+        self::$globalContext = [];
+    }
+
+    /** @return array<string, mixed> */
+    public static function globalContext(): array
+    {
+        return self::$globalContext;
     }
 
     public function read(int $maximumBytes = self::RETAIN_BYTES): string
@@ -82,12 +138,25 @@ final class Logger
             $level = 'INFO';
         }
 
+        $context = array_replace(self::$globalContext, self::normalizeContextKeys($context));
+        $event = $this->normalizeEvent((string)($context['event'] ?? 'application.log'));
+        unset($context['event']);
+
         $record = [
+            'schemaVersion' => 1,
             'timestamp' => gmdate('c'),
             'level' => $level,
+            'event' => $event,
             'message' => $this->sanitizeMessage($message),
         ];
         $safeContext = $this->sanitizeContext($context);
+        foreach (self::PROMOTED_FIELDS as $field) {
+            if (!array_key_exists($field, $safeContext)) {
+                continue;
+            }
+            $record[$field] = $safeContext[$field];
+            unset($safeContext[$field]);
+        }
         if ($safeContext !== []) {
             $record['context'] = $safeContext;
         }
@@ -97,9 +166,73 @@ final class Logger
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
         );
         if (!is_string($encoded)) {
-            $encoded = '{"timestamp":"' . gmdate('c') . '","level":"ERROR","message":"log_encoding_failed"}';
+            $encoded = '{"schemaVersion":1,"timestamp":"' . gmdate('c')
+                . '","level":"ERROR","event":"logger.encoding_failed","message":"log_encoding_failed"}';
         }
         $this->append($encoded . PHP_EOL);
+    }
+
+    public function event(
+        string $event,
+        string $message,
+        array $context = [],
+        string $level = 'INFO',
+        string $outcome = 'observed',
+    ): void {
+        $this->log($level, $message, array_merge($context, [
+            'event' => $event,
+            'outcome' => $outcome,
+        ]));
+    }
+
+    public function deviation(
+        string $event,
+        string $code,
+        string $message,
+        string $severity = 'warning',
+        array $expected = [],
+        array $actual = [],
+        array $context = [],
+    ): void {
+        $severity = strtolower(trim($severity));
+        if (!in_array($severity, self::DEVIATION_SEVERITIES, true)) {
+            $severity = 'warning';
+        }
+        $level = match ($severity) {
+            'critical' => 'ERROR',
+            'warning' => 'WARNING',
+            default => 'INFO',
+        };
+
+        $this->log($level, $message, array_merge($context, [
+            'event' => $event,
+            'outcome' => 'deviation',
+            'deviation' => [
+                'code' => $this->normalizeEvent($code),
+                'severity' => $severity,
+                'expected' => $expected,
+                'actual' => $actual,
+            ],
+        ]));
+    }
+
+    public function exception(
+        string $event,
+        Throwable $error,
+        string $message = 'Unhandled operation exception.',
+        array $context = [],
+    ): void {
+        $this->log('ERROR', $message, array_merge($context, [
+            'event' => $event,
+            'outcome' => 'failure',
+            'exception' => [
+                'class' => $error::class,
+                'message' => $error->getMessage(),
+                'file' => $error->getFile(),
+                'line' => $error->getLine(),
+                'trace' => $error->getTraceAsString(),
+            ],
+        ]));
     }
 
     public function logInfo(string $message, array $context = []): void
@@ -171,34 +304,77 @@ final class Logger
             '/\b(Bearer)\s+[A-Za-z0-9._~+\/-]+=*/i' => '$1 [REDACTED]',
             '/\b(password|passwd|pass|token|secret|authorization|cookie)\b\s*[:=]\s*[^\s,;]+/i' => '$1=[REDACTED]',
             '/\b[a-f0-9]{64}\b/i' => '[REDACTED_DIGEST]',
+            '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i' => '[REDACTED_EMAIL]',
+            '/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/' => '[REDACTED_IP]',
+            '/\b(?:[A-F0-9]{1,4}:){2,7}[A-F0-9]{0,4}\b/i' => '[REDACTED_IP]',
         ];
         $message = preg_replace(array_keys($patterns), array_values($patterns), $message) ?? $message;
         return mb_substr(trim($message), 0, 4_096);
     }
 
+    /** @return array<int|string, mixed> */
     private function sanitizeContext(array $context, int $depth = 0): array
     {
-        if ($depth > 3) {
+        if ($depth > 4) {
             return [];
         }
 
         $safe = [];
-        foreach (array_slice($context, 0, 50, true) as $key => $value) {
-            if (!is_string($key)) {
+        foreach (array_slice($context, 0, 80, true) as $key => $value) {
+            if (!is_int($key) && !is_string($key)) {
                 continue;
             }
-            if (preg_match('/password|passwd|pass|token|secret|authorization|cookie/i', $key) === 1) {
+            if (is_string($key) && $this->isSensitiveKey($key)) {
                 $safe[$key] = '[REDACTED]';
                 continue;
+            }
+            if ($value instanceof JsonSerializable) {
+                $value = $value->jsonSerialize();
             }
             if (is_array($value)) {
                 $safe[$key] = $this->sanitizeContext($value, $depth + 1);
             } elseif (is_bool($value) || is_int($value) || is_float($value) || $value === null) {
                 $safe[$key] = $value;
             } elseif (is_string($value)) {
-                $safe[$key] = mb_substr($this->sanitizeMessage($value), 0, 1_024);
+                $safe[$key] = mb_substr($this->sanitizeMessage($value), 0, 4_096);
             }
         }
         return $safe;
+    }
+
+    private function isSensitiveKey(string $key): bool
+    {
+        $normalized = preg_replace('/[^a-z0-9]/', '', strtolower($key)) ?? '';
+        if (in_array($normalized, [
+            'password', 'passwd', 'pass', 'token', 'secret', 'authorization', 'cookie',
+            'accesstoken', 'refreshtoken', 'csrftoken', 'sessiontoken', 'remembertoken',
+            'apikey', 'securekey',
+        ], true)) {
+            return true;
+        }
+        return str_ends_with($normalized, 'password')
+            || str_ends_with($normalized, 'token')
+            || str_ends_with($normalized, 'secret');
+    }
+
+    private function normalizeEvent(string $event): string
+    {
+        $event = strtolower(trim($event));
+        $event = preg_replace('/[^a-z0-9_.-]+/', '.', $event) ?? '';
+        $event = trim($event, '.-');
+        return $event !== '' ? substr($event, 0, 120) : 'application.log';
+    }
+
+    /** @return array<string, mixed> */
+    private static function normalizeContextKeys(array $context): array
+    {
+        $normalized = [];
+        foreach (array_slice($context, 0, 100, true) as $key => $value) {
+            if (!is_string($key) || preg_match('/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/D', $key) !== 1) {
+                continue;
+            }
+            $normalized[$key] = $value;
+        }
+        return $normalized;
     }
 }

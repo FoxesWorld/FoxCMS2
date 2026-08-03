@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PlayerCell from '@theme/foxEngine/userTop/playTime/PlayerCell.vue'
 interface ServerSession { serverName:string; totalTime:number; lastPlayed:number }
-interface Player { login:string; colorScheme?:string; serversOnline:string | ServerSession[] | { servers?:Record<string,Omit<ServerSession,'serverName'>> } }
+interface Player { uuid:string; login:string; colorScheme?:string; skinHead?:string; serversOnline:string | ServerSession[] | { servers?:Record<string,Omit<ServerSession,'serverName'>> } }
 interface RankingEntry { player:Player; seconds:number; lastPlayed:number }
 interface Segment { name:string; width:number; color:string }
 const props=defineProps<{

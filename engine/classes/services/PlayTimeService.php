@@ -15,11 +15,21 @@ final class PlayTimeService
 
     public function start(string $userUuid, string $serverName, string $uuid): never
     {
+        RequestTelemetry::identify('playtime.start', ['component' => 'playtime']);
         [$userUuid, $serverName, $uuid] = $this->validateIdentity($userUuid, $serverName, $uuid);
         $result = $this->mutate($userUuid, function (array $state, int $now) use ($serverName, $uuid): array {
             $server = $this->normalizeServerState($state['servers'][$serverName] ?? []);
 
             if (($server['active'] ?? false) && ($server['uuid'] ?? '') !== $uuid) {
+                $this->logger->deviation(
+                    'playtime.session.replaced',
+                    'active_session_uuid_changed',
+                    'An active playtime session was replaced by a different session identifier.',
+                    'warning',
+                    ['activeSessionUuidChanged' => false],
+                    ['activeSessionUuidChanged' => true],
+                    ['component' => 'playtime', 'serverName' => $serverName],
+                );
                 $server = $this->accrue($server, $now);
             }
 
@@ -43,6 +53,7 @@ final class PlayTimeService
 
     public function heartbeat(string $userUuid, string $uuid): never
     {
+        RequestTelemetry::identify('playtime.heartbeat', ['component' => 'playtime']);
         $userUuid = Uuid::normalize($userUuid);
         $uuid = $this->validateUuid($uuid);
         $result = $this->mutate($userUuid, function (array $state, int $now) use ($uuid): array {
@@ -71,6 +82,7 @@ final class PlayTimeService
 
     public function status(string $userUuid, string $serverName, string $uuid): never
     {
+        RequestTelemetry::identify('playtime.status', ['component' => 'playtime']);
         [$userUuid, $serverName, $uuid] = $this->validateIdentity($userUuid, $serverName, $uuid);
         try {
             $state = $this->loadState($userUuid, false);
@@ -89,13 +101,19 @@ final class PlayTimeService
         } catch (DomainException $exception) {
             $this->respond(['type' => 'error', 'message' => $exception->getMessage()], 404);
         } catch (Throwable $exception) {
-            $this->logger->logError('Playtime status failed', ['exception' => get_class($exception)]);
+            $this->logger->exception(
+                'playtime.status.failed',
+                $exception,
+                'Playtime status lookup failed.',
+                ['component' => 'playtime'],
+            );
             $this->respond(['type' => 'error', 'message' => 'Не удалось получить игровую статистику.'], 500);
         }
     }
 
     public function finish(string $userUuid, string $serverName, string $uuid): never
     {
+        RequestTelemetry::identify('playtime.finish', ['component' => 'playtime']);
         [$userUuid, $serverName, $uuid] = $this->validateIdentity($userUuid, $serverName, $uuid);
         $result = $this->mutate($userUuid, function (array $state, int $now) use ($serverName, $uuid): array {
             $server = $this->normalizeServerState($state['servers'][$serverName] ?? []);
@@ -153,10 +171,12 @@ final class PlayTimeService
         } catch (DomainException $exception) {
             $this->respond(['type' => 'error', 'message' => $exception->getMessage()], 400);
         } catch (Throwable $exception) {
-            $this->logger->logError('Playtime mutation failed', [
-                'userUuid' => $userUuid,
-                'exception' => get_class($exception),
-            ]);
+            $this->logger->exception(
+                'playtime.mutation.failed',
+                $exception,
+                'Playtime mutation failed.',
+                ['component' => 'playtime', 'targetUserUuid' => $userUuid],
+            );
             $this->respond(['type' => 'error', 'message' => 'Не удалось сохранить игровую статистику.'], 500);
         }
     }
@@ -182,10 +202,28 @@ final class PlayTimeService
 
         try {
             $decoded = json_decode((string)$raw, true, 16, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+        } catch (JsonException $error) {
+            $this->logger->deviation(
+                'playtime.state.invalid_json',
+                'stored_playtime_json_invalid',
+                'Stored playtime state is not valid JSON and was reset to an empty state.',
+                'warning',
+                ['stateFormat' => 'valid_json'],
+                ['stateFormat' => 'invalid_json'],
+                ['component' => 'playtime', 'targetUserUuid' => $userUuid],
+            );
             $decoded = [];
         }
         if (!is_array($decoded)) {
+            $this->logger->deviation(
+                'playtime.state.invalid_shape',
+                'stored_playtime_shape_invalid',
+                'Stored playtime state has an invalid root type and was reset.',
+                'warning',
+                ['rootType' => 'array'],
+                ['rootType' => get_debug_type($decoded)],
+                ['component' => 'playtime', 'targetUserUuid' => $userUuid],
+            );
             $decoded = [];
         }
 
@@ -219,7 +257,19 @@ final class PlayTimeService
     private function accrue(array $server, int $now): array
     {
         $lastHeartbeat = max(0, (int)($server['lastHeartbeat'] ?? $now));
-        $elapsed = max(0, min(self::MAX_HEARTBEAT_SECONDS, $now - $lastHeartbeat));
+        $rawElapsed = max(0, $now - $lastHeartbeat);
+        if ($rawElapsed > self::MAX_HEARTBEAT_SECONDS) {
+            $this->logger->deviation(
+                'playtime.heartbeat.late',
+                'heartbeat_interval_exceeded',
+                'Playtime heartbeat interval exceeded the normal maximum and was capped.',
+                'notice',
+                ['maximumHeartbeatSeconds' => self::MAX_HEARTBEAT_SECONDS],
+                ['heartbeatIntervalSeconds' => $rawElapsed],
+                ['component' => 'playtime'],
+            );
+        }
+        $elapsed = min(self::MAX_HEARTBEAT_SECONDS, $rawElapsed);
         $server['totalTime'] = max(0, (int)($server['totalTime'] ?? 0)) + $elapsed;
         return $server;
     }
@@ -261,16 +311,13 @@ final class PlayTimeService
 
     private function respond(array $payload, int $status = 200): never
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
-        $encoded = json_encode(
-            $payload,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
-        );
-        if (!is_string($encoded)) {
-            throw new RuntimeException('Unable to encode playtime response.');
+        if ($status >= 400) {
+            RequestTelemetry::rejectHttp(
+                'playtime.operation.rejected',
+                $status,
+                (string)($payload['message'] ?? 'Playtime operation was rejected.'),
+            );
         }
-        exit($encoded);
+        JsonResponse::send($payload, $status);
     }
 }

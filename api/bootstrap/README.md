@@ -11,18 +11,65 @@ Public endpoints:
 
 The bootstrapper detects its current platform and requests one exact Java version:
 
-```text
-GET /api/bootstrap/manifest.php
+```http
+POST /api/bootstrap/manifest.php
   ?platform=windows-x86_64
   &os=windows
   &arch=x86_64
   &version=17
-  &client_version=0.4.1
+  &client_version=0.4.3
+Content-Type: application/json
+
+{
+  "schemaVersion": 1,
+  "systemHWID": "<domain-separated SHA-256>",
+  "platform": "windows-x86_64",
+  "updaterVersion": "0.4.3",
+  "systemInformation": {
+    "os": {
+      "name": "windows",
+      "version": "Windows 11",
+      "kernel": "10.0.26100",
+      "architecture": "x86_64"
+    },
+    "cpu": {
+      "brand": "CPU model",
+      "logicalCores": 16
+    },
+    "memory": {
+      "totalBytes": 34359738368
+    },
+    "gpu": {
+      "adapters": ["GPU model"]
+    }
+  }
+}
 ```
 
 The client does not provide a JDK path, archive name, bitness directory, hash,
 size, Java executable path or extraction layout. Those values are discovered by
 the API from the published filesystem and archive metadata.
+
+## Hardware inventory
+
+UpdaterNorth sends the hardware capability report in the manifest POST request.
+It never sends the raw Windows MachineGuid, Linux machine-id, macOS platform UUID,
+serial numbers, MAC addresses, user name or host name. `systemHWID` is a
+domain-separated SHA-256 value generated locally.
+
+`system_hardware_inventory.systemHWID` is the primary key. The API uses
+`INSERT IGNORE`, so the first report for a system is stored and later requests
+for the same `systemHWID` do not overwrite it. The response header describes
+the result:
+
+```text
+X-FoxesCraft-Hardware-Inventory: inserted|existing|unavailable|disabled|not-provided
+```
+
+Hardware persistence is fail-open: a temporary database problem is logged and
+reported as `unavailable`, while the bootstrap manifest is still generated.
+Malformed or privacy-unsafe reports are rejected with a 4xx response.
+
 
 Optional runtime filters supported by the resolver:
 

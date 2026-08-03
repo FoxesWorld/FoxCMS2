@@ -2,6 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { NavigationDefinition } from '@engine/domain/bootstrap'
+import type { BalanceMatrix } from '@engine/domain/userBalance'
 import Logo from '@theme/Logo.vue'
 import UserBlock from '@theme/UserBlock.vue'
 import { accountNavigationIcon } from '@theme/domain/accountNavigation'
@@ -9,6 +10,7 @@ import { accountNavigationIcon } from '@theme/domain/accountNavigation'
 interface Props {
   displayName: string
   profilePhoto: string
+  balance: BalanceMatrix
   isGuest: boolean
   siteTitle: string
   siteStatus: string
@@ -221,6 +223,7 @@ onBeforeUnmount(() => {
         <UserBlock
           :display-name="displayName"
           :profile-photo="profilePhoto"
+          :balance="balance"
           :is-guest="isGuest"
           :guest-items="guestItems"
           :account-items="accountItems"

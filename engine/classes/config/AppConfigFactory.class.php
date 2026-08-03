@@ -52,6 +52,12 @@ final class AppConfigFactory
                 'publicBaseUrl' => $publicBaseUrl,
                 'trustedProxies' => $trustedProxies,
             ],
+            'observability' => [
+                'slowRequestMilliseconds' => max(100, foxEnvInt('FOXESCRAFT_SLOW_REQUEST_MS', 2000)),
+                'criticalRequestMilliseconds' => max(500, foxEnvInt('FOXESCRAFT_CRITICAL_REQUEST_MS', 5000)),
+                'memoryWarningBytes' => max(8_388_608, foxEnvInt('FOXESCRAFT_MEMORY_WARNING_BYTES', 67_108_864)),
+                'fingerprintKey' => trim(foxEnv('FOXESCRAFT_LOG_FINGERPRINT_KEY', '') ?? ''),
+            ],
             'database' => [
                 'dbHost' => foxEnv('FOXESCRAFT_DB_HOST', '127.0.0.1') ?? '127.0.0.1',
                 'dbPort' => foxEnvInt('FOXESCRAFT_DB_PORT', 3306),

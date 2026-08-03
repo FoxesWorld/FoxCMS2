@@ -22,7 +22,7 @@ for (const token of [
   '<h3>Персональные бейджи</h3>',
   ':model-value="draft.badges"',
   ':options="badgeOptions"',
-  '@update:model-value="draft.badges = $event"',
+  '@grant="emit(\'grantBadge\', $event)"',
 ]) {
   if (!editor.includes(token)) failures.push(`UserEditor visual badge section is missing ${token}`)
 }
@@ -32,19 +32,19 @@ if (/JsonFormEditor[\s\S]{0,300}:model-value="draft\.badges"/.test(editor)) {
 
 for (const token of [
   'admin-badge-editor__tabs',
-  'Бейджи пользователя',
-  'Все бейджи',
+  'Полученные',
+  'Каталог',
   ':class="{ active: !showAll }"',
   ':class="{ active: showAll }"',
   'showAll.value || badge.selected',
   'admin-badge-editor__search',
   'admin-badge-grid',
   ':aria-pressed="badge.selected"',
-  'toggleUserBadgeAssignment',
+  "emit('grant', badgeId)",
   'userBadgeAssignments',
   'badge.description',
   'badge.image',
-  "badge.selected ? 'Снять' : 'Назначить'",
+  'Выдать разовым кодом',
 ]) {
   if (!badgeEditor.includes(token)) failures.push(`Visual badge editor is missing ${token}`)
 }
@@ -64,7 +64,7 @@ for (const token of [
   'Object.keys(record)',
   'seen.has(key)',
 ]) {
-  if (!badges.includes(token)) failures.push(`Legacy badge display normalizer is missing ${token}`)
+  if (!badges.includes(token)) failures.push(`Badge display normalizer is missing ${token}`)
 }
 
 for (const token of [
@@ -83,18 +83,27 @@ for (const token of [
   'users.groups query failed:',
   'users.badges query failed:',
   "'backendVersion' => 'users-directory-v4-direct-query'",
-  'private function userBadgeReadSource(): array',
-  "LEFT JOIN `userBadges` AS `legacyBadges`",
-  "NULLIF(NULLIF(TRIM(`user`.`badges`), ''), '[]')",
+  "$badgeExpression = '`user`.`badges`';",
   "$row['badges'] = $this->decodeAdminJsonField",
-  'private function syncLegacyUserBadges(',
-  "SELECT `badgeName`, `description`, `img` FROM `badgesList`",
+  "SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`",
   "'badgeName' => $badgeName",
   "'description' => trim((string)($row['description'] ?? ''))",
   "'image' => $image !== '' ? $image : null",
 ]) {
   if (!backend.includes(token)) failures.push(`Admin users backend contract is missing ${token}`)
 }
+for (const legacyIdentity of [
+  'legacyBadges',
+  'syncLegacyUserBadges',
+  'userBadgeReadSource',
+  'syncUserBadgesProjection',
+  'JOIN `userBadges`',
+  '`userLogin`',
+  '`userMd5`',
+]) {
+  if (backend.includes(legacyIdentity)) failures.push(`Admin users backend still contains legacy identity contract ${legacyIdentity}`)
+}
+
 const usersMethod = backend.slice(backend.indexOf('private function users(): void'), backend.indexOf('private function updateUser(): void'))
 for (const forbidden of ['->prepare(', '->execute(', ':search', ' LIKE ?']) {
   if (usersMethod.includes(forbidden)) failures.push(`users() read path must not contain ${forbidden}`)
@@ -105,13 +114,32 @@ if (!usersMethod.includes("'badgeOptions' => $badgeOptions")) failures.push('use
 for (const token of [
   'export interface AdminBadgeOption',
   'badgeOptions: AdminBadgeOption[]',
-  'badgeOptions.value = response.badgeOptions',
+  'badgeOptions.value = response.badgeOptions.map',
   'async function searchUsers()',
   'await loadUsers({ autoSelect: false })',
   'if (options.autoSelect === false) return',
 ]) {
   if (!client.includes(token)) failures.push(`Admin users client display flow is missing ${token}`)
 }
+
+for (const token of [
+  'id: number',
+  'async function grantBadgeToSelectedUser',
+  "admPanel: 'grantBadgeToUser'",
+  'badgeClaimKeys.value = [',
+]) {
+  if (!client.includes(token)) failures.push(`Admin badge grant client is missing ${token}`)
+}
+for (const token of [
+  "'grantBadgeToUser' => 'grantBadgeToUser'",
+  'private function grantBadgeToUser(): void',
+  '$this->badgeClaims->grantToUser(',
+  "if (array_key_exists('badges', $payload))",
+]) {
+  if (!backend.includes(token)) failures.push(`Admin badge grant backend is missing ${token}`)
+}
+if (client.includes('badges: userDraft.badges')) failures.push('Admin user save still directly submits badges')
+if (badgeEditor.includes('toggleUserBadgeAssignment')) failures.push('Visual badge editor still directly toggles badge assignments')
 
 for (const token of [
   '.admin-badge-editor{',
@@ -129,4 +157,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('Admin users display contract passed: live search, stable editor and visual badge catalog are active.')
+console.log('Admin users display contract passed: badge grants use one-time claim keys and direct badge mutation is blocked.')

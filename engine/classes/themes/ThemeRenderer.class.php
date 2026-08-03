@@ -6,7 +6,7 @@ final class ThemeRenderer
 {
     private const USER_FIELDS = [
         'isLogged', 'uuid', 'user_id', 'login', 'realname', 'groupTag', 'profilePhoto',
-        'userStatus', 'land', 'colorScheme', 'email', 'groupName', 'groupColor',
+        'userStatus', 'land', 'colorScheme', 'balance', 'email', 'groupName', 'groupColor',
     ];
 
     public function __construct(
@@ -130,7 +130,9 @@ final class ThemeRenderer
         $safeUser = [];
         foreach (self::USER_FIELDS as $field) {
             if (array_key_exists($field, $this->user)) {
-                $safeUser[$field] = $this->user[$field];
+                $safeUser[$field] = $field === 'balance'
+                    ? BalanceMatrix::normalize($this->user[$field])
+                    : $this->user[$field];
             }
         }
 

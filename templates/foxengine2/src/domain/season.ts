@@ -11,17 +11,21 @@ export function getSiteSeason(date: Date = new Date()): SiteSeason {
   return 'autumn'
 }
 
-export function getSeasonBackground(data: FoxesCraftBootstrap, season: SiteSeason): string {
+export function getSeasonBackground(
+  data: FoxesCraftBootstrap,
+  season: SiteSeason,
+  colorTheme: 'light' | 'dark' = 'light',
+): string {
   const directory = typeof data.theme.settings.seasonDirectory === 'string'
     ? data.theme.settings.seasonDirectory.replace(/^assets\//, '')
     : 'img/season'
-  const configuredFiles = data.theme.settings.seasonFiles
+  const configuredFiles = colorTheme === 'dark'
+    ? data.theme.settings.seasonNightFiles
+    : data.theme.settings.seasonFiles
   const files = configuredFiles && typeof configuredFiles === 'object' && !Array.isArray(configuredFiles)
     ? configuredFiles as Record<string, unknown>
     : {}
-  const fallback: Record<SiteSeason, string> = {
-    winter: 'winter.jpg', spring: 'spring.png', summer: 'summer.png', autumn: 'autumn.png',
-  }
-  const file = typeof files[season] === 'string' ? files[season] : fallback[season]
+  const fallback = colorTheme === 'dark' ? `${season}Night.png` : `${season}.png`
+  const file = typeof files[season] === 'string' ? files[season] : fallback
   return themeAsset(data, `${directory}/${file}`)
 }

@@ -47,6 +47,7 @@ for (const [key, path] of backendRouters) {
   const backendActions = new Set([
     ...[...text.matchAll(/case\s+['"]([^'"]+)['"]\s*:/g)].map((match) => match[1]),
     ...[...text.matchAll(/['"]([^'"]+)['"]\s*=>\s*(?:\$this->|\(new\s|new\s)/g)].map((match) => match[1]),
+    ...[...text.matchAll(/['"]([^'"]+)['"]\s*=>\s*['"][A-Za-z_][A-Za-z0-9_]*['"]/g)].map((match) => match[1]),
   ])
   for (const action of frontendActions.get(key)) {
     if (!backendActions.has(action)) failures.push(`client ${key}=${action} has no backend route`)

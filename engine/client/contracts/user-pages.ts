@@ -28,6 +28,8 @@ export interface ProfileEntry {
   label: string
   value: string
   detail?: string
+  icon?: string
+  kind?: string
 }
 
 export interface ProfileBadge {

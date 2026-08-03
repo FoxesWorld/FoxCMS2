@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { BadgeDefinition, StaticPageDefinition } from '@engine/content/contentData'
 import type {
-  BadgeCatalogRow, BadgePageDraft, ProjectPageDraft,
+  BadgeCatalogRow, BadgeClaimKeyRow, BadgeClaimUsageMode, BadgePageDraft, IssuedBadgeClaimCode, ProjectPageDraft,
 } from '@modules/AdminPanel/client/useAdminPanel'
 import StaticPage from '@theme/userOptions/content/StaticPage.vue'
 import BadgePage from '@theme/userOptions/pages/badges/Badge.vue'
@@ -13,6 +13,8 @@ const props = defineProps<{
   projectPages: ProjectPageDraft[]
   badgePages: BadgePageDraft[]
   badges: BadgeCatalogRow[]
+  claimKeys: BadgeClaimKeyRow[]
+  issuedCode: IssuedBadgeClaimCode | null
   loading: boolean
 }>()
 
@@ -20,13 +22,19 @@ const emit = defineEmits<{
   saveProjectPages: []
   saveBadgePage: [page: BadgePageDraft]
   deleteBadgePage: [page: BadgePageDraft]
+  issueClaimKey: [badgeId: number, usageMode: BadgeClaimUsageMode]
+  revokeClaimKey: [keyId: number]
+  clearIssuedCode: []
 }>()
 
-const mode = ref<'project' | 'badges'>('project')
+const mode = ref<'project' | 'badges' | 'claims'>('project')
 const projectWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const badgeWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const selectedProjectId = ref('')
 const selectedBadgeName = ref('')
+const selectedClaimBadgeId = ref(0)
+const claimUsageMode = ref<BadgeClaimUsageMode>('single')
+const copiedCode = ref(false)
 
 const selectedProject = computed(() => props.projectPages.find((page) => page.id === selectedProjectId.value) ?? null)
 const selectedBadge = computed(() => props.badges.find((badge) => badge.badgeName === selectedBadgeName.value) ?? null)
@@ -34,6 +42,10 @@ const selectedBadgePage = computed(() => {
   const badge = selectedBadge.value
   return badge ? props.badgePages.find((page) => page.slug === badge.pageSlug) ?? null : null
 })
+const selectedClaimBadge = computed(() => props.badges.find((badge) => badge.id === selectedClaimBadgeId.value) ?? null)
+const selectedClaimKeys = computed(() => props.claimKeys
+  .filter((entry) => entry.badgeId === selectedClaimBadgeId.value)
+  .sort((left, right) => right.createdAt - left.createdAt))
 
 const forbiddenPreviewElements = 'script,style,iframe,object,embed,form,input,button,textarea,select,option,link,meta,base,svg,math'
 const previewUrlAttributes = new Set(['href', 'src', 'xlink:href', 'formaction'])
@@ -109,6 +121,12 @@ watch(() => props.badges, (badges) => {
   if (!badges.some((badge) => badge.badgeName === selectedBadgeName.value)) selectedBadgeName.value = badges[0]?.badgeName ?? ''
 }, { immediate: true, deep: true })
 
+watch(() => props.badges, (badges) => {
+  if (!badges.some((badge) => badge.id === selectedClaimBadgeId.value)) selectedClaimBadgeId.value = badges[0]?.id ?? 0
+}, { immediate: true, deep: true })
+
+watch(() => props.issuedCode, () => { copiedCode.value = false })
+
 watch(selectedProjectId, () => { projectWorkspaceTab.value = 'editor' })
 watch(selectedBadgeName, () => { badgeWorkspaceTab.value = 'editor' })
 
@@ -157,6 +175,39 @@ function deleteBadgePage(): void {
   if (!page || !window.confirm(`Удалить HTML-файл data/badges/${page.slug}.html? Запись в БД останется.`)) return
   emit('deleteBadgePage', page)
 }
+
+function formatClaimDate(value: number | null): string {
+  if (!value) return '—'
+  return new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value * 1000))
+}
+
+function issueClaimKey(): void {
+  if (!selectedClaimBadge.value || props.loading) return
+  emit('issueClaimKey', selectedClaimBadge.value.id, claimUsageMode.value)
+}
+
+function revokeClaimKey(entry: BadgeClaimKeyRow): void {
+  if (!entry.enabled || !window.confirm(`Отозвать код для бейджа «${entry.badgeName}»?`)) return
+  emit('revokeClaimKey', entry.id)
+}
+
+async function copyIssuedCode(): Promise<void> {
+  const token = props.issuedCode?.token
+  if (!token) return
+  try {
+    await navigator.clipboard.writeText(token)
+    copiedCode.value = true
+  } catch {
+    const area = document.createElement('textarea')
+    area.value = token
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    document.body.appendChild(area)
+    area.select()
+    copiedCode.value = document.execCommand('copy')
+    area.remove()
+  }
+}
 </script>
 
 <template>
@@ -164,8 +215,10 @@ function deleteBadgePage(): void {
     <header class="admin-content-editor__header">
       <div>
         <span class="eyebrow">Runtime content</span>
-        <h2>Страницы проекта</h2>
-        <p>Страницы проекта и представления бейджей хранятся отдельными HTML-файлами и редактируются через CodeMirror 5.</p>
+        <h2>{{ mode === 'project' ? 'Страницы проекта' : mode === 'badges' ? 'HTML-страницы бейджей' : 'Коды получения бейджей' }}</h2>
+        <p v-if="mode === 'project'">Страницы проекта хранятся отдельными HTML-файлами и редактируются через CodeMirror 5.</p>
+        <p v-else-if="mode === 'badges'">Полные представления бейджей хранятся отдельно от каталога и редактируются через CodeMirror 5.</p>
+        <p v-else>Выпуск, контроль применений и отзыв одноразовых и многоразовых кодов.</p>
       </div>
       <div class="admin-content-editor__modes">
         <button type="button" :class="{ active: mode === 'project' }" @click="mode = 'project'">
@@ -173,6 +226,9 @@ function deleteBadgePage(): void {
         </button>
         <button type="button" :class="{ active: mode === 'badges' }" @click="mode = 'badges'">
           <i class="fa-solid fa-award" aria-hidden="true" /><span>HTML-страницы бейджей</span>
+        </button>
+        <button type="button" :class="{ active: mode === 'claims' }" @click="mode = 'claims'">
+          <i class="fa-solid fa-key" aria-hidden="true" /><span>Коды получения</span>
         </button>
       </div>
     </header>
@@ -239,7 +295,7 @@ function deleteBadgePage(): void {
       </form>
     </div>
 
-    <div v-else class="admin-content-editor__workspace">
+    <div v-else-if="mode === 'badges'" class="admin-content-editor__workspace">
       <aside class="admin-content-editor__list admin-content-editor__list--badges">
         <button
           v-for="badge in badges"
@@ -313,6 +369,105 @@ function deleteBadgePage(): void {
             <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>Сохранить {{ selectedBadgePage.slug }}.html</span></button>
           </footer>
         </form>
+      </div>
+    </div>
+
+    <div v-else class="admin-content-editor__workspace admin-content-editor__workspace--claims">
+      <aside class="admin-content-editor__list admin-content-editor__list--badges">
+        <button
+          v-for="badge in badges"
+          :key="`claim-${badge.id}`"
+          type="button"
+          :class="{ active: selectedClaimBadgeId === badge.id }"
+          @click="selectedClaimBadgeId = badge.id"
+        >
+          <img v-if="badge.img" :src="badge.img" alt="">
+          <i v-else class="fa-solid fa-key" aria-hidden="true" />
+          <span>
+            <strong>{{ badge.badgeName }}</strong>
+            <small>{{ claimKeys.filter((entry) => entry.badgeId === badge.id).length }} кодов</small>
+          </span>
+        </button>
+      </aside>
+
+      <div v-if="selectedClaimBadge" class="admin-content-form admin-claim-keys">
+        <header class="admin-content-form__title">
+          <div>
+            <span class="eyebrow">Badge claim access</span>
+            <h3>{{ selectedClaimBadge.badgeName }}</h3>
+            <p>Каждый код привязан только к этому бейджу. В базе хранится SHA-256-хеш, а открытое значение показывается один раз.</p>
+          </div>
+          <img v-if="selectedClaimBadge.img" class="admin-content-form__badge-image" :src="selectedClaimBadge.img" alt="">
+        </header>
+
+        <section class="admin-claim-issuer">
+          <label>
+            <span>Режим кода</span>
+            <select v-model="claimUsageMode">
+              <option value="single">Одноразовый — одна успешная активация</option>
+              <option value="reusable">Многоразовый — для разных профилей</option>
+            </select>
+          </label>
+          <button class="button button--primary" type="button" :disabled="loading" @click="issueClaimKey">
+            <i class="fa-solid fa-key" aria-hidden="true" />
+            <span>Выпустить код</span>
+          </button>
+        </section>
+
+        <section v-if="issuedCode && issuedCode.entry.badgeId === selectedClaimBadge.id" class="admin-issued-code" role="status">
+          <header>
+            <div>
+              <strong>Новый {{ issuedCode.entry.usageMode === 'reusable' ? 'многоразовый' : 'одноразовый' }} код</strong>
+              <small>Скопируйте сейчас. После закрытия открытое значение восстановить нельзя.</small>
+            </div>
+            <button type="button" aria-label="Закрыть" @click="emit('clearIssuedCode')">×</button>
+          </header>
+          <div class="admin-issued-code__value">
+            <code>{{ issuedCode.token }}</code>
+            <button class="button button--ghost" type="button" @click="copyIssuedCode">
+              <i class="fa-solid" :class="copiedCode ? 'fa-check' : 'fa-copy'" aria-hidden="true" />
+              <span>{{ copiedCode ? 'Скопировано' : 'Копировать' }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="admin-claim-key-list">
+          <header>
+            <div><h4>Выпущенные коды</h4><p>Полное значение не хранится и здесь не отображается.</p></div>
+            <span>{{ selectedClaimKeys.length }}</span>
+          </header>
+
+          <div v-if="selectedClaimKeys.length" class="admin-claim-key-rows">
+            <article v-for="entry in selectedClaimKeys" :key="entry.id" class="admin-claim-key-row" :class="{ 'is-disabled': !entry.enabled }">
+              <div class="admin-claim-key-row__identity">
+                <span class="admin-claim-key-row__mode" :class="entry.accessMode === 'public' ? 'is-public' : `is-${entry.usageMode}`">
+                  {{ entry.accessMode === 'public' ? 'Публичный' : entry.usageMode === 'reusable' ? 'Многоразовый' : 'Одноразовый' }}
+                </span>
+                <strong>••••••{{ entry.tokenHint }}</strong>
+                <small>#{{ entry.id }} · создан {{ formatClaimDate(entry.createdAt) }}</small>
+              </div>
+              <dl>
+                <div><dt>Использований</dt><dd>{{ entry.usesCount }}</dd></div>
+                <div><dt>Последнее</dt><dd>{{ formatClaimDate(entry.lastClaimedAt) }}</dd></div>
+                <div><dt>Состояние</dt><dd>{{ !entry.enabled ? 'Отозван' : entry.usageMode === 'single' && entry.usesCount > 0 ? 'Использован' : 'Активен' }}</dd></div>
+              </dl>
+              <button
+                class="button admin-content-delete-page"
+                type="button"
+                :disabled="!entry.enabled || loading"
+                @click="revokeClaimKey(entry)"
+              >
+                <i class="fa-solid fa-ban" aria-hidden="true" /><span>Отозвать</span>
+              </button>
+            </article>
+          </div>
+
+          <div v-else class="admin-content-empty-page admin-content-empty-page--compact">
+            <i class="fa-solid fa-key" aria-hidden="true" />
+            <strong>Кодов пока нет</strong>
+            <p>Выпустите одноразовый или многоразовый код для выбранного бейджа.</p>
+          </div>
+        </section>
       </div>
     </div>
   </section>

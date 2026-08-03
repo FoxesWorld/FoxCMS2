@@ -20,4 +20,16 @@ return [
         '-Djava.net.preferIPv4Stack=true',
     ],
     'launcher_args' => [],
+    'hardware_inventory' => [
+        'enabled' => foxEnvBool('FOXESCRAFT_HARDWARE_INVENTORY_ENABLED', true),
+        'max_payload_bytes' => max(4096, min(131072, foxEnvInt('FOXESCRAFT_HARDWARE_INVENTORY_MAX_BYTES', 32768))),
+    ],
+    'database' => [
+        'host' => foxEnv('FOXESCRAFT_DB_HOST', '127.0.0.1') ?? '127.0.0.1',
+        'port' => max(1, min(65535, foxEnvInt('FOXESCRAFT_DB_PORT', 3306))),
+        'name' => foxEnv('FOXESCRAFT_DB_NAME', 'foxescraft') ?? 'foxescraft',
+        'user' => foxEnv('FOXESCRAFT_DB_USER', 'foxescraft') ?? 'foxescraft',
+        'password' => foxEnv('FOXESCRAFT_DB_PASSWORD', '') ?? '',
+        'connect_timeout' => max(1, min(30, foxEnvInt('FOXESCRAFT_DB_CONNECT_TIMEOUT', 5))),
+    ],
 ];

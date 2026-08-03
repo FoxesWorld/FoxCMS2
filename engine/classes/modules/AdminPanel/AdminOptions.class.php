@@ -1,18 +1,54 @@
 <?php
 
+declare(strict_types=1);
+
 if (!defined('ADMIN')) {
     die();
 }
 
 final class AdminOptions {
     private const LOG_FILES = ['lastlog', 'error', 'access'];
+    private const ACTION_HANDLERS = [
+        'overview' => 'overview',
+        'siteSettings' => 'siteSettings',
+        'saveSiteSettings' => 'saveSiteSettings',
+        'users' => 'users',
+        'updateUser' => 'updateUser',
+        'grantBadgeToUser' => 'grantBadgeToUser',
+        'servers' => 'servers',
+        'saveServer' => 'saveServer',
+        'deleteServer' => 'deleteServer',
+        'hardware' => 'hardware',
+        'maintenance' => 'maintenance',
+        'saveMaintenance' => 'saveMaintenance',
+        'log' => 'showLog',
+        'clearLog' => 'clearLog',
+        'slides' => 'slides',
+        'saveSlides' => 'saveSlides',
+        'uploadSlideImage' => 'uploadSlideImage',
+        'uploadServerImage' => 'uploadServerImage',
+        'content' => 'content',
+        'saveProjectPages' => 'saveProjectPages',
+        'saveBadgePage' => 'saveBadgePage',
+        'deleteBadgePage' => 'deleteBadgePage',
+        'issueBadgeClaimKey' => 'issueBadgeClaimKey',
+        'revokeBadgeClaimKey' => 'revokeBadgeClaimKey',
+        'fileList' => 'fileList',
+        'fileCreateDirectory' => 'fileCreateDirectory',
+        'fileUpload' => 'fileUpload',
+        'fileRename' => 'fileRename',
+        'fileDelete' => 'fileDelete',
+        'catalog' => 'catalog',
+        'saveCatalogEntry' => 'saveCatalogEntry',
+        'deleteCatalogEntry' => 'deleteCatalogEntry',
+    ];
     private const SERVER_FIELDS = [
         'serverName', 'host', 'port', 'ignoreDirs', 'enabled', 'checkLib',
         'serverGroups', 'serverDescription', 'serverVersion', 'jreVersion',
         'serverImage', 'modsInfo'
     ];
     private const USER_FIELDS = [
-        'login', 'realname', 'email', 'userStatus', 'groupTag', 'balance', 'badges', 'serversOnline'
+        'login', 'realname', 'email', 'userStatus', 'groupTag', 'balance', 'serversOnline'
     ];
     private const CATALOGS = [
         'infobox' => [
@@ -32,25 +68,28 @@ final class AdminOptions {
         ],
     ];
 
-    private $db;
+    private db $db;
     private array $request;
     private UserSession $session;
-    private ?Logger $logger;
+    private Logger $logger;
     private MaintenanceModeRepository $maintenanceRepository;
     private SiteSettingsRepository $siteSettingsRepository;
     private array $config;
     private GroupRepository $groupRepository;
     private UploadService $uploads;
+    private AdminFileManager $fileManager;
     private ThemeSlidesRepository $slidesRepository;
     private ThemeContentRepository $contentRepository;
     private ThemeBadgePageRepository $badgePageRepository;
     private RuntimeJdkCatalog $runtimeJdkCatalog;
+    private LogQueryService $logQuery;
+    private BadgeClaimService $badgeClaims;
 
     public function __construct(
         array $request,
-        $db,
+        db $db,
         UserSession $session,
-        ?Logger $logger = null,
+        Logger $logger,
         ?HttpRequest $httpRequest = null,
         array $config = [],
     ) {
@@ -60,13 +99,16 @@ final class AdminOptions {
 
         $this->db = $db;
         $this->session = $session;
-        $this->logger = $logger ?? new Logger('lastlog');
+        $this->logger = $logger;
         $this->request = $request;
         $this->config = $config;
         if (!$httpRequest instanceof HttpRequest) {
             throw new RuntimeException('Admin uploads require the original HTTP request.');
         }
         $this->uploads = new UploadService($db, $session, $this->logger, $httpRequest);
+        $this->fileManager = new AdminFileManager($this->uploads, $session, $this->logger);
+        $this->logQuery = new LogQueryService(self::LOG_FILES);
+        $this->badgeClaims = new BadgeClaimService($db, $logger);
         $site = is_array($config['siteSettings'] ?? null) ? $config['siteSettings'] : [];
         $this->slidesRepository = new ThemeSlidesRepository(
             TEMPLATE_DIR,
@@ -87,126 +129,37 @@ final class AdminOptions {
         $action = (string)($this->request['admPanel'] ?? '');
 
         try {
-            switch ($action) {
-                case 'overview':
-                    $this->overview();
-                    break;
-                case 'siteSettings':
-                    $this->siteSettings();
-                    break;
-                case 'saveSiteSettings':
-                    $this->saveSiteSettings();
-                    break;
-                case 'users':
-                    $this->users();
-                    break;
-                case 'updateUser':
-                    $this->updateUser();
-                    break;
-                case 'servers':
-                    $this->servers();
-                    break;
-                case 'saveServer':
-                    $this->saveServer();
-                    break;
-                case 'deleteServer':
-                    $this->deleteServer();
-                    break;
-                case 'hardware':
-                    $this->hardware();
-                    break;
-                case 'maintenance':
-                    $this->maintenance();
-                    break;
-                case 'saveMaintenance':
-                    $this->saveMaintenance();
-                    break;
-                case 'log':
-                    $this->log(false);
-                    break;
-                case 'clearLog':
-                    $this->log(true);
-                    break;
-                case 'slides':
-                    $this->slides();
-                    break;
-                case 'saveSlides':
-                    $this->saveSlides();
-                    break;
-                case 'uploadSlideImage':
-                    $this->uploadSlideImage();
-                    break;
-                case 'uploadServerImage':
-                    $this->uploadServerImage();
-                    break;
-                case 'content':
-                    $this->content();
-                    break;
-                case 'saveProjectPages':
-                    $this->saveProjectPages();
-                    break;
-                case 'saveBadgePage':
-                    $this->saveBadgePage();
-                    break;
-                case 'deleteBadgePage':
-                    $this->deleteBadgePage();
-                    break;
-                case 'fileList':
-                    $this->fileList();
-                    break;
-                case 'fileCreateDirectory':
-                    $this->fileCreateDirectory();
-                    break;
-                case 'fileUpload':
-                    $this->fileUpload();
-                    break;
-                case 'fileRename':
-                    $this->fileRename();
-                    break;
-                case 'fileDelete':
-                    $this->fileDelete();
-                    break;
-                case 'catalog':
-                    $this->catalog();
-                    break;
-                case 'saveCatalogEntry':
-                    $this->saveCatalogEntry();
-                    break;
-                case 'deleteCatalogEntry':
-                    $this->deleteCatalogEntry();
-                    break;
-                default:
-                    $this->respond(['message' => 'Неизвестная административная операция.', 'type' => 'error'], 400);
+            $handler = self::ACTION_HANDLERS[$action] ?? null;
+            RequestTelemetry::identify('admin.' . $action, [
+                'component' => 'admin_panel',
+                'action' => $action,
+                'handler' => is_string($handler) ? $handler : 'unresolved',
+                'moduleName' => 'AdminPanel',
+            ]);
+            if (!is_string($handler) || !method_exists($this, $handler)) {
+                throw new HttpException('Неизвестная административная операция.', 400);
             }
+            $this->{$handler}();
+        } catch (HttpException $error) {
+            $this->respond(
+                ['message' => $error->getMessage(), 'type' => 'error'],
+                $error->status(),
+            );
         } catch (Throwable $error) {
-            $requestId = $this->errorRequestId();
-            $exception = $error::class;
-            $detail = $this->exceptionDetail($error);
-            try {
-                $this->logger?->logError('Admin operation failed.', [
-                    'requestId' => $requestId,
-                    'action' => $action,
-                    'exception' => $exception,
-                    'message' => $detail,
-                    'file' => $error->getFile(),
-                    'line' => $error->getLine(),
-                    'trace' => $error->getTraceAsString(),
-                ]);
-            } catch (Throwable $loggingError) {
-                error_log('[FoxesCraft admin][' . $requestId . '] Logger failed: '
-                    . $loggingError::class . ': ' . $loggingError->getMessage());
+            RequestTelemetry::failure(
+                'admin.operation.failed',
+                $error,
+                'Administrative operation failed unexpectedly.',
+                ['action' => $action],
+            );
+            $requestId = RequestTelemetry::requestId();
+            if ($requestId === '') {
+                $requestId = ExceptionContext::requestId('admin');
             }
             $this->respond([
-                'message' => 'Ошибка операции «' . ($action !== '' ? $action : 'unknown') . '»: '
-                    . $exception . ' — ' . $detail . ' Код события: ' . $requestId . '.',
+                'message' => 'Внутренняя ошибка административной операции. Код события: ' . $requestId . '.',
                 'type' => 'error',
                 'requestId' => $requestId,
-                'error' => [
-                    'action' => $action !== '' ? $action : 'unknown',
-                    'exception' => $exception,
-                    'detail' => $detail,
-                    'requestId' => $requestId,
-                ],
             ], 500);
         }
     }
@@ -228,11 +181,17 @@ final class AdminOptions {
             $fallback,
             $this->session->uuid(),
         );
-        $this->logger?->logInfo('Site settings updated.', [
-            'event' => 'admin.site_settings.updated',
-            'userUuid' => $this->session->uuid(),
-            'fields' => array_keys($entry),
-        ]);
+        $this->logger->event(
+            'admin.site_settings.updated',
+            'Site settings updated.',
+            [
+                'component' => 'site_settings',
+                'operation' => 'save',
+                'fields' => array_keys($entry),
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond(array_merge($state, [
             'message' => 'Настройки сайта и SEO сохранены. Публичные метатеги обновятся при следующей загрузке страницы.',
             'type' => 'success',
@@ -244,7 +203,7 @@ final class AdminOptions {
         $recent = (int)$this->scalar('SELECT COUNT(*) FROM `users` WHERE `last_date` >= :threshold', [':threshold' => time() - 86400]);
         $servers = (int)$this->scalar('SELECT COUNT(*) FROM `servers`');
         $enabledServers = (int)$this->scalar("SELECT COUNT(*) FROM `servers` WHERE `enabled` = 'true'");
-        $hardware = (int)$this->scalar('SELECT COUNT(*) FROM `user_hardware_reports`');
+        $hardware = (int)$this->scalar('SELECT COUNT(*) FROM `system_hardware_inventory`');
 
         $this->respond([
             'users' => $users,
@@ -259,8 +218,7 @@ final class AdminOptions {
         $search = trim((string)($this->request['search'] ?? ''));
         $limit = max(1, min(200, (int)($this->request['limit'] ?? 100)));
         $offset = max(0, (int)($this->request['offset'] ?? 0));
-        $badgeSource = $this->userBadgeReadSource();
-        $badgeExpression = $badgeSource['expression'];
+        $badgeExpression = '`user`.`badges`';
         $where = '';
         if ($search !== '') {
             $searchSql = $this->db->safesql('%' . $search . '%');
@@ -283,7 +241,6 @@ final class AdminOptions {
             . '`group`.`groupName`, `group`.`groupColor` '
             . 'FROM `users` AS `user` '
             . 'LEFT JOIN `groupAssociation` AS `group` ON `group`.`groupTag` = `user`.`groupTag` '
-            . $badgeSource['join']
             . $where . ' ORDER BY `user`.`last_date` DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
 
         try {
@@ -298,7 +255,7 @@ final class AdminOptions {
 
         foreach ($rows as &$row) {
             if (!is_array($row)) continue;
-            $row['balance'] = $this->decodeAdminJsonField($row['balance'] ?? null);
+            $row['balance'] = BalanceMatrix::normalize($row['balance'] ?? null);
             $row['badges'] = $this->decodeAdminJsonField($row['badges'] ?? null);
             $row['serversOnline'] = $this->decodeAdminJsonField($row['serversOnline'] ?? null);
         }
@@ -333,6 +290,12 @@ final class AdminOptions {
         $userUuid = $this->resolveStoredUserUuid($userUuid);
 
         $payload = $this->decodeObject('entry');
+        if (array_key_exists('badges', $payload)) {
+            throw new HttpException(
+                'Прямое назначение бейджей запрещено. Создайте код получения в разделе «Коды получения».',
+                409,
+            );
+        }
         $updates = [];
         foreach (self::USER_FIELDS as $field) {
             if (!array_key_exists($field, $payload)) continue;
@@ -365,7 +328,16 @@ final class AdminOptions {
                     $this->respond(['message' => 'Выбранная группа не существует.', 'type' => 'error'], 400);
                 }
             }
-            if (in_array($field, ['balance', 'badges', 'serversOnline'], true)) {
+            if ($field === 'balance') {
+                try {
+                    $value = BalanceMatrix::encode($value);
+                } catch (InvalidArgumentException $error) {
+                    $this->respond([
+                        'message' => 'Матрица баланса должна содержать целые неотрицательные значения Units и Crystals.',
+                        'type' => 'error',
+                    ], 400);
+                }
+            } elseif ($field === 'serversOnline') {
                 if (is_array($value) || is_object($value)) {
                     $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
                 }
@@ -391,25 +363,26 @@ final class AdminOptions {
             'UPDATE `users` SET ' . implode(', ', $parts) . ' WHERE `uuid` = :userUuid'
         );
         $statement->execute($parameters);
-        if (array_key_exists('badges', $updates)) {
-            $login = (string)($updates['login'] ?? '');
-            if ($login === '') {
-                $lookup = $this->db->query(
-                    'SELECT `login` FROM `users` WHERE `uuid` = ' . $this->db->safesql($userUuid) . ' LIMIT 1'
-                );
-                $login = $lookup instanceof PDOStatement ? (string)($lookup->fetchColumn() ?: '') : '';
-            }
-            try {
-                $this->syncLegacyUserBadges($userUuid, $login, (string)$updates['badges']);
-            } catch (Throwable $error) {
-                $this->logger?->logWarn('Legacy user badge synchronization failed.', [
-                    'event' => 'admin.user.badges.legacy_sync_failed',
-                    'userUuid' => $userUuid,
-                    'reason' => $error->getMessage(),
-                ]);
-            }
-        }
         $this->respond(['message' => 'Пользователь обновлён.', 'type' => 'success']);
+    }
+
+
+    private function grantBadgeToUser(): void
+    {
+        $userUuid = trim((string)($this->request['userUuid'] ?? ''));
+        $badgeId = max(0, (int)($this->request['badgeId'] ?? 0));
+        $result = $this->badgeClaims->grantToUser(
+            $badgeId,
+            $userUuid,
+            $this->session->uuid(),
+        );
+        $badgeName = trim((string)($result['badge']['badgeName'] ?? 'Бейдж'));
+        $this->respond([
+            'message' => 'Бейдж «' . $badgeName . '» выдан через созданный и немедленно применённый одноразовый код.',
+            'type' => 'success',
+            'badge' => $result['badge'],
+            'key' => $result['key'],
+        ], 201);
     }
 
     private function servers(): void {
@@ -439,12 +412,16 @@ final class AdminOptions {
                 'error' => $error->getMessage(),
             ];
             $jdkOptions = [];
-            $this->logger?->logWarn('Admin JDK catalog scan failed.', [
-                'event' => 'admin.runtime_jdk.scan_failed',
-                'root' => $this->runtimeJdkCatalog->runtimePath(),
-                'exception' => $error::class,
-                'message' => $error->getMessage(),
-            ]);
+            $this->logger->exception(
+                'admin.runtime_jdk.scan_failed',
+                $error,
+                'Admin JDK catalog scan failed.',
+                [
+                    'component' => 'runtime_jdk',
+                    'operation' => 'scan',
+                    'root' => $this->runtimeJdkCatalog->runtimePath(),
+                ],
+            );
         }
 
         $this->respond([
@@ -609,41 +586,61 @@ final class AdminOptions {
     }
 
     private function hardware(): void {
-        $stmt = $this->db->prepare('SELECT `cpu`, `gpus` FROM `user_hardware_reports`');
-        $stmt->execute();
-        $cpu = ['AMD' => 0, 'Intel' => 0, 'Other' => 0];
-        $gpu = ['NVIDIA' => 0, 'AMD' => 0, 'Intel' => 0, 'Other' => 0];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
-            $cpuName = (string)($row['cpu'] ?? '');
-            $cpuVendor = preg_match('/AMD|Ryzen/i', $cpuName) ? 'AMD' : (preg_match('/Intel/i', $cpuName) ? 'Intel' : 'Other');
-            $cpu[$cpuVendor]++;
-            $gpus = json_decode((string)($row['gpus'] ?? '[]'), true);
-            foreach (is_array($gpus) ? $gpus : [] as $gpuName) {
-                $vendor = preg_match('/NVIDIA/i', (string)$gpuName) ? 'NVIDIA' : (preg_match('/AMD|Radeon/i', (string)$gpuName) ? 'AMD' : (preg_match('/Intel/i', (string)$gpuName) ? 'Intel' : 'Other'));
-                $gpu[$vendor]++;
-            }
-        }
-        $this->respond(['cpu' => $cpu, 'gpu' => $gpu]);
+        $this->respond(HardwareInventoryStatisticsService::fromDatabase($this->db)->statistics());
+    }
+
+    private function showLog(): void {
+        $this->log(false);
+    }
+
+    private function clearLog(): void {
+        $this->log(true);
     }
 
     private function log(bool $clear): void {
         $name = (string)($this->request['file'] ?? 'lastlog');
-        if (!in_array($name, self::LOG_FILES, true)) {
-            $this->respond(['message' => 'Недопустимый log-файл.', 'type' => 'error'], 400);
-        }
-        $path = ENGINE_DIR . 'cache/logs/' . $name . '.log';
         if ($clear) {
-            if (is_file($path) && !file_put_contents($path, '', LOCK_EX)) {
-                $this->respond(['message' => 'Не удалось очистить log.', 'type' => 'error'], 500);
-            }
+            $this->logQuery->clear($name);
+            $this->logger->event(
+                'admin.log.cleared',
+                'Administrative log file cleared.',
+                [
+                    'component' => 'admin_log',
+                    'operation' => 'clear',
+                    'logFile' => $name,
+                ],
+                'WARNING',
+                'success',
+            );
             $this->respond(['message' => 'Log очищен.', 'type' => 'success']);
         }
-        $lineCount = max(1, min(500, (int)($this->request['lines'] ?? 100)));
-        $lines = is_file($path) ? $this->tail($path, $lineCount) : [];
-        $this->respond([
-            'file' => $name,
-            'entries' => array_map(fn(string $line): array => $this->parseLogLine($line), $lines),
-        ]);
+
+        $result = $this->logQuery->read(
+            $name,
+            max(1, min(500, (int)($this->request['lines'] ?? 100))),
+            [
+                'requestId' => $this->request['requestId'] ?? '',
+                'correlationId' => $this->request['correlationId'] ?? '',
+                'event' => $this->request['event'] ?? '',
+                'component' => $this->request['component'] ?? '',
+                'level' => $this->request['level'] ?? '',
+                'deviationOnly' => $this->request['deviationOnly'] ?? false,
+                'search' => $this->request['search'] ?? '',
+            ],
+        );
+        $malformedCount = (int)($result['summary']['malformedCount'] ?? 0);
+        if ($malformedCount > 0) {
+            $this->logger->deviation(
+                'admin.log.malformed_entries',
+                'malformed_log_entries_detected',
+                'Malformed or legacy log entries were detected while reading the journal.',
+                'notice',
+                ['malformedCount' => 0],
+                ['malformedCount' => $malformedCount],
+                ['component' => 'admin_log', 'logFile' => $name],
+            );
+        }
+        $this->respond($result);
     }
 
     private function slides(): void {
@@ -660,15 +657,21 @@ final class AdminOptions {
         } catch (InvalidArgumentException $error) {
             $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
         }
-        $this->logger?->logInfo('Theme slides saved.', [
-            'event' => 'theme.slides.saved',
-            'administratorUuid' => $this->session->uuid(),
-            'slidesCount' => count($settings['slides'] ?? []),
-            'enabledCount' => count(array_filter(
-                $settings['slides'] ?? [],
-                static fn (array $slide): bool => ($slide['enabled'] ?? false) === true,
-            )),
-        ]);
+        $this->logger->event(
+            'theme.slides.saved',
+            'Theme slides saved.',
+            [
+                'component' => 'theme_slides',
+                'operation' => 'save',
+                'slidesCount' => count($settings['slides'] ?? []),
+                'enabledCount' => count(array_filter(
+                    $settings['slides'] ?? [],
+                    static fn (array $slide): bool => ($slide['enabled'] ?? false) === true,
+                )),
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond([
             'message' => 'Слайды сохранены в JSON.',
             'type' => 'success',
@@ -736,13 +739,20 @@ final class AdminOptions {
                 }
             } catch (Throwable $error) {
                 $badge['pageConfigured'] = false;
-                $this->logger?->logWarn('Invalid badge HTML page skipped in admin content.', [
-                    'event' => 'theme.content.badge_html.invalid',
-                    'badgeName' => (string)($badge['badgeName'] ?? ''),
-                    'slug' => $slug,
-                    'exception' => $error::class,
-                    'message' => $error->getMessage(),
-                ]);
+                $this->logger->deviation(
+                    'theme.content.badge_html.invalid',
+                    'badge_html_invalid',
+                    'Invalid badge HTML page was skipped in administrative content.',
+                    'warning',
+                    ['pageValid' => true],
+                    ['pageValid' => false],
+                    [
+                        'component' => 'theme_content',
+                        'badgeName' => (string)($badge['badgeName'] ?? ''),
+                        'slug' => $slug,
+                        'reason' => $error->getMessage(),
+                    ],
+                );
             }
         }
         unset($badge);
@@ -751,6 +761,34 @@ final class AdminOptions {
             'projectPages' => $this->contentRepository->readProjectPages(),
             'badgePages' => ['pages' => $badgePages],
             'badges' => array_values($badges),
+            'badgeClaimKeys' => $this->badgeClaims->listKeys(),
+        ]);
+    }
+
+
+    private function issueBadgeClaimKey(): void
+    {
+        $badgeId = max(0, (int)($this->request['badgeId'] ?? 0));
+        $usageMode = strtolower(trim((string)($this->request['usageMode'] ?? 'single')));
+        $result = $this->badgeClaims->issue($badgeId, $usageMode, $this->session->uuid());
+        $this->respond([
+            'message' => $usageMode === 'reusable'
+                ? 'Многоразовый код создан. Сохраните его сейчас: повторно он показан не будет.'
+                : 'Одноразовый код создан. Сохраните его сейчас: повторно он показан не будет.',
+            'type' => 'success',
+            'token' => $result['token'],
+            'entry' => $result['entry'],
+        ], 201);
+    }
+
+    private function revokeBadgeClaimKey(): void
+    {
+        $keyId = max(0, (int)($this->request['keyId'] ?? 0));
+        $entry = $this->badgeClaims->revoke($keyId, $this->session->uuid());
+        $this->respond([
+            'message' => 'Код получения бейджа отозван.',
+            'type' => 'success',
+            'entry' => $entry,
         ]);
     }
 
@@ -761,11 +799,17 @@ final class AdminOptions {
         } catch (InvalidArgumentException $error) {
             $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
         }
-        $this->logger?->logInfo('Theme project pages saved.', [
-            'event' => 'theme.content.project_pages.saved',
-            'administratorUuid' => $this->session->uuid(),
-            'pagesCount' => count($document['pages'] ?? []),
-        ]);
+        $this->logger->event(
+            'theme.content.project_pages.saved',
+            'Theme project pages saved.',
+            [
+                'component' => 'theme_content',
+                'operation' => 'save_project_pages',
+                'pagesCount' => count($document['pages'] ?? []),
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond([
             'message' => 'HTML-страницы проекта сохранены в data/pages.',
             'type' => 'success',
@@ -800,34 +844,47 @@ final class AdminOptions {
                 $slug,
             );
         } catch (InvalidArgumentException $error) {
-            $this->logger?->logWarn('Badge HTML page validation rejected.', [
-                'event' => 'theme.content.badge_html.rejected',
-                'administratorUuid' => $this->session->uuid(),
-                'badgeName' => (string)$badge['badgeName'],
-                'slug' => $slug,
-                'message' => $error->getMessage(),
-            ]);
+            $this->logger->deviation(
+                'theme.content.badge_html.rejected',
+                'badge_html_validation_failed',
+                'Badge HTML page validation rejected the document.',
+                'notice',
+                ['pageValid' => true],
+                ['pageValid' => false],
+                [
+                    'component' => 'theme_content',
+                    'badgeName' => (string)$badge['badgeName'],
+                    'slug' => $slug,
+                    'reason' => $error->getMessage(),
+                ],
+            );
             $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
         } catch (RuntimeException $error) {
-            $this->logger?->logError('Badge HTML page storage failed.', [
-                'event' => 'theme.content.badge_html.storage_failed',
-                'administratorUuid' => $this->session->uuid(),
-                'badgeName' => (string)$badge['badgeName'],
-                'slug' => $slug,
-                'exception' => $error::class,
-                'message' => $error->getMessage(),
-                'file' => $error->getFile(),
-                'line' => $error->getLine(),
-            ]);
+            $this->logger->exception(
+                'theme.content.badge_html.storage_failed',
+                $error,
+                'Badge HTML page storage failed.',
+                [
+                    'component' => 'theme_content',
+                    'badgeName' => (string)$badge['badgeName'],
+                    'slug' => $slug,
+                ],
+            );
             $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 500);
         }
-        $this->logger?->logInfo('Individual theme badge HTML page saved.', [
-            'event' => 'theme.content.badge_html.saved',
-            'administratorUuid' => $this->session->uuid(),
-            'badgeName' => (string)$page['badgeName'],
-            'slug' => (string)$page['slug'],
-            'file' => 'data/badges/' . (string)$page['slug'] . '.html',
-        ]);
+        $this->logger->event(
+            'theme.content.badge_html.saved',
+            'Individual theme badge HTML page saved.',
+            [
+                'component' => 'theme_content',
+                'operation' => 'save_badge_page',
+                'badgeName' => (string)$page['badgeName'],
+                'slug' => (string)$page['slug'],
+                'file' => 'data/badges/' . (string)$page['slug'] . '.html',
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond([
             'message' => 'HTML-страница бейджа сохранена.',
             'type' => 'success',
@@ -842,12 +899,18 @@ final class AdminOptions {
         } catch (InvalidArgumentException $error) {
             $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
         }
-        $this->logger?->logInfo('Individual theme badge HTML page deleted.', [
-            'event' => 'theme.content.badge_html.deleted',
-            'administratorUuid' => $this->session->uuid(),
-            'slug' => $slug,
-            'file' => 'data/badges/' . $slug . '.html',
-        ]);
+        $this->logger->event(
+            'theme.content.badge_html.deleted',
+            'Individual theme badge HTML page deleted.',
+            [
+                'component' => 'theme_content',
+                'operation' => 'delete_badge_page',
+                'slug' => $slug,
+                'file' => 'data/badges/' . $slug . '.html',
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond([
             'message' => 'HTML-файл страницы удалён. Запись бейджа в БД сохранена.',
             'type' => 'success',
@@ -856,256 +919,32 @@ final class AdminOptions {
     }
 
     private function fileList(): void {
-        $directory = $this->resolveUploadPath($this->request['path'] ?? '', true);
-        if (!is_dir($directory)) {
-            $this->respond(['message' => 'Каталог не найден.', 'type' => 'error'], 404);
-        }
-
-        $root = $this->uploadsRoot();
-        $items = [];
-        foreach (new DirectoryIterator($directory) as $entry) {
-            if ($entry->isDot() || $entry->isLink()) {
-                continue;
-            }
-            $name = $entry->getFilename();
-            if ($name === '' || str_starts_with($name, '.')) {
-                continue;
-            }
-            $absolute = $entry->getPathname();
-            $relative = $this->relativeUploadPath($absolute);
-            $directoryEntry = $entry->isDir();
-            $items[] = [
-                'name' => $name,
-                'path' => $relative,
-                'type' => $directoryEntry ? 'directory' : 'file',
-                'size' => $directoryEntry ? 0 : max(0, (int)$entry->getSize()),
-                'modified' => max(0, (int)$entry->getMTime()),
-                'extension' => $directoryEntry ? '' : strtolower($entry->getExtension()),
-                'mime' => $directoryEntry ? 'inode/directory' : $this->fileMime($absolute),
-                'url' => $directoryEntry ? '' : $this->publicUploadUrl($relative),
-            ];
-        }
-        usort($items, static function (array $left, array $right): int {
-            if ($left['type'] !== $right['type']) {
-                return $left['type'] === 'directory' ? -1 : 1;
-            }
-            return strnatcasecmp((string)$left['name'], (string)$right['name']);
-        });
-
-        $relative = $this->relativeUploadPath($directory);
-        $parent = $relative === '' ? null : dirname(str_replace('/', DIRECTORY_SEPARATOR, $relative));
-        if ($parent === '.' || $parent === DIRECTORY_SEPARATOR) {
-            $parent = '';
-        }
-        $this->respond([
-            'root' => '/uploads',
-            'path' => $relative,
-            'parent' => is_string($parent) ? str_replace(DIRECTORY_SEPARATOR, '/', $parent) : null,
-            'items' => $items,
-            'writable' => is_writable($directory),
-            'totalBytes' => array_sum(array_column($items, 'size')),
-        ]);
+        $this->respond($this->fileManager->browse((string)($this->request['path'] ?? '')));
     }
 
     private function fileCreateDirectory(): void {
-        $directory = $this->resolveUploadPath($this->request['path'] ?? '', true);
-        $name = $this->safeFileName($this->request['name'] ?? '');
-        $target = $directory . DIRECTORY_SEPARATOR . $name;
-        if (file_exists($target)) {
-            $this->respond(['message' => 'Файл или каталог с таким именем уже существует.', 'type' => 'error'], 409);
-        }
-        if (!mkdir($target, 0755)) {
-            $this->respond(['message' => 'Не удалось создать каталог.', 'type' => 'error'], 500);
-        }
-        $this->logger?->logInfo('Admin file directory created', [
-            'adminUuid' => $this->session->uuid(),
-            'path' => $this->relativeUploadPath($target),
-        ]);
-        $this->respond(['message' => 'Каталог создан.', 'type' => 'success']);
+        $this->respond($this->fileManager->createDirectory(
+            (string)($this->request['path'] ?? ''),
+            (string)($this->request['name'] ?? ''),
+        ));
     }
 
     private function fileUpload(): void {
-        try {
-            $result = $this->uploads->store(
-                UploadPurpose::ADMIN_FILE,
-                is_array($this->request['_upload'] ?? null) ? $this->request['_upload'] : null,
-                ['directory' => (string)($this->request['path'] ?? '')],
-            );
-        } catch (UploadException $error) {
-            $this->respond([
-                'message' => $error->getMessage(),
-                'type' => 'error',
-            ], $error->httpStatus());
-        }
-
-        $this->respond([
-            'message' => 'Файл загружен без изменений.',
-            'type' => 'success',
-            'path' => $result->relativePath(),
-            'url' => $result->publicPath(),
-            'size' => $result->size(),
-            'sha256' => $result->sha256(),
-            'mime' => $result->mime(),
-            'upload' => $result,
-        ], 201);
+        $this->respond($this->fileManager->upload(
+            (string)($this->request['path'] ?? ''),
+            is_array($this->request['_upload'] ?? null) ? $this->request['_upload'] : null,
+        ), 201);
     }
 
     private function fileRename(): void {
-        $source = $this->resolveUploadPath($this->request['path'] ?? '', false);
-        $root = $this->uploadsRoot();
-        if ($source === $root) {
-            $this->respond(['message' => 'Корневой каталог переименовать нельзя.', 'type' => 'error'], 409);
-        }
-        $name = $this->safeFileName($this->request['name'] ?? '');
-        $target = dirname($source) . DIRECTORY_SEPARATOR . $name;
-        if (file_exists($target)) {
-            $this->respond(['message' => 'Файл или каталог с таким именем уже существует.', 'type' => 'error'], 409);
-        }
-        if (!rename($source, $target)) {
-            $this->respond(['message' => 'Не удалось переименовать объект.', 'type' => 'error'], 500);
-        }
-        $this->logger?->logInfo('Admin file renamed', [
-            'adminUuid' => $this->session->uuid(),
-            'from' => $this->relativeUploadPath($source),
-            'to' => $this->relativeUploadPath($target),
-        ]);
-        $this->respond(['message' => 'Объект переименован.', 'type' => 'success']);
+        $this->respond($this->fileManager->rename(
+            (string)($this->request['path'] ?? ''),
+            (string)($this->request['name'] ?? ''),
+        ));
     }
 
     private function fileDelete(): void {
-        $target = $this->resolveUploadPath($this->request['path'] ?? '', false);
-        if ($target === $this->uploadsRoot()) {
-            $this->respond(['message' => 'Корневой каталог удалить нельзя.', 'type' => 'error'], 409);
-        }
-        $relative = $this->relativeUploadPath($target);
-        $this->deleteUploadTree($target);
-        $this->logger?->logInfo('Admin file deleted', [
-            'adminUuid' => $this->session->uuid(),
-            'path' => $relative,
-        ]);
-        $this->respond(['message' => 'Объект удалён.', 'type' => 'success']);
-    }
-
-    private function uploadsRoot(): string {
-        $path = ROOT_DIR . UPLOADS_DIR;
-        if (!is_dir($path) && !mkdir($path, 0755, true) && !is_dir($path)) {
-            $this->respond(['message' => 'Каталог uploads недоступен.', 'type' => 'error'], 500);
-        }
-        $root = realpath($path);
-        if (!is_string($root) || !is_dir($root)) {
-            $this->respond(['message' => 'Каталог uploads недоступен.', 'type' => 'error'], 500);
-        }
-        return rtrim($root, '/\\');
-    }
-
-    private function resolveUploadPath(mixed $value, bool $directory): string {
-        $root = $this->uploadsRoot();
-        $relative = $this->safeRelativeUploadPath($value);
-        $candidate = $relative === ''
-            ? $root
-            : $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-        $this->rejectUploadSymlinkPath($relative, $root);
-        $resolved = realpath($candidate);
-        if (!is_string($resolved) || is_link($candidate) || !$this->insideUploadsRoot($resolved, $root)) {
-            $this->respond(['message' => 'Файл или каталог не найден.', 'type' => 'error'], 404);
-        }
-        if ($directory && !is_dir($resolved)) {
-            $this->respond(['message' => 'Каталог не найден.', 'type' => 'error'], 404);
-        }
-        return $resolved;
-    }
-
-    private function rejectUploadSymlinkPath(string $relative, string $root): void {
-        if ($relative === '') {
-            return;
-        }
-        $cursor = $root;
-        foreach (explode('/', $relative) as $segment) {
-            $cursor .= DIRECTORY_SEPARATOR . $segment;
-            if (is_link($cursor)) {
-                $this->respond(['message' => 'Переход через символическую ссылку запрещён.', 'type' => 'error'], 409);
-            }
-        }
-    }
-
-    private function safeRelativeUploadPath(mixed $value): string {
-        $value = trim(str_replace('\\', '/', (string)$value), '/');
-        if ($value === '') {
-            return '';
-        }
-        if (str_contains($value, "\0")) {
-            $this->respond(['message' => 'Недопустимый путь.', 'type' => 'error'], 400);
-        }
-        $segments = explode('/', $value);
-        foreach ($segments as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..' || str_starts_with($segment, '.')) {
-                $this->respond(['message' => 'Недопустимый путь.', 'type' => 'error'], 400);
-            }
-            $this->safeFileName($segment);
-        }
-        return implode('/', $segments);
-    }
-
-    private function safeFileName(mixed $value): string {
-        $name = trim((string)$value);
-        if ($name === '' || $name === '.' || $name === '..' || str_starts_with($name, '.')
-            || str_contains($name, '/') || str_contains($name, '\\') || str_contains($name, "\0")
-            || preg_match('/[\x00-\x1f\x7f]/u', $name) === 1 || mb_strlen($name) > 180) {
-            $this->respond(['message' => 'Недопустимое имя файла или каталога.', 'type' => 'error'], 400);
-        }
-        return $name;
-    }
-
-    private function insideUploadsRoot(string $path, string $root): bool {
-        return $path === $root || str_starts_with($path, $root . DIRECTORY_SEPARATOR);
-    }
-
-    private function relativeUploadPath(string $path): string {
-        $root = $this->uploadsRoot();
-        $relative = ltrim(substr($path, strlen($root)), '/\\');
-        return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
-    }
-
-    private function publicUploadUrl(string $relative): string {
-        $segments = array_map('rawurlencode', explode('/', $relative));
-        return rtrim(UPLOADS_DIR, '/') . '/' . implode('/', $segments);
-    }
-
-    private function fileMime(string $path): string {
-        try {
-            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
-            return is_string($mime) && $mime !== '' ? $mime : 'application/octet-stream';
-        } catch (Throwable) {
-            return 'application/octet-stream';
-        }
-    }
-
-    private function deleteUploadTree(string $path): void {
-        if (is_link($path)) {
-            $this->respond(['message' => 'Символические ссылки удалять через File Manager запрещено.', 'type' => 'error'], 409);
-        }
-        if (is_file($path)) {
-            if (!unlink($path)) {
-                $this->respond(['message' => 'Не удалось удалить файл.', 'type' => 'error'], 500);
-            }
-            return;
-        }
-        if (!is_dir($path)) {
-            $this->respond(['message' => 'Файл или каталог не найден.', 'type' => 'error'], 404);
-        }
-        foreach (new DirectoryIterator($path) as $entry) {
-            if ($entry->isDot()) {
-                continue;
-            }
-            $child = $entry->getPathname();
-            if ($entry->isLink()) {
-                $this->respond(['message' => 'Каталог содержит символическую ссылку и не может быть удалён.', 'type' => 'error'], 409);
-            }
-            $this->deleteUploadTree($child);
-        }
-        if (!rmdir($path)) {
-            $this->respond(['message' => 'Не удалось удалить каталог.', 'type' => 'error'], 500);
-        }
+        $this->respond($this->fileManager->delete((string)($this->request['path'] ?? '')));
     }
 
     private function catalog(): void {
@@ -1162,11 +1001,60 @@ final class AdminOptions {
         if ($catalog === 'groups') {
             $this->deleteGroupCatalogEntry();
         }
+        if ($catalog === 'badges') {
+            $this->deleteBadgeCatalogEntry();
+        }
         $key = trim((string)($this->request['key'] ?? ''));
         if ($key === '') $this->respond(['message' => 'Ключ не указан.', 'type' => 'error'], 400);
         $stmt = $this->db->prepare('DELETE FROM `' . $spec['table'] . '` WHERE `' . $spec['key'] . '` = :key');
         $stmt->execute([':key' => $key]);
         $this->respond(['message' => 'Запись удалена.', 'type' => 'success']);
+    }
+
+
+    private function deleteBadgeCatalogEntry(): never {
+        $badgeName = trim((string)($this->request['key'] ?? ''));
+        if ($badgeName === '') {
+            $this->respond(['message' => 'Название бейджа не указано.', 'type' => 'error'], 400);
+        }
+
+        $lookup = $this->db->prepare(
+            'SELECT `id`, `badgeName` FROM `badgesList` WHERE `badgeName` = :badgeName LIMIT 1'
+        );
+        $lookup->execute([':badgeName' => $badgeName]);
+        $badge = $lookup->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($badge)) {
+            $this->respond(['message' => 'Бейдж не найден.', 'type' => 'error'], 404);
+        }
+
+        $badgeId = (int)($badge['id'] ?? 0);
+        $this->db->transactional(function () use ($badgeId): void {
+            $claims = $this->db->prepare('DELETE FROM `badgeKeyClaims` WHERE `badgeId` = :badgeId');
+            $claims->execute([':badgeId' => $badgeId]);
+
+            $keys = $this->db->prepare('DELETE FROM `badgeClaimKeys` WHERE `badgeId` = :badgeId');
+            $keys->execute([':badgeId' => $badgeId]);
+
+            $badge = $this->db->prepare('DELETE FROM `badgesList` WHERE `id` = :badgeId');
+            $badge->execute([':badgeId' => $badgeId]);
+        });
+
+        $this->logger->event(
+            'catalog.badges.deleted',
+            'Badge catalog entry and its claim keys were deleted.',
+            [
+                'component' => 'badge_catalog',
+                'operation' => 'delete',
+                'badgeId' => $badgeId,
+                'badgeName' => $badgeName,
+            ],
+            'INFO',
+            'success',
+        );
+        $this->respond([
+            'message' => 'Бейдж и связанные коды получения удалены.',
+            'type' => 'success',
+        ]);
     }
 
     private function saveBadgeCatalogEntry(): never {
@@ -1306,25 +1194,35 @@ final class AdminOptions {
                 try {
                     $this->badgePageRepository->move($newSlug, $oldSlug, $originalName);
                 } catch (Throwable $rollbackError) {
-                    $this->logger?->logError('Badge HTML page rename rollback failed.', [
-                        'from' => $newSlug,
-                        'to' => $oldSlug,
-                        'exception' => $rollbackError::class,
-                        'message' => $rollbackError->getMessage(),
-                    ]);
+                    $this->logger->exception(
+                        'catalog.badges.rename_rollback_failed',
+                        $rollbackError,
+                        'Badge HTML page rename rollback failed.',
+                        [
+                            'component' => 'badge_catalog',
+                            'from' => $newSlug,
+                            'to' => $oldSlug,
+                        ],
+                    );
                 }
             }
             throw $error;
         }
 
-        $this->logger?->logInfo('Badge catalog entry saved.', [
-            'event' => 'catalog.badges.saved',
-            'administratorUuid' => $this->session->uuid(),
-            'originalBadgeName' => $originalName,
-            'badgeName' => $badgeName,
-            'pageSlug' => $newSlug,
-            'created' => $originalName === '',
-        ]);
+        $this->logger->event(
+            'catalog.badges.saved',
+            'Badge catalog entry saved.',
+            [
+                'component' => 'badge_catalog',
+                'operation' => 'save',
+                'originalBadgeName' => $originalName,
+                'badgeName' => $badgeName,
+                'pageSlug' => $newSlug,
+                'created' => $originalName === '',
+            ],
+            'INFO',
+            'success',
+        );
         $this->respond([
             'message' => 'Бейдж сохранён. URL страницы: /#/badges/' . (string)$newSlug,
             'type' => 'success',
@@ -1615,44 +1513,6 @@ final class AdminOptions {
         return $tags;
     }
 
-    /** @return array{join:string,expression:string,identityColumn:?string} */
-    private function userBadgeReadSource(): array {
-        $columns = [];
-        try {
-            $statement = $this->db->query(
-                "SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` "
-                . "WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = 'userBadges' "
-                . "AND `COLUMN_NAME` IN ('userUuid', 'userLogin', 'badges')"
-            );
-            if ($statement instanceof PDOStatement) {
-                foreach ($statement->fetchAll(PDO::FETCH_COLUMN) ?: [] as $column) {
-                    $columns[(string)$column] = true;
-                }
-            }
-        } catch (Throwable) {
-            return ['join' => '', 'expression' => '`user`.`badges`', 'identityColumn' => null];
-        }
-
-        if (!isset($columns['badges'])) {
-            return ['join' => '', 'expression' => '`user`.`badges`', 'identityColumn' => null];
-        }
-        if (isset($columns['userUuid'])) {
-            return [
-                'join' => 'LEFT JOIN `userBadges` AS `legacyBadges` ON `legacyBadges`.`userUuid` = `user`.`uuid` ',
-                'expression' => "COALESCE(NULLIF(NULLIF(TRIM(`user`.`badges`), ''), '[]'), NULLIF(TRIM(`legacyBadges`.`badges`), ''), '[]')",
-                'identityColumn' => 'userUuid',
-            ];
-        }
-        if (isset($columns['userLogin'])) {
-            return [
-                'join' => 'LEFT JOIN `userBadges` AS `legacyBadges` ON `legacyBadges`.`userLogin` = `user`.`login` ',
-                'expression' => "COALESCE(NULLIF(NULLIF(TRIM(`user`.`badges`), ''), '[]'), NULLIF(TRIM(`legacyBadges`.`badges`), ''), '[]')",
-                'identityColumn' => 'userLogin',
-            ];
-        }
-        return ['join' => '', 'expression' => '`user`.`badges`', 'identityColumn' => null];
-    }
-
     /** @return list<array{groupTag:string,groupName:string,groupColor:string}> */
     private function adminUserGroups(): array {
         $statement = $this->db->query(
@@ -1685,24 +1545,10 @@ final class AdminOptions {
         return is_array($decoded) ? $decoded : [];
     }
 
-    private function syncLegacyUserBadges(string $userUuid, string $login, string $badges): void {
-        $source = $this->userBadgeReadSource();
-        $identityColumn = $source['identityColumn'];
-        if (!is_string($identityColumn) || $identityColumn === '') return;
-        $identity = $identityColumn === 'userUuid' ? $userUuid : $login;
-        if ($identity === '') return;
-        $identitySql = $this->db->safesql($identity);
-        $badgesSql = $this->db->safesql($badges);
-        $this->db->exec(
-            'INSERT INTO `userBadges` (`' . $identityColumn . '`, `badges`) VALUES (' . $identitySql . ', ' . $badgesSql . ') '
-            . 'ON DUPLICATE KEY UPDATE `badges` = VALUES(`badges`)'
-        );
-    }
-
-    /** @return list<array{badgeName: string, title: string, description: string, image: ?string}> */
+    /** @return list<array{id: int, badgeName: string, title: string, description: string, image: ?string}> */
     private function badgeOptions(): array {
         $stmt = $this->db->query(
-            'SELECT `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`'
+            'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList` ORDER BY `badgeName`'
         );
         if (!$stmt instanceof PDOStatement) {
             throw new RuntimeException('Database query returned no badge statement.');
@@ -1714,6 +1560,7 @@ final class AdminOptions {
             if ($badgeName === '') continue;
             $image = trim((string)($row['img'] ?? ''));
             $options[] = [
+                'id' => (int)($row['id'] ?? 0),
                 'badgeName' => $badgeName,
                 'title' => $badgeName,
                 'description' => trim((string)($row['description'] ?? '')),
@@ -1721,30 +1568,6 @@ final class AdminOptions {
             ];
         }
         return $options;
-    }
-
-    /** @return array{timestamp: string, time: string, level: string, message: string, tone: string} */
-    private function parseLogLine(string $line): array {
-        $record = json_decode($line, true);
-        if (is_array($record)) {
-            $timestamp = is_string($record['timestamp'] ?? null) ? $record['timestamp'] : '';
-            $level = is_string($record['level'] ?? null) ? strtoupper(trim($record['level'])) : 'LOG';
-            $message = is_string($record['message'] ?? null) ? $record['message'] : $line;
-            $time = $timestamp;
-            if ($timestamp !== '') {
-                try { $time = (new DateTimeImmutable($timestamp))->format('d.m.Y H:i:s'); } catch (Throwable) {}
-            }
-            $level = $level ?: 'LOG';
-            $tone = match ($level) {
-                'ERROR', 'CRITICAL', 'FATAL' => 'error',
-                'WARNING', 'WARN' => 'warning',
-                'INFO', 'NOTICE' => 'info',
-                'DEBUG', 'TRACE' => 'debug',
-                default => 'default',
-            };
-            return ['timestamp' => $timestamp, 'time' => $time, 'level' => $level, 'message' => $message, 'tone' => $tone];
-        }
-        return ['timestamp' => '', 'time' => '—', 'level' => 'LOG', 'message' => $line, 'tone' => 'default'];
     }
 
     private function scalar(string $sql, array $params = []) {
@@ -1757,49 +1580,15 @@ final class AdminOptions {
         return implode(', ', array_map(fn($field) => '`' . $field . '`', $fields));
     }
 
-    private function tail(string $path, int $count): array {
-        $file = new SplFileObject($path, 'r');
-        $file->seek(PHP_INT_MAX);
-        $lastLine = $file->key();
-        $start = max(0, $lastLine - $count);
-        $lines = [];
-        $file->seek($start);
-        while (!$file->eof()) {
-            $line = rtrim((string)$file->current(), "\r\n");
-            if ($line !== '') $lines[] = $line;
-            $file->next();
-        }
-        return array_slice($lines, -$count);
-    }
-
-    private function errorRequestId(): string {
-        try {
-            return bin2hex(random_bytes(8));
-        } catch (Throwable) {
-            return substr(hash('sha256', uniqid('admin-error-', true)), 0, 16);
-        }
-    }
-
-    private function exceptionDetail(Throwable $error): string {
-        $detail = trim(str_replace(["\r", "\n", "\t"], ' ', $error->getMessage()));
-        $detail = preg_replace('/\s+/u', ' ', $detail) ?? $detail;
-        if ($detail === '') {
-            $detail = 'Исключение не содержит текстового описания.';
-        }
-        return mb_substr($detail, 0, 3000, 'UTF-8');
-    }
-
     private function respond(array $payload, int $status = 200): never {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store');
-        header('X-Content-Type-Options: nosniff');
-        if (isset($payload['requestId']) && is_string($payload['requestId'])) {
-            header('X-Request-ID: ' . $payload['requestId']);
+        if ($status >= 400) {
+            RequestTelemetry::rejectHttp(
+                'admin.operation.rejected',
+                $status,
+                (string)($payload['message'] ?? 'Administrative operation was rejected.'),
+                ['action' => (string)($this->request['admPanel'] ?? '')],
+            );
         }
-        die(json_encode(
-            $payload,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
-        ));
+        JsonResponse::send($payload, $status);
     }
 }

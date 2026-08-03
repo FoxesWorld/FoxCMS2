@@ -31,9 +31,20 @@ final class CsrfToken
             return;
         }
 
+        if (class_exists(RequestTelemetry::class, false)) {
+            RequestTelemetry::rejectHttp(
+                'security.csrf.rejected',
+                403,
+                'Request was rejected because the CSRF token was missing or invalid.',
+            );
+        }
+        if (class_exists(JsonResponse::class, false)) {
+            JsonResponse::error('Защитный токен устарел. Обновите страницу.', 403);
+        }
+
         http_response_code(403);
         header('Content-Type: application/json; charset=UTF-8');
-        die(json_encode([
+        exit(json_encode([
             'type' => 'error',
             'message' => 'Защитный токен устарел. Обновите страницу.',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));

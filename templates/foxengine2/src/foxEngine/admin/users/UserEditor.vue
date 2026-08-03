@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { appBootstrap } from '@/app/context'
+import { themeAsset } from '@/domain/bootstrap'
 import { JsonFormEditor, collectJsonSamples } from '@/forms/json-form'
 import type { JsonValue } from '@/forms/json-form'
 import type { AdminBadgeOption, GroupOption, UserDraft, UserRow } from '@modules/AdminPanel/client/useAdminPanel'
 import UserAvatar from './UserAvatar.vue'
 import UserBadgeEditor from './UserBadgeEditor.vue'
 import { userBadgeAssignments } from '@/domain/userBadges'
+import { balanceCurrencyIconPath, formatBalanceAmount, normalizeBalanceMatrix, type BalanceCurrency } from '@/domain/userBalance'
 
 const props = defineProps<{
   selected: UserRow | null
@@ -16,13 +19,18 @@ const props = defineProps<{
   loading: boolean
 }>()
 
-const emit = defineEmits<{ save: [] }>()
+const emit = defineEmits<{ save: []; grantBadge: [badgeId: number] }>()
 
-type StructuredUserField = 'balance' | 'serversOnline'
+type StructuredUserField = 'serversOnline'
 
 const selectedGroup = computed(() => props.groups.find((group) => group.groupTag === props.draft.groupTag) ?? null)
 const badgeCount = computed(() => userBadgeAssignments(props.draft.badges).length)
 const serverCount = computed(() => valueCount(props.draft.serversOnline))
+const balanceMatrix = computed(() => normalizeBalanceMatrix(props.draft.balance))
+const balanceIcons = {
+  units: themeAsset(appBootstrap, balanceCurrencyIconPath('units')),
+  crystals: themeAsset(appBootstrap, balanceCurrencyIconPath('crystals')),
+} as const
 
 function samplesFor(field: StructuredUserField): JsonValue[] {
   return collectJsonSamples(props.samples, field)
@@ -33,6 +41,20 @@ function valueCount(value: JsonValue): number {
   if (value && typeof value === 'object') return Object.keys(value).length
   if (typeof value === 'string' && value.trim() !== '') return 1
   return 0
+}
+
+function updateBalanceAmount(code: BalanceCurrency['code'], event: Event): void {
+  const input = event.currentTarget as HTMLInputElement
+  const amount = Number(input.value)
+  const safeAmount = Number.isSafeInteger(amount) && amount >= 0 ? amount : 0
+  const matrix = normalizeBalanceMatrix(props.draft.balance)
+  props.draft.balance = {
+    ...matrix,
+    currencies: matrix.currencies.map((currency) => ({
+      ...currency,
+      amount: currency.code === code ? safeAmount : currency.amount,
+    })),
+  } as unknown as JsonValue
 }
 
 function groupStyle(color?: string): Record<string, string> {
@@ -127,14 +149,14 @@ function groupStyle(color?: string): Record<string, string> {
         <span><i class="fa-solid fa-award" aria-hidden="true" /></span>
         <div>
           <h3>Персональные бейджи</h3>
-          <p>Визуальное управление достижениями и отметками выбранного пользователя.</p>
+          <p>Выдача выполняется через создаваемый сервером одноразовый код получения.</p>
         </div>
       </header>
       <UserBadgeEditor
         :model-value="draft.badges"
         :options="badgeOptions"
         :disabled="loading"
-        @update:model-value="draft.badges = $event"
+        @grant="emit('grantBadge', $event)"
       />
     </section>
 
@@ -148,19 +170,41 @@ function groupStyle(color?: string): Record<string, string> {
       </header>
 
       <div class="admin-user-editor__structured-grid">
-        <article class="admin-user-data-card">
+        <article class="admin-user-data-card admin-user-data-card--balance">
           <header>
-            <div><strong>Баланс</strong><small>Финансовые и бонусные значения</small></div>
+            <div><strong>Матрица баланса</strong><small>Units и Crystals закреплены за UUID пользователя</small></div>
+            <span>{{ balanceMatrix.currencies.length }}</span>
           </header>
-          <JsonFormEditor
-            :model-value="draft.balance"
-            :samples="samplesFor('balance')"
-            label="Баланс"
-            @update:model-value="draft.balance = $event"
-          />
+          <div class="admin-balance-matrix">
+            <label
+              v-for="currency in balanceMatrix.currencies"
+              :key="currency.code"
+              class="admin-balance-currency"
+              :class="`admin-balance-currency--${currency.code}`"
+            >
+              <span class="admin-balance-currency__icon">
+                <img :src="balanceIcons[currency.code]" alt="" aria-hidden="true">
+              </span>
+              <span class="admin-balance-currency__copy">
+                <strong>{{ currency.name }}</strong>
+                <small>{{ currency.primary ? 'Основная валюта' : 'Премиальная валюта' }}</small>
+              </span>
+              <input
+                :value="currency.amount"
+                type="number"
+                min="0"
+                max="9007199254740991"
+                step="1"
+                inputmode="numeric"
+                :aria-label="`Баланс ${currency.name}`"
+                @input="updateBalanceAmount(currency.code, $event)"
+              >
+              <output>{{ formatBalanceAmount(currency.amount) }} {{ currency.symbol }}</output>
+            </label>
+          </div>
         </article>
 
-        <article class="admin-user-data-card">
+        <article class="admin-user-data-card admin-user-data-card--wide">
           <header>
             <div><strong>Игровая активность</strong><small>{{ serverCount }} записей серверов</small></div>
             <span>{{ serverCount }}</span>

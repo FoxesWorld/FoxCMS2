@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 final class ResetPassword
 {
-    public function __construct(private db $db)
-    {
+    public function __construct(
+        private db $db,
+        private Logger $logger,
+    ) {
     }
 
     public function reset(string $token, string $password, string $confirmation): never
@@ -22,7 +24,7 @@ final class ResetPassword
         }
 
         try {
-            $this->db->transactional(function () use ($token, $password): void {
+            $userUuid = $this->db->transactional(function () use ($token, $password): string {
                 $select = $this->db->prepare(
                     'SELECT `userUuid` FROM `password_reset_tokens` '
                     . 'WHERE `tokenHash` = :tokenHash AND `expiresAt` > :currentTime '
@@ -66,22 +68,41 @@ final class ResetPassword
                     'DELETE FROM `usersession` WHERE `userUuid` = :userUuid'
                 );
                 $deleteLauncherSessions->execute([':userUuid' => $userUuid]);
+                return $userUuid;
             });
+            $this->logger->event(
+                'password_reset.completed',
+                'Password reset completed and active sessions were revoked.',
+                [
+                    'component' => 'password_reset',
+                    'operation' => 'reset',
+                    'targetUserUuid' => $userUuid,
+                ],
+                'INFO',
+                'success',
+            );
             $this->respond('Пароль изменён. Теперь можно войти.', 'success');
         } catch (DomainException $exception) {
             $this->respond($exception->getMessage(), 'error', 422);
-        } catch (Throwable) {
+        } catch (Throwable $error) {
+            $this->logger->exception(
+                'password_reset.failed',
+                $error,
+                'Password reset failed unexpectedly.',
+                ['component' => 'password_reset'],
+            );
             $this->respond('Не удалось изменить пароль.', 'error', 500);
         }
     }
 
     private function respond(string $message, string $type, int $status = 200): never
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        exit(json_encode([
+        if ($status >= 400) {
+            RequestTelemetry::rejectHttp('password_reset.rejected', $status, $message);
+        }
+        JsonResponse::send([
             'message' => $message,
             'type' => $type,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        ], $status);
     }
 }

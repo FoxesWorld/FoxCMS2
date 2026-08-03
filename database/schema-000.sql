@@ -25,7 +25,7 @@ CREATE TABLE `users` (
     `colorScheme` VARCHAR(16) NOT NULL DEFAULT '#B5B8B1',
     `token` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     `units` BIGINT NOT NULL DEFAULT 0,
-    `balance` LONGTEXT NOT NULL DEFAULT '[]',
+    `balance` LONGTEXT NOT NULL DEFAULT '{"version":1,"currencies":[{"code":"units","name":"Units","amount":0,"symbol":"U","primary":true},{"code":"crystals","name":"Crystals","amount":0,"symbol":"C","primary":false}]}',
     `badges` LONGTEXT NOT NULL DEFAULT '[]',
     `serversOnline` LONGTEXT NOT NULL DEFAULT '{}',
     `userPerms` LONGTEXT NOT NULL DEFAULT '{}',
@@ -46,14 +46,6 @@ CREATE TABLE `usersession` (
     `accessToken` VARCHAR(256) NOT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uq_usersession_user` (`user`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `userBadges` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `userLogin` VARCHAR(64) NOT NULL,
-    `badges` LONGTEXT NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uq_user_badges_login` (`userLogin`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `groupAssociation` (
@@ -130,6 +122,81 @@ CREATE TABLE `badgesList` (
     `img` VARCHAR(512) NOT NULL DEFAULT '',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uq_badge_name` (`badgeName`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `badgesList` (`badgeName`, `description`, `img`) VALUES
+('Знаток правил', 'Подтверждает, что пользователь ознакомился с правилами проекта.', '');
+
+CREATE TABLE `badgeClaimKeys` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `badgeId` BIGINT UNSIGNED NOT NULL,
+    `tokenHash` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `tokenHint` VARCHAR(12) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+    `usageMode` VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'single',
+    `accessMode` VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'code',
+    `usesCount` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `enabled` TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
+    `createdAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `updatedAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `createdByUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_badge_claim_key_hash` (`tokenHash`),
+    KEY `ix_badge_claim_key_badge` (`badgeId`),
+    KEY `ix_badge_claim_key_enabled` (`enabled`),
+    CONSTRAINT `fk_badge_claim_key_badge`
+        FOREIGN KEY (`badgeId`) REFERENCES `badgesList` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `badgeClaimKeys`
+    (`badgeId`, `tokenHash`, `tokenHint`, `usageMode`, `accessMode`, `usesCount`, `enabled`, `createdAt`, `updatedAt`, `createdByUuid`)
+SELECT
+    `id`,
+    'e959a5af7ab0d7307f3881221b2e4fb96a236509df791073c8b7a5fddcb15e57',
+    'VpS-gZAlB8',
+    'reusable',
+    'public',
+    0,
+    1,
+    UNIX_TIMESTAMP(),
+    UNIX_TIMESTAMP(),
+    NULL
+FROM `badgesList`
+WHERE `badgeName` = 'Знаток правил';
+
+CREATE TABLE `badgeKeyClaims` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `badgeId` BIGINT UNSIGNED NOT NULL,
+    `keyId` BIGINT UNSIGNED NOT NULL,
+    `userUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `claimedAt` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `ix_badge_key_claim_badge_user` (`badgeId`, `userUuid`),
+    KEY `ix_badge_key_claim_key` (`keyId`),
+    KEY `ix_badge_key_claim_user` (`userUuid`),
+    CONSTRAINT `fk_badge_key_claim_badge`
+        FOREIGN KEY (`badgeId`) REFERENCES `badgesList` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_badge_key_claim_key`
+        FOREIGN KEY (`keyId`) REFERENCES `badgeClaimKeys` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `system_hardware_inventory` (
+    `systemHWID` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `schemaVersion` SMALLINT UNSIGNED NOT NULL,
+    `updaterVersion` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `platform` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `osName` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `osVersion` VARCHAR(120) NULL,
+    `kernelVersion` VARCHAR(120) NULL,
+    `architecture` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `cpuBrand` VARCHAR(200) NULL,
+    `logicalCpuCount` SMALLINT UNSIGNED NOT NULL,
+    `memoryBytes` BIGINT UNSIGNED NOT NULL,
+    `gpuAdapters` JSON NOT NULL,
+    `report` JSON NOT NULL,
+    `firstSeenAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`systemHWID`),
+    KEY `idx_system_hardware_inventory_platform` (`platform`),
+    KEY `idx_system_hardware_inventory_first_seen` (`firstSeenAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
