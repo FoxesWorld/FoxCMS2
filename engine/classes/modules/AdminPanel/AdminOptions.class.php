@@ -89,6 +89,7 @@ final class AdminOptions {
     private ThemeContentRepository $contentRepository;
     private ThemeBadgePageRepository $badgePageRepository;
     private RuntimeJdkCatalog $runtimeJdkCatalog;
+    private GameVersionCatalog $gameVersionCatalog;
     private LogQueryService $logQuery;
     private RewardClaimService $rewardClaims;
 
@@ -130,6 +131,7 @@ final class AdminOptions {
             (string)($site['siteTpl'] ?? ''),
         );
         $this->runtimeJdkCatalog = new RuntimeJdkCatalog($this->bootstrapStorageDirectory());
+        $this->gameVersionCatalog = new GameVersionCatalog($this->gameVersionsDirectory());
         $this->maintenanceRepository = new MaintenanceModeRepository($db);
         $this->siteSettingsRepository = new SiteSettingsRepository($db);
         $this->groupRepository = new GroupRepository($db);
@@ -611,9 +613,11 @@ final class AdminOptions {
                 'matchedArchives' => 0,
                 'ignoredArchives' => 0,
                 'ignoredCandidates' => [],
-                'mode' => 'file-names-only',
-                'versionSource' => 'archive-file-name',
-                'systemSource' => 'relative-path-or-file-name',
+                'requiredPlatforms' => ['windows-x86_64', 'linux-x86_64', 'macos-x86_64'],
+                'supportedPlatforms' => [],
+                'mode' => 'exact-runtime-profiles',
+                'versionSource' => 'archive-release-metadata-or-file-name',
+                'systemSource' => 'catalog-branch-and-release-metadata',
                 'error' => $error->getMessage(),
             ];
             $jdkOptions = [];
@@ -629,11 +633,37 @@ final class AdminOptions {
             );
         }
 
+        try {
+            $gameVersionCatalog = $this->gameVersionCatalog->scan();
+            $gameVersionOptions = $gameVersionCatalog['options'];
+        } catch (Throwable $error) {
+            $gameVersionCatalog = [
+                'available' => false,
+                'root' => $this->gameVersionCatalog->versionsPath(),
+                'directories' => 0,
+                'ignoredEntries' => 0,
+                'error' => $error->getMessage(),
+            ];
+            $gameVersionOptions = [];
+            $this->logger->exception(
+                'admin.game_versions.scan_failed',
+                $error,
+                'Admin game version catalog scan failed.',
+                [
+                    'component' => 'game_versions',
+                    'operation' => 'scan',
+                    'root' => $this->gameVersionCatalog->versionsPath(),
+                ],
+            );
+        }
+
         $this->respond([
             'items' => $items,
             'groups' => $this->groupRepository->all(),
             'jdkOptions' => $jdkOptions,
             'jdkCatalog' => $catalog,
+            'gameVersionOptions' => $gameVersionOptions,
+            'gameVersionCatalog' => $gameVersionCatalog,
         ]);
     }
 
@@ -673,22 +703,46 @@ final class AdminOptions {
                     $this->respond(['message' => 'Некорректный адрес сервера.', 'type' => 'error'], 400);
                 }
             }
+            if ($field === 'serverVersion') {
+                $value = trim((string)$value);
+                if ($value !== '' && (strlen($value) > 128
+                    || $value === '.' || $value === '..'
+                    || preg_match('/[\\\/\x00-\x1F\x7F]/', $value) === 1
+                )) {
+                    $this->respond([
+                        'message' => 'Некорректное имя версии клиента.',
+                        'type' => 'error',
+                    ], 400);
+                }
+            }
             if ($field === 'jreVersion') {
                 $value = trim((string)$value);
                 if ($value !== '') {
-                    if (preg_match('/^(?:1\.)?([0-9]+)(?:\.[0-9]+)*$/D', $value, $versionMatch) !== 1
-                        || (int)$versionMatch[1] < 1
-                    ) {
+                    $major = RuntimeJdkCatalog::normalizeMajorSelector($value);
+                    if ($major === null) {
                         $this->respond([
-                            'message' => 'Java runtime должен быть числовой версией JDK, например 17 или 21.',
+                            'message' => 'Java runtime должен содержать корректную major-версию JDK, например 8, 17, 21 или 25.',
                             'type' => 'error',
                         ], 400);
                     }
-                    $value = (string)(int)$versionMatch[1];
+                    // Never persist the exact cross-platform profile: servers.jreVersion is the
+                    // compact launcher contract and must remain compatible with legacy schemas.
+                    $value = $major;
                     try {
                         $normalizedVersion = $this->runtimeJdkCatalog->normalizeVersion($value);
                         if ($normalizedVersion !== null) {
                             $value = $normalizedVersion;
+                            $runtimeProfile = $this->runtimeJdkCatalog->profile($value);
+                            if (is_array($runtimeProfile) && !($runtimeProfile['complete'] ?? false)) {
+                                $missingPlatforms = array_values(array_map(
+                                    'strval',
+                                    (array)($runtimeProfile['missingPlatforms'] ?? []),
+                                ));
+                                $runtimeWarning = 'JDK ' . $value
+                                    . ' сохранён, но отсутствуют runtime-архивы для платформ: '
+                                    . ($missingPlatforms !== [] ? implode(', ', $missingPlatforms) : 'неизвестные платформы')
+                                    . '. Лаунчер сможет запускать клиент только на платформах с загруженным архивом.';
+                            }
                         } else {
                             $runtimeWarning = 'JDK ' . $value
                                 . ' сохранён, но архивы этого семейства не найдены для Windows, Linux и macOS. '
@@ -724,7 +778,7 @@ final class AdminOptions {
         $data['serverName'] = $serverName;
         if ($enabled && (!isset($data['jreVersion']) || trim((string)$data['jreVersion']) === '')) {
             $this->respond([
-                'message' => 'Для включённого сервера Java runtime обязателен. Укажите major-версию JDK.',
+                'message' => 'Для включённого сервера Java runtime обязателен. Выберите major-версию JDK.',
                 'type' => 'error',
             ], 400);
         }
@@ -2021,6 +2075,19 @@ final class AdminOptions {
         return rtrim(ROOT_DIR, '/\\')
             . DIRECTORY_SEPARATOR . $uploads
             . DIRECTORY_SEPARATOR . 'bootstrap';
+    }
+
+    private function gameVersionsDirectory(): string {
+        $configured = trim((string)(foxEnv('FOXESCRAFT_GAME_VERSIONS_DIRECTORY') ?? ''));
+        if ($configured !== '') {
+            return rtrim($configured, '/\\');
+        }
+
+        $uploads = trim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, UPLOADS_DIR), DIRECTORY_SEPARATOR);
+        return rtrim(ROOT_DIR, '/\\')
+            . DIRECTORY_SEPARATOR . $uploads
+            . DIRECTORY_SEPARATOR . 'game'
+            . DIRECTORY_SEPARATOR . 'versions';
     }
 
     private function decodeObject(string $field): array {

@@ -6,44 +6,112 @@ final class GetJre implements JsonSerializable
 {
     private array $payload;
 
-    public function __construct(string $version, array $config)
+    public function __construct(string $selector, string $platform, array $config)
     {
-        if (preg_match('/^[A-Za-z0-9._-]{1,48}$/D', $version) !== 1) {
-            throw new InvalidArgumentException('Invalid JRE version.');
+        $selector = trim($selector);
+        if (!RuntimeJdkCatalog::isValidSelectorSyntax($selector)) {
+            throw new InvalidArgumentException('Invalid Java runtime profile.');
         }
 
-        $launcher = is_array($config['launcherSettings'] ?? null)
-            ? $config['launcherSettings']
-            : [];
-        $relativeDirectory = (string)($launcher['jreDir'] ?? 'files/runtime/');
-        $root = realpath(ROOT_DIR . UPLOADS_DIR . $relativeDirectory);
-        if ($root === false || !is_dir($root)) {
-            $this->payload = ['message' => 'Runtime directory not found.'];
+        $normalizedPlatform = RuntimeJdkCatalog::normalizePlatform($platform !== '' ? $platform : 'windows-x86_64');
+        if ($normalizedPlatform === null) {
+            throw new InvalidArgumentException('Invalid Java runtime platform.');
+        }
+
+        $storageDirectory = $this->bootstrapStorageDirectory($config);
+        $catalog = new RuntimeJdkCatalog($storageDirectory);
+        $artifact = $catalog->resolveArtifact($selector, $normalizedPlatform);
+        if (!is_array($artifact)) {
+            $this->payload = [
+                'message' => 'Runtime archive not found for the selected Java profile and platform.',
+                'runtimeProfile' => $selector,
+                'platform' => $normalizedPlatform,
+            ];
             return;
         }
 
-        $candidate = $root . DIRECTORY_SEPARATOR . $version . '.zip';
-        $realFile = realpath($candidate);
-        if (
-            $realFile === false
-            || !is_file($realFile)
-            || !str_starts_with($realFile, $root . DIRECTORY_SEPARATOR)
+        $absolutePath = (string)($artifact['absolute_path'] ?? '');
+        $realFile = realpath($absolutePath);
+        $runtimeRoot = realpath($catalog->runtimePath());
+        $normalizedRoot = is_string($runtimeRoot)
+            ? rtrim(str_replace('\\', '/', $runtimeRoot), '/') . '/'
+            : '';
+        $normalizedFile = is_string($realFile) ? str_replace('\\', '/', $realFile) : '';
+        if ($realFile === false || !is_file($realFile) || is_link($absolutePath)
+            || $normalizedRoot === '' || !str_starts_with($normalizedFile, $normalizedRoot)
         ) {
-            $this->payload = ['message' => 'Runtime archive not found.'];
+            $this->payload = [
+                'message' => 'Resolved runtime archive is unavailable.',
+                'runtimeProfile' => (string)($artifact['profile'] ?? $selector),
+                'platform' => $normalizedPlatform,
+            ];
             return;
         }
 
-        $relativePath = str_replace('\\', '/', substr($realFile, strlen(ROOT_DIR)));
+        $md5 = md5_file($realFile);
+        $sha256 = hash_file('sha256', $realFile);
+        $size = filesize($realFile);
+        if (!is_string($md5) || !is_string($sha256) || !is_int($size) || $size <= 0) {
+            throw new RuntimeException('Runtime archive metadata cannot be calculated.');
+        }
+
+        $relativePath = (string)($artifact['path'] ?? '');
         $this->payload = [
-            'filename' => $relativePath,
-            'hash' => md5_file($realFile),
-            'sha256' => hash_file('sha256', $realFile),
-            'size' => filesize($realFile),
+            'filename' => $this->publicBootstrapUrl($relativePath),
+            'hash' => $md5,
+            'sha256' => $sha256,
+            'size' => $size,
+            'fileName' => (string)($artifact['file_name'] ?? basename($realFile)),
+            'runtimeId' => (string)($artifact['runtime_id'] ?? ''),
+            'requestedVersion' => $selector,
+            'jreVersion' => (string)($artifact['java_major'] ?? ''),
+            'runtimeProfile' => (string)($artifact['profile'] ?? $selector),
+            'version' => (string)($artifact['version'] ?? ''),
+            'versionCore' => (string)($artifact['version_core'] ?? ''),
+            'javaMajor' => (int)($artifact['java_major'] ?? 0),
+            'platform' => (string)($artifact['platform'] ?? $normalizedPlatform),
+            'vendor' => (string)($artifact['vendor'] ?? ''),
+            'distribution' => (string)($artifact['distribution'] ?? ''),
+            'archive' => (string)($artifact['archive'] ?? ''),
+            'installPath' => (string)($artifact['install_path'] ?? ''),
+            'javaPath' => (string)($artifact['java_path'] ?? ''),
+            'stripComponents' => (int)($artifact['strip_components'] ?? 0),
+            'inspection' => (string)($artifact['inspection'] ?? ''),
         ];
     }
 
     public function jsonSerialize(): array
     {
         return $this->payload;
+    }
+
+    private function bootstrapStorageDirectory(array $config): string
+    {
+        $configured = function_exists('foxEnv')
+            ? trim((string)(foxEnv('FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY', '') ?? ''))
+            : '';
+        if ($configured !== '') {
+            return rtrim($configured, '/\\');
+        }
+
+        $uploads = trim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, UPLOADS_DIR), DIRECTORY_SEPARATOR);
+        return rtrim(ROOT_DIR, '/\\')
+            . DIRECTORY_SEPARATOR . $uploads
+            . DIRECTORY_SEPARATOR . 'bootstrap';
+    }
+
+    private function publicBootstrapUrl(string $relativePath): string
+    {
+        $normalized = str_replace('\\', '/', trim($relativePath));
+        if ($normalized === '' || !str_starts_with($normalized, 'runtime/')) {
+            throw new RuntimeException('Runtime archive path is outside bootstrap storage.');
+        }
+        $segments = explode('/', $normalized);
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                throw new RuntimeException('Runtime archive path is unsafe.');
+            }
+        }
+        return '/uploads/bootstrap/' . implode('/', array_map('rawurlencode', $segments));
     }
 }

@@ -128,7 +128,11 @@ final class SystemRequests
     private function handleGetJre(): never
     {
         UtilityLoader::load('GetJre', '1.0.0');
-        $runtime = new GetJre($this->request->string('jreVersion'), $this->config);
+        $runtime = new GetJre(
+            $this->request->string('jreVersion'),
+            $this->request->string('platform'),
+            $this->config,
+        );
         JsonResponse::send($runtime->jsonSerialize());
     }
 

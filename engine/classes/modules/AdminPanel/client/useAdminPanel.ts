@@ -285,6 +285,23 @@ export interface RuntimeContentDocument<T> {
   pages: T[]
 }
 
+export function javaMajorFromSelector(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (raw === '') return ''
+
+  const profile = raw.match(/^java=([0-9]{1,3})(?:;|$)/i)
+  if (profile) {
+    const major = Number(profile[1])
+    return major >= 1 && major <= 100 ? String(major) : ''
+  }
+
+  const normalized = raw.replace(/^(?:jdk|jre|java)[-_\s]*/i, '')
+  const legacy = normalized.match(/^1\.([0-9]{1,3})(?=[^0-9]|$)/)
+  const modern = normalized.match(/^([0-9]{1,3})(?=[^0-9]|$)/)
+  const major = Number(legacy?.[1] ?? modern?.[1] ?? 0)
+  return major >= 1 && major <= 100 ? String(major) : ''
+}
+
 export interface GroupOption {
   groupTag: string
   groupName: string
@@ -297,15 +314,41 @@ export interface AdminBadgeOption {
   description: string
   image: string | null
 }
+export interface JdkRuntimeArtifact {
+  runtimeId: string
+  platform: string
+  system: string
+  version: string
+  versionCore: string
+  javaMajor: number
+  vendor: string
+  distribution: string
+  fileName: string
+  path: string
+  archive: string
+  size: number
+  installPath: string
+  javaPath: string
+  stripComponents: number
+  inspection: string
+}
 export interface JdkRuntimeOption {
   value: string
+  profile: string
   label: string
   version: string
   javaMajor: number
+  complete: boolean
   systems: string[]
+  missingSystems: string[]
+  platforms: string[]
+  missingPlatforms: string[]
   versions: string[]
   versionsBySystem: Record<string, string[]>
+  versionsByPlatform: Record<string, string>
   selectedVersions: Record<string, string>
+  selectors: string[]
+  artifacts: Record<string, JdkRuntimeArtifact>
   names: string[]
   files: Record<string, string[]>
   archives: number
@@ -315,6 +358,8 @@ export interface JdkCatalogStatus {
   available: boolean
   root: string
   requiredSystems: string[]
+  requiredPlatforms?: string[]
+  supportedPlatforms?: string[]
   scannedArchives: number
   matchedArchives: number
   ignoredArchives: number
@@ -325,9 +370,20 @@ export interface JdkCatalogStatus {
     system: string | null
     reason: string
   }>
-  mode?: 'major-families-by-file-name'
-  versionSource?: 'archive-file-name-major'
-  systemSource?: 'relative-path-or-file-name'
+  mode?: 'exact-runtime-profiles'
+  versionSource?: 'archive-release-metadata-or-file-name'
+  systemSource?: 'catalog-branch-and-release-metadata'
+  error?: string
+}
+export interface GameVersionOption {
+  value: string
+  label: string
+}
+export interface GameVersionCatalogStatus {
+  available: boolean
+  root: string
+  directories: number
+  ignoredEntries: number
   error?: string
 }
 export interface UserRow extends JsonRow {
@@ -385,7 +441,6 @@ export interface UserDraft {
   badges: JsonValue
   serversOnline: JsonValue
 }
-
 
 
 function normalizeServerArray(value: unknown, splitLegacy = false): JsonValue[] {
@@ -479,6 +534,13 @@ export function useAdminPanel() {
     scannedArchives: 0,
     matchedArchives: 0,
     ignoredArchives: 0,
+  })
+  const gameVersionOptions = ref<GameVersionOption[]>([])
+  const gameVersionCatalog = ref<GameVersionCatalogStatus>({
+    available: false,
+    root: '/var/www/FoxCMS/uploads/game/versions',
+    directories: 0,
+    ignoredEntries: 0,
   })
   const selectedServer = ref<ServerRow | null>(null)
   const serverImageUploading = ref(false)
@@ -1013,17 +1075,27 @@ export function useAdminPanel() {
       groups: GroupOption[]
       jdkOptions: JdkRuntimeOption[]
       jdkCatalog: JdkCatalogStatus
+      gameVersionOptions: GameVersionOption[]
+      gameVersionCatalog: GameVersionCatalogStatus
     }>({ admPanel: 'servers' }))
     if (!response) return
     servers.value = response.items
     jdkOptions.value = response.jdkOptions.map((option) => ({
       ...option,
       systems: [...option.systems],
+      missingSystems: [...(option.missingSystems ?? [])],
+      platforms: [...option.platforms],
+      missingPlatforms: [...(option.missingPlatforms ?? [])],
       versions: [...option.versions],
       versionsBySystem: Object.fromEntries(
         Object.entries(option.versionsBySystem).map(([system, versions]) => [system, [...versions]]),
       ),
+      versionsByPlatform: { ...option.versionsByPlatform },
       selectedVersions: { ...option.selectedVersions },
+      selectors: [...option.selectors],
+      artifacts: Object.fromEntries(
+        Object.entries(option.artifacts).map(([platform, artifact]) => [platform, { ...artifact }]),
+      ),
       names: [...option.names],
       files: Object.fromEntries(
         Object.entries(option.files).map(([system, files]) => [system, [...files]]),
@@ -1034,6 +1106,20 @@ export function useAdminPanel() {
       ...response.jdkCatalog,
       requiredSystems: [...response.jdkCatalog.requiredSystems],
     }
+    gameVersionOptions.value = Array.isArray(response.gameVersionOptions)
+      ? response.gameVersionOptions.map((option) => ({
+          value: String(option.value ?? '').trim(),
+          label: String(option.label ?? option.value ?? '').trim(),
+        })).filter((option) => option.value !== '')
+      : []
+    gameVersionCatalog.value = response.gameVersionCatalog
+      ? { ...response.gameVersionCatalog }
+      : {
+          available: false,
+          root: '/var/www/FoxCMS/uploads/game/versions',
+          directories: 0,
+          ignoredEntries: 0,
+        }
     setGroups(response.groups)
   }
   function newServer(): void {
@@ -1043,22 +1129,26 @@ export function useAdminPanel() {
       serverName: '', host: '', port: 25565, enabled: false, checkLib: false,
       ignoreDirs: [],
       serverGroups: groupOptions.value.filter((group) => group.groupTag !== 'admin').map((group) => group.groupTag),
-      serverDescription: '', serverVersion: '', jreVersion: jdkOptions.value[0]?.value ?? '', serverImage: '', modsInfo: [],
+      serverDescription: '', serverVersion: gameVersionOptions.value[0]?.value ?? '', jreVersion: jdkOptions.value[0]?.value ?? '', serverImage: '', modsInfo: [],
     })
   }
   function editServer(server: ServerRow): void {
     selectedServer.value = server
     serverImageError.value = ''
     const rawRuntime = String(server.jreVersion ?? '').trim()
-    const runtimeFamily = jdkOptions.value.find((option) => (
-      option.value === rawRuntime || option.versions.includes(rawRuntime)
-    ))?.value ?? rawRuntime
+    const parsedRuntimeMajor = javaMajorFromSelector(rawRuntime)
+    const runtimeMajor = jdkOptions.value.find((option) => (
+      option.value === rawRuntime
+      || option.profile === rawRuntime
+      || option.selectors.some((selector) => selector.toLocaleLowerCase() === rawRuntime.toLocaleLowerCase())
+      || (parsedRuntimeMajor !== '' && String(option.javaMajor) === parsedRuntimeMajor)
+    ))?.value ?? (parsedRuntimeMajor || rawRuntime)
     Object.assign(serverDraft, server, {
       enabled: server.enabled === true || server.enabled === 'true' || Number(server.enabled) === 1,
       checkLib: server.checkLib === true || server.checkLib === 'true' || Number(server.checkLib) === 1,
       ignoreDirs: normalizeServerArray(server.ignoreDirs, true),
       serverGroups: Array.isArray(server.serverGroups) ? server.serverGroups.map(String) : [],
-      jreVersion: runtimeFamily,
+      jreVersion: runtimeMajor,
       modsInfo: normalizeServerArray(server.modsInfo),
     })
   }
@@ -1242,7 +1332,7 @@ export function useAdminPanel() {
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
     maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
-    users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
+    users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp,

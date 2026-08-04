@@ -117,18 +117,6 @@ final class RewardClaimService
                     || trim((string)($current['currencyCode'] ?? '')) !== $currencyCode
                     || (int)($current['currencyAmount'] ?? 0) !== $amount;
                 $disabledNow = (int)($current['enabled'] ?? 0) === 1 && !$enabled;
-                if ($payloadChanged) {
-                    $claims = $this->db->prepare(
-                        'SELECT `id` FROM `rewardClaims` WHERE `rewardId` = :rewardId LIMIT 1 FOR UPDATE'
-                    );
-                    $claims->execute([':rewardId' => $id]);
-                    if (is_array($claims->fetch(PDO::FETCH_ASSOC))) {
-                        throw new HttpException(
-                            'Состав уже выдававшейся награды неизменяем. Создайте новую награду для другого бейджа или количества валюты.',
-                            409,
-                        );
-                    }
-                }
 
                 $statement = $this->db->prepare(
                     'UPDATE `rewardDefinitions` SET `rewardName` = :rewardName, `description` = :description, '

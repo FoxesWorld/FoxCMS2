@@ -62,9 +62,16 @@ requireText('Atomic reward redemption', service, [
 ])
 requireText('Reward mutation key invalidation', service, [
   '$payloadChanged || $disabledNow',
-  'Состав уже выдававшейся награды неизменяем.',
   '`publicPlacement` = NULL',
   "WHERE `rewardId` = :rewardId AND `enabled` = 1",
+  "':badgeId' => $badge !== null ? (int)$badge['id'] : null",
+  "':currencyAmount' => $currency !== null ? (int)$currency['amount'] : 0",
+])
+rejectText('Reward definition immutability after claims', service.slice(
+  service.indexOf('public function saveDefinition('),
+  service.indexOf('public function deleteDefinition('),
+), [
+  'SELECT `id` FROM `rewardClaims` WHERE `rewardId` = :rewardId LIMIT 1 FOR UPDATE',
 ])
 requireText('Reward claim idempotency', `${service}\n${schema}`, [
   'WHERE `rewardId` = :rewardId AND `userUuid` = :userUuid',
@@ -169,8 +176,12 @@ requireText('Separate reward screen', `${state}\n${rewardsUi}\n${panel}`, [
   '<option :value="0">Без бейджа</option>',
   '<option value="">Без валюты</option>',
   'Выберите хотя бы один компонент: бейдж или положительное количество валюты.',
-  'Состав зафиксирован первой выдачей и хранится в журнале.',
-  ':disabled="payloadLocked"',
+  'Эту награду уже получили {0} раз.',
+  'const hasExistingClaims = computed(',
+  '<label v-if="draft.currencyCode">',
+])
+rejectText('Locked reward composition editor', rewardsUi, [
+  'payloadLocked', ':disabled="payloadLocked"',
 ])
 rejectText('Badge catalog reward editor', catalogs, [
   'admin-badge-reward-editor', 'rewardCurrency', 'rewardAmount', 'currencyAmount',

@@ -3,12 +3,14 @@ import { t } from '@/i18n'
 
 import { computed } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
+import UiSelectBox from '@/components/UiSelectBox.vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
 import SeoTagifyInput from '../SeoTagifyInput.vue'
 import { JsonFormEditor, collectJsonSamples } from '@/forms/json-form'
 import { serverImageUrl } from '@/domain/serverImage'
 import type { JsonValue } from '@/forms/json-form'
-import type { GroupOption, JdkCatalogStatus, JdkRuntimeOption, ServerDraft, ServerRow } from '@modules/AdminPanel/client/useAdminPanel'
+import { javaMajorFromSelector } from '@modules/AdminPanel/client/useAdminPanel'
+import type { GameVersionCatalogStatus, GameVersionOption, GroupOption, JdkCatalogStatus, JdkRuntimeOption, ServerDraft, ServerRow } from '@modules/AdminPanel/client/useAdminPanel'
 
 const props = defineProps<{
   selected: ServerRow | null
@@ -17,6 +19,8 @@ const props = defineProps<{
   samples: ServerRow[]
   jdkOptions: JdkRuntimeOption[]
   jdkCatalog: JdkCatalogStatus
+  gameVersionOptions: GameVersionOption[]
+  gameVersionCatalog: GameVersionCatalogStatus
   loading: boolean
   imageUploading: boolean
   imageError: string
@@ -30,6 +34,13 @@ const emit = defineEmits<{
 }>()
 
 type StructuredServerField = 'modsInfo'
+type ServerSelectOption = {
+  value: string
+  label: string
+  description: string
+  search: string
+  tone?: 'default' | 'warning'
+}
 
 function samplesFor(field: StructuredServerField): JsonValue[] {
   return collectJsonSamples(props.samples, field)
@@ -68,11 +79,73 @@ const ignoreDirectories = computed({
   },
 })
 
-const selectedJdk = computed(() => props.jdkOptions.find((option) => option.value === props.draft.jreVersion) ?? null)
-const runtimeValue = computed(() => props.draft.jreVersion.trim())
-const runtimeConfigured = computed(() => /^(?:1\.)?[0-9]+(?:\.[0-9]+)*$/.test(runtimeValue.value))
+const rawRuntimeValue = computed(() => String(props.draft.jreVersion ?? '').trim())
+const parsedRuntimeMajor = computed(() => javaMajorFromSelector(rawRuntimeValue.value))
+const selectedJdk = computed(() => props.jdkOptions.find((option) => (
+  option.value === rawRuntimeValue.value
+  || option.profile === rawRuntimeValue.value
+  || option.selectors.some((selector) => selector.toLocaleLowerCase() === rawRuntimeValue.value.toLocaleLowerCase())
+  || (parsedRuntimeMajor.value !== '' && String(option.javaMajor) === parsedRuntimeMajor.value)
+)) ?? null)
+const runtimeConfigured = computed(() => rawRuntimeValue.value !== '')
 const runtimeSaveBlocked = computed(() => props.draft.enabled && !runtimeConfigured.value)
-const legacyJdkValue = computed(() => runtimeValue.value !== '' && !selectedJdk.value ? runtimeValue.value : '')
+const legacyJdkValue = computed(() => rawRuntimeValue.value !== '' && !selectedJdk.value ? rawRuntimeValue.value : '')
+const selectedGameVersion = computed(() => props.gameVersionOptions.find((option) => option.value === props.draft.serverVersion.trim()) ?? null)
+const legacyGameVersionValue = computed(() => {
+  const value = props.draft.serverVersion.trim()
+  return value !== '' && !selectedGameVersion.value ? value : ''
+})
+function runtimeVersionOrMissing(runtime: JdkRuntimeOption, system: 'windows' | 'linux' | 'macos'): string {
+  return runtime.selectedVersions[system] || t('theme.foxengine.admin.servers.servereditor.078')
+}
+
+const jdkSelectOptions = computed(() => {
+  const options: ServerSelectOption[] = props.jdkOptions.map((runtime) => ({
+    value: runtime.value,
+    label: runtime.label,
+    description: [
+      `Windows ${runtimeVersionOrMissing(runtime, 'windows')}`,
+      `Linux ${runtimeVersionOrMissing(runtime, 'linux')}`,
+      `macOS ${runtimeVersionOrMissing(runtime, 'macos')}`,
+      t('theme.foxengine.admin.servers.servereditor.080', [runtime.versions.join(', ')]),
+    ].join(' · '),
+    search: [
+      runtime.value, runtime.label, ...runtime.versions, ...runtime.names,
+      ...runtime.platforms, ...runtime.missingPlatforms,
+      ...Object.values(runtime.artifacts).flatMap((artifact) => [artifact.platform, artifact.fileName, artifact.path]),
+    ].join(' '),
+    tone: runtime.complete ? 'default' as const : 'warning' as const,
+  }))
+  if (legacyJdkValue.value) {
+    options.unshift({
+      value: legacyJdkValue.value,
+      label: `${t('theme.foxengine.admin.servers.servereditor.021')} ${legacyJdkValue.value} ${t('theme.foxengine.admin.servers.servereditor.022')}`,
+      description: t('theme.foxengine.admin.servers.servereditor.033'),
+      search: legacyJdkValue.value,
+      tone: 'warning' as const,
+    })
+  }
+  return options
+})
+const gameVersionSelectOptions = computed(() => {
+  const options: ServerSelectOption[] = props.gameVersionOptions.map((version) => ({
+    value: version.value,
+    label: version.label,
+    description: `versions/${version.value}`,
+    search: version.value,
+  }))
+  if (legacyGameVersionValue.value) {
+    options.unshift({
+      value: legacyGameVersionValue.value,
+      label: legacyGameVersionValue.value,
+      description: t('theme.foxengine.admin.servers.servereditor.069'),
+      search: legacyGameVersionValue.value,
+      tone: 'warning' as const,
+    })
+  }
+  return options
+})
+
 const serverInitial = computed(() => Array.from(props.draft.serverName.trim())[0]?.toLocaleUpperCase('ru') ?? 'S')
 const serverEndpoint = computed(() => {
   const host = props.draft.host.trim() || t('theme.foxengine.admin.servers.servereditor.067')
@@ -127,10 +200,26 @@ function serverStyle(): Record<string, string> {
           <span>{{ t('theme.foxengine.admin.servers.servereditor.013') }}</span>
           <input v-model.number="draft.port" type="number" min="1" max="65535">
         </label>
-        <label>
+        <div class="admin-server-version-field">
           <span>{{ t('theme.foxengine.admin.servers.servereditor.014') }}</span>
-          <input v-model.trim="draft.serverVersion" type="text" maxlength="64" placeholder="1.21.2">
-        </label>
+          <UiSelectBox
+            v-model="draft.serverVersion"
+            :options="gameVersionSelectOptions"
+            :placeholder="t('theme.foxengine.admin.servers.servereditor.068')"
+            :search-placeholder="t('theme.foxengine.admin.servers.servereditor.073')"
+            :empty-text="t('theme.foxengine.admin.servers.servereditor.074')"
+            :clear-search-label="t('theme.foxengine.admin.servers.servereditor.077')"
+            :disabled="loading || !gameVersionCatalog.available || gameVersionOptions.length === 0"
+            searchable
+          />
+          <small v-if="!gameVersionCatalog.available">
+            {{ gameVersionCatalog.error || t('theme.foxengine.admin.servers.servereditor.070', [gameVersionCatalog.root]) }}
+          </small>
+          <small v-else-if="gameVersionOptions.length === 0">
+            {{ t('theme.foxengine.admin.servers.servereditor.071', [gameVersionCatalog.root]) }}
+          </small>
+          <small v-else>{{ t('theme.foxengine.admin.servers.servereditor.072', [gameVersionCatalog.root]) }}</small>
+        </div>
       </div>
     </section>
 
@@ -157,17 +246,20 @@ function serverStyle(): Record<string, string> {
         />
       </div>
 
-      <label class="server-runtime-field">
+      <div class="server-runtime-field">
         <span>{{ t('theme.foxengine.admin.servers.servereditor.019') }}</span>
-        <select
+        <UiSelectBox
           v-model="draft.jreVersion"
+          :options="jdkSelectOptions"
+          :placeholder="t('theme.foxengine.admin.servers.servereditor.020')"
+          :search-placeholder="t('theme.foxengine.admin.servers.servereditor.075')"
+          :empty-text="t('theme.foxengine.admin.servers.servereditor.076')"
+          :clear-search-label="t('theme.foxengine.admin.servers.servereditor.077')"
           :disabled="loading || !jdkCatalog.available || jdkOptions.length === 0"
           :required="draft.enabled"
-        >
-          <option value="" disabled>{{ t('theme.foxengine.admin.servers.servereditor.020') }}</option>
-          <option v-if="legacyJdkValue" :value="legacyJdkValue" disabled>{{ t('theme.foxengine.admin.servers.servereditor.021') }} {{ legacyJdkValue }} {{ t('theme.foxengine.admin.servers.servereditor.022') }}</option>
-          <option v-for="runtime in jdkOptions" :key="runtime.value" :value="runtime.value">{{ runtime.label }}</option>
-        </select>
+          :invalid="runtimeSaveBlocked"
+          searchable
+        />
 
         <section
           class="server-runtime-status"
@@ -194,7 +286,11 @@ function serverStyle(): Record<string, string> {
           </div>
           <div v-else-if="selectedJdk">
             <strong>{{ selectedJdk.label }}</strong>
-            <small> {{ t('theme.foxengine.admin.servers.servereditor.028') }} {{ selectedJdk.selectedVersions.windows }} {{ t('theme.foxengine.admin.servers.servereditor.029') }} {{ selectedJdk.selectedVersions.linux }} {{ t('theme.foxengine.admin.servers.servereditor.030') }} {{ selectedJdk.selectedVersions.macos }}
+            <small> {{ t('theme.foxengine.admin.servers.servereditor.028') }} {{ runtimeVersionOrMissing(selectedJdk, 'windows') }} {{ t('theme.foxengine.admin.servers.servereditor.029') }} {{ runtimeVersionOrMissing(selectedJdk, 'linux') }} {{ t('theme.foxengine.admin.servers.servereditor.030') }} {{ runtimeVersionOrMissing(selectedJdk, 'macos') }}
+            </small>
+            <small>{{ t('theme.foxengine.admin.servers.servereditor.080', [selectedJdk.versions.join(', ')]) }}</small>
+            <small v-if="!selectedJdk.complete">
+              {{ t('theme.foxengine.admin.servers.servereditor.079', [selectedJdk.missingPlatforms.join(', ')]) }}
             </small>
             <small>{{ t('theme.foxengine.admin.servers.servereditor.031') }} {{ selectedJdk.value }}.</small>
           </div>
@@ -208,7 +304,7 @@ function serverStyle(): Record<string, string> {
             <small v-else>{{ t('theme.foxengine.admin.servers.servereditor.036') }}</small>
           </div>
         </section>
-      </label>
+      </div>
     </section>
 
     <section class="admin-user-editor__section">

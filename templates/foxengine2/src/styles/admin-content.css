@@ -260,9 +260,18 @@
 }
 
 .admin-reward-form__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
   border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-border));
   color: var(--color-text);
   background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+}
+
+.admin-reward-form__notice > i {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--color-warning);
 }
 
 .admin-reward-form > footer {
@@ -335,3 +344,5 @@
     width: 100%;
   }
 }
+
+.admin-reward-components__hint{display:flex;align-items:center;gap:8px;min-height:43px;padding:0 12px;border:1px dashed var(--color-border);border-radius:10px;color:var(--color-text-muted);background:var(--color-surface)}

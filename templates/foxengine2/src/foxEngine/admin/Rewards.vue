@@ -45,10 +45,13 @@ const selectedKeys = computed(() => props.claimKeys
 const hasBadge = computed(() => props.draft.badgeId > 0)
 const hasCurrency = computed(() => props.draft.currencyAmount > 0 && props.draft.currencyCode !== '')
 const validPayload = computed(() => hasBadge.value || hasCurrency.value)
-const payloadLocked = computed(() => (selectedReward.value?.claimsCount ?? 0) > 0)
+const hasExistingClaims = computed(() => (selectedReward.value?.claimsCount ?? 0) > 0)
 const validPlacement = computed(() => /^[a-z][a-z0-9._-]{0,63}$/.test(publicPlacement.value.trim()))
 
 watch(() => props.issuedCode, () => { copied.value = false })
+watch(() => props.draft.currencyCode, (code) => {
+  if (!code) props.draft.currencyAmount = 0
+})
 
 function issueKey(): void {
   if (!selectedReward.value || props.loading) return
@@ -157,7 +160,7 @@ function compositionLabel(reward: RewardDefinitionRow | RewardClaimKeyRow): stri
             <legend>{{ t('theme.foxengine.admin.rewards.017') }}</legend>
             <label>
               <span>{{ t('theme.foxengine.admin.rewards.018') }}</span>
-              <select v-model.number="draft.badgeId" :disabled="payloadLocked">
+              <select v-model.number="draft.badgeId">
                 <option :value="0">{{ t('theme.foxengine.admin.rewards.019') }}</option>
                 <option v-for="badge in badges" :key="badge.id" :value="badge.id">{{ badge.badgeName }}</option>
               </select>
@@ -165,21 +168,24 @@ function compositionLabel(reward: RewardDefinitionRow | RewardClaimKeyRow): stri
             </label>
             <label>
               <span>{{ t('theme.foxengine.admin.rewards.021') }}</span>
-              <select v-model="draft.currencyCode" :disabled="payloadLocked">
+              <select v-model="draft.currencyCode">
                 <option value="">{{ t('theme.foxengine.admin.rewards.022') }}</option>
                 <option value="units">{{ t('theme.foxengine.admin.rewards.023') }}</option>
                 <option value="crystals">{{ t('theme.foxengine.admin.rewards.024') }}</option>
               </select>
             </label>
-            <label>
+            <label v-if="draft.currencyCode">
               <span>{{ t('theme.foxengine.admin.rewards.025') }}</span>
-              <input v-model.number="draft.currencyAmount" :disabled="payloadLocked" type="number" min="0" max="9007199254740991" step="1" inputmode="numeric">
+              <input v-model.number="draft.currencyAmount" type="number" min="1" max="9007199254740991" step="1" inputmode="numeric">
               <small>{{ t('theme.foxengine.admin.rewards.026') }}</small>
             </label>
           </fieldset>
 
-          <p v-if="payloadLocked" class="admin-reward-form__notice"> {{ t('theme.foxengine.admin.rewards.027') }} </p>
-          <p v-else-if="!validPayload" class="admin-reward-form__validation" role="alert"> {{ t('theme.foxengine.admin.rewards.028') }} </p>
+          <p v-if="hasExistingClaims" class="admin-reward-form__notice">
+            <i class="fa-solid fa-clock-rotate-left" aria-hidden="true" />
+            <span>{{ t('theme.foxengine.admin.rewards.027', [selectedReward?.claimsCount ?? 0]) }}</span>
+          </p>
+          <p v-if="!validPayload" class="admin-reward-form__validation" role="alert"> {{ t('theme.foxengine.admin.rewards.028') }} </p>
 
           <footer>
             <button

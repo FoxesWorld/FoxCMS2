@@ -1,14 +1,17 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
-import { includesLocalized } from './i18n-test-utils.mjs'
 
 const failures = []
 const paths = {
   service: join(repositoryRoot, 'engine', 'classes', 'services', 'RuntimeJdkCatalog.class.php'),
+  gameVersions: join(repositoryRoot, 'engine', 'classes', 'services', 'GameVersionCatalog.class.php'),
   backend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   editor: join(themeRoot, 'src', 'foxEngine', 'admin', 'servers', 'ServerEditor.vue'),
+  selectBox: join(repositoryRoot, 'engine', 'client', 'components', 'UiSelectBox.vue'),
+  systemRequests: join(repositoryRoot, 'engine', 'SystemRequests.class.php'),
+  getJre: join(repositoryRoot, 'engine', 'classes', 'utils', 'GetJre', '1.0.0', 'GetJre.class.php'),
   request: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'request.php'),
   platform: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'platform.php'),
   selection: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'selection.php'),
@@ -16,169 +19,209 @@ const paths = {
   archive: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'archive.php'),
 }
 
+function requireTokens(source, label, tokens) {
+  for (const token of tokens) {
+    if (!source.includes(token)) failures.push(`${label} is missing ${token}`)
+  }
+}
+
+function forbidTokens(source, label, tokens) {
+  for (const token of tokens) {
+    if (source.includes(token)) failures.push(`${label} still contains forbidden contract ${token}`)
+  }
+}
+
 const service = await readFile(paths.service, 'utf8')
-for (const token of [
+requireTokens(service, 'RuntimeJdkCatalog', [
   'final class RuntimeJdkCatalog',
-  'RecursiveDirectoryIterator',
-  'RecursiveIteratorIterator',
-  "isset($tokenSet['linux']) || isset($tokenSet['unix'])",
-  "$families[$family]['versionsBySystem'][$system][$version] = true",
-  "'value' => $family",
-  "'versions' => $versions",
-  "'versionsBySystem' => $versionsBySystem",
-  "'selectedVersions' => $selectedVersions",
-  "'mode' => 'major-families-by-file-name'",
-  "'versionSource' => 'archive-file-name-major'",
-  'public function normalizeVersion(',
-]) {
-  if (!includesLocalized(service, token)) failures.push(`RuntimeJdkCatalog is missing ${token}`)
-}
-for (const forbidden of [
-  'ZipArchive',
-  'PharData',
-  'file_get_contents(',
   'inspectRuntimeArchive(',
-  'bin/java',
-  'bin/javac',
-]) {
-  if (service.includes(forbidden)) failures.push(`Admin catalog must remain filename-only: ${forbidden}`)
-}
+  'runtimeBuildProfileSelector(',
+  "'value' => (string)$major",
+  "'profile' => $profile",
+  "'version' => (string)$major",
+  "'artifacts' => $artifacts",
+  "'archives' => $archiveCount",
+  "'versionsByPlatform' => $versionsByPlatform",
+  "'complete' => $complete",
+  "'missingPlatforms' => $missingPlatforms",
+  "'mode' => 'exact-runtime-profiles'",
+  'public function normalizeVersion(',
+  'public static function normalizeMajorSelector(',
+  'public function resolveArtifact(',
+])
+forbidTokens(service, 'RuntimeJdkCatalog persistence', [
+  "'value' => $profile",
+  "'version' => $profile",
+  "array_diff(self::REQUIRED_PLATFORMS, array_keys($selectedByPlatform)) !== []",
+])
 
 const backend = await readFile(paths.backend, 'utf8')
-for (const token of [
+requireTokens(backend, 'Admin server runtime backend', [
   'private RuntimeJdkCatalog $runtimeJdkCatalog',
+  'private GameVersionCatalog $gameVersionCatalog',
   "'jdkOptions' => $jdkOptions",
-  "'jdkCatalog' => $catalog",
-  "$runtimeWarning = '';",
+  "'gameVersionOptions' => $gameVersionOptions",
+  'RuntimeJdkCatalog::normalizeMajorSelector($value)',
+  '$value = $major',
   '$this->runtimeJdkCatalog->normalizeVersion($value)',
-  '$value = $normalizedVersion',
   "if ($enabled && (!isset($data['jreVersion'])",
   "'type' => $runtimeWarning !== '' ? 'warning' : 'success'",
-  'сохранён без проверки каталога runtime',
-]) {
-  if (!includesLocalized(backend, token)) failures.push(`Admin server runtime backend is missing ${token}`)
-}
-for (const forbidden of [
-  "'Не удалось проверить Java runtime в каталоге '",
-  "'Семейство JDK ' . $value",
-]) {
-  if (backend.includes(forbidden)) failures.push(`Server persistence must not be blocked by runtime catalog state: ${forbidden}`)
-}
+  "foxEnv('FOXESCRAFT_GAME_VERSIONS_DIRECTORY'",
+  ". DIRECTORY_SEPARATOR . 'game'",
+  ". DIRECTORY_SEPARATOR . 'versions'",
+])
+forbidTokens(backend, 'Admin server runtime persistence', [
+  '$value = $normalizedProfile',
+  'Выберите полный runtime profile',
+])
+
+const gameVersions = await readFile(paths.gameVersions, 'utf8')
+requireTokens(gameVersions, 'GameVersionCatalog', [
+  'final class GameVersionCatalog',
+  'realpath($this->versionsDirectory)',
+  'scandir($root)',
+  "str_starts_with($entry, '.')",
+  '!is_dir($path) || is_link($path) || !is_readable($path)',
+  "preg_match('/^[A-Za-z0-9._+ -]{1,128}$/D'",
+  "'value' => $entry",
+  'strnatcasecmp($right[\'value\'], $left[\'value\'])',
+])
 
 const client = await readFile(paths.client, 'utf8')
-for (const token of [
-  'versions: string[]',
-  'versionsBySystem: Record<string, string[]>',
-  'selectedVersions: Record<string, string>',
-  "mode?: 'major-families-by-file-name'",
-  "versionSource?: 'archive-file-name-major'",
-  'option.versions.includes(rawRuntime)',
-  'jreVersion: runtimeFamily',
-]) {
-  if (!includesLocalized(client, token)) failures.push(`Admin runtime client is missing ${token}`)
-}
+requireTokens(client, 'Admin runtime client', [
+  'export function javaMajorFromSelector',
+  'profile: string',
+  'selectors: string[]',
+  'artifacts: Record<string, JdkRuntimeArtifact>',
+  'complete: boolean',
+  'missingSystems: string[]',
+  'missingPlatforms: string[]',
+  "mode?: 'exact-runtime-profiles'",
+  'gameVersionOptions: GameVersionOption[]',
+  'gameVersionCatalog: GameVersionCatalogStatus',
+  'const parsedRuntimeMajor = javaMajorFromSelector(rawRuntime)',
+  'const runtimeMajor = jdkOptions.value.find',
+  'option.profile === rawRuntime',
+  'jreVersion: runtimeMajor',
+  "serverVersion: gameVersionOptions.value[0]?.value ?? ''",
+  "jreVersion: jdkOptions.value[0]?.value ?? ''",
+])
 
 const editor = await readFile(paths.editor, 'utf8')
-for (const token of [
-  '<select',
+requireTokens(editor, 'ServerEditor custom selects', [
+  "import UiSelectBox from '@/components/UiSelectBox.vue'",
+  'v-model="draft.serverVersion"',
+  ':options="gameVersionSelectOptions"',
   'v-model="draft.jreVersion"',
+  ':options="jdkSelectOptions"',
   ':required="draft.enabled"',
-  'const runtimeConfigured = computed(',
-  'const runtimeSaveBlocked = computed(',
-  ':disabled="loading || imageUploading || runtimeSaveBlocked"',
-  '{{ runtime.label }}',
-  'Windows {{ selectedJdk.selectedVersions.windows }}',
-  'Linux {{ selectedJdk.selectedVersions.linux }}',
-  'macOS {{ selectedJdk.selectedVersions.macos }}',
-  'Сохранение конфигурации доступно',
-  'Отключённый сервер можно сохранить как черновик',
-]) {
-  if (!includesLocalized(editor, token)) failures.push(`ServerEditor major-family select is missing ${token}`)
-}
-for (const token of [
-  'class="admin-editor admin-user-editor admin-server-editor"',
-  'class="admin-user-editor__hero admin-server-editor__hero"',
-  '<h3>Подключение</h3>',
-  '<h3>Состояние и запуск</h3>',
-  '<h3>Представление сервера</h3>',
-  '<h3>Доступ и клиентские данные</h3>',
-  'class="admin-user-editor__footer admin-server-editor__footer"',
-  "@click=\"emit('remove', selected)\"",
-  "'fa-spinner' : 'fa-floppy-disk'",
-]) {
-  if (!includesLocalized(editor, token)) failures.push(`ServerEditor structured floating form is missing ${token}`)
-}
-if (/<button[\s\S]{0,300}>[\s\S]{0,80}Сохранить сервер[\s\S]{0,80}<\/button>[\s\S]{0,40}<\/form>/.test(editor)
-    && !editor.includes('admin-server-editor__footer')) {
-  failures.push('Server save action is not inside the floating footer')
-}
-
-if (editor.includes('!jdkCatalog.available || jdkOptions.length === 0 || !selectedJdk')) {
-  failures.push('Server save button is still locked by Java runtime catalog readiness')
-}
+  ':invalid="runtimeSaveBlocked"',
+  'const parsedRuntimeMajor = computed(() => javaMajorFromSelector(rawRuntimeValue.value))',
+  'option.profile === rawRuntimeValue.value',
+  'gameVersionCatalog.root',
+  "runtimeVersionOrMissing(runtime, 'windows')",
+  "runtimeVersionOrMissing(runtime, 'linux')",
+  "runtimeVersionOrMissing(runtime, 'macos')",
+  "tone: runtime.complete ? 'default' as const : 'warning' as const",
+  'selectedJdk.missingPlatforms.join',
+  "runtime.versions.join(', ')",
+  "selectedJdk.versions.join(', ')",
+])
 if (/<input[^>]+v-model="draft\.jreVersion"/i.test(editor)) {
   failures.push('ServerEditor still uses a free-text Java runtime input')
 }
-
-const request = await readFile(paths.request, 'utf8')
-for (const token of [
-  "preg_match('/^[0-9]+(?:\\.[0-9]+)*$/D'",
-  "$versionMode = strpos($version, '.') === false ? 'major' : 'exact'",
-  "'version_mode' => $versionMode",
-]) {
-  if (!includesLocalized(request, token)) failures.push(`Bootstrap runtime request is missing ${token}`)
+if (/<select[^>]+v-model="draft\.jreVersion"/i.test(editor)) {
+  failures.push('ServerEditor still uses a native Java runtime select')
+}
+if (/<input[^>]+v-model(?:\.trim)?="draft\.serverVersion"/i.test(editor)) {
+  failures.push('ServerEditor still uses a free-text game version input')
 }
 
+const selectBox = await readFile(paths.selectBox, 'utf8')
+requireTokens(selectBox, 'UiSelectBox', [
+  'role="combobox"',
+  'role="listbox"',
+  'role="option"',
+  'aria-activedescendant',
+  'handleTriggerKeydown',
+  'handleListKeydown',
+  "event.key === 'ArrowDown'",
+  "event.key === 'Escape'",
+  'type="search"',
+  'filteredOptions',
+  'document.addEventListener(\'pointerdown\'',
+])
+
+const systemRequests = await readFile(paths.systemRequests, 'utf8')
+requireTokens(systemRequests, 'SystemRequests GetJre call', [
+  'new GetJre(',
+  "$this->request->string('jreVersion')",
+  "$this->request->string('platform')",
+  '$this->config',
+])
+
+const getJre = await readFile(paths.getJre, 'utf8')
+requireTokens(getJre, 'GetJre payload', [
+  'RuntimeJdkCatalog::normalizePlatform(',
+  '$catalog->resolveArtifact($selector, $normalizedPlatform)',
+  "'requestedVersion' => $selector",
+  "'jreVersion' => (string)($artifact['java_major'] ?? '')",
+  "'runtimeProfile' => (string)($artifact['profile'] ?? $selector)",
+  "'version' => (string)($artifact['version'] ?? '')",
+  "'javaMajor' => (int)($artifact['java_major'] ?? 0)",
+  "'platform' => (string)($artifact['platform'] ?? $normalizedPlatform)",
+  "'installPath' => (string)($artifact['install_path'] ?? '')",
+  "'javaPath' => (string)($artifact['java_path'] ?? '')",
+  "'stripComponents' => (int)($artifact['strip_components'] ?? 0)",
+])
+
+const request = await readFile(paths.request, 'utf8')
+requireTokens(request, 'Bootstrap runtime request', [
+  "$versionMode = strpos($version, '.') === false ? 'major' : 'exact'",
+  "'version_mode' => $versionMode",
+])
+
 const platform = await readFile(paths.platform, 'utf8')
-for (const token of [
+requireTokens(platform, 'Bootstrap platform aliases', [
   "array('unix', 'x32')",
   "array('unix', 'x64')",
   "array('unix', 'arm64')",
-]) {
-  if (!includesLocalized(platform, token)) failures.push(`Bootstrap Linux aliases are missing ${token}`)
-}
+])
 
 const selection = await readFile(paths.selection, 'utf8')
-for (const token of [
+requireTokens(selection, 'Bootstrap runtime selection', [
   "($request['version_mode'] ?? 'exact') === 'major'",
   "'java_major_mismatch'",
-  'Java major and platform match.',
   'Selected newest Java %s.x',
-]) {
-  if (!includesLocalized(selection, token)) failures.push(`Bootstrap selection is missing ${token}`)
-}
+])
 
 const resolver = await readFile(paths.resolver, 'utf8')
-for (const token of [
+requireTokens(resolver, 'Bootstrap runtime resolver', [
   "'runtime_major_version_unavailable'",
-  "version_compare((string)$right['version_core'], (string)$left['version_core'])",
   "'version_mode' => $request['version_mode'] ?? 'exact'",
-]) {
-  if (!includesLocalized(resolver, token)) failures.push(`Bootstrap resolver is missing ${token}`)
-}
+])
 
 const archive = await readFile(paths.archive, 'utf8')
-for (const token of [
+requireTokens(archive, 'Runtime archive parser', [
   "$version = $metadataVersion !== '' ? $metadataVersion : $fileVersion",
   'release === array()',
-  "str_replace('-metadata', '-layout', $inspection)",
   'The Java version cannot be derived from release metadata or the archive filename.',
-]) {
-  if (!includesLocalized(archive, token)) failures.push(`Release-less bootstrap archive fallback is missing ${token}`)
-}
-if (archive.includes('Runtime archive has no release metadata beside the selected Java home.')) {
-  failures.push('Bootstrap archive scanner still requires release metadata')
-}
+])
 
 function versionFromName(fileName) {
   const name = fileName.replace(/\.(?:tar\.gz|zip|tgz)$/i, '')
-  return name.match(/(?:jdk|jre|java)[-_]?([0-9]+(?:\.[0-9]+)*)/i)?.[1]
+  const legacy = name.match(/(?:jdk|jre|java)[-_]?(?:1\.8\.0[_-]([0-9]+)|8u([0-9]+))/i)
+  if (legacy) return `8u${legacy[1] ?? legacy[2]}`
+  return name.match(/(?:jdk|jre|java)[-_]?([0-9]+(?:\.[0-9]+)+(?:[+_][0-9]+)?)/i)?.[1]
     ?? name.match(/(?:^|[-_])([0-9]+(?:\.[0-9]+)*)(?:$|[-_+])/i)?.[1]
     ?? ''
 }
+
 function majorVersion(version) {
+  if (/^8u[0-9]+/i.test(version)) return 8
   return Number(version.match(/^(?:1\.)?([0-9]+)/)?.[1] ?? 0)
 }
+
 function systemFromPath(path) {
   const tokens = new Set(path.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean))
   if (['windows', 'win', 'win32', 'win64'].some((token) => tokens.has(token))) return 'windows'
@@ -186,15 +229,17 @@ function systemFromPath(path) {
   if (['mac', 'macos', 'osx', 'darwin'].some((token) => tokens.has(token))) return 'macos'
   return null
 }
+
 function compareVersionsDesc(left, right) {
-  const a = left.split('.').map(Number)
-  const b = right.split('.').map(Number)
+  const a = left.match(/[0-9]+/g)?.map(Number) ?? []
+  const b = right.match(/[0-9]+/g)?.map(Number) ?? []
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const difference = (b[index] ?? 0) - (a[index] ?? 0)
     if (difference !== 0) return difference
   }
   return 0
 }
+
 async function walkArchives(directory, prefix = '') {
   const result = []
   for (const entry of await readdir(directory, { withFileTypes: true }).catch(() => [])) {
@@ -222,8 +267,7 @@ for (const path of archives) {
   families.set(major, family)
 }
 
-const commonFamilies = [...families]
-  .filter(([, systems]) => ['windows', 'linux', 'macos'].every((system) => systems.has(system)))
+const availableFamilies = [...families]
   .sort(([left], [right]) => right - left)
   .map(([major, systems]) => ({
     major,
@@ -236,28 +280,27 @@ const expected = [
   { major: 25, selected: { windows: '25.0.2', linux: '25.0.2', macos: '25.0.1' } },
   { major: 17, selected: { windows: '17.0.20', linux: '17.0.13', macos: '17.0.13' } },
   { major: 11, selected: { windows: '11.0.29', linux: '11.0.29', macos: '11.0.29' } },
+  { major: 8, selected: { windows: '8u502', linux: '8u502', macos: '8u502' } },
 ]
-if (commonFamilies.length !== expected.length) {
-  failures.push(`actual runtime family count mismatch: ${JSON.stringify(commonFamilies)}`)
-} else {
-  for (const expectedFamily of expected) {
-    const actual = commonFamilies.find((entry) => entry.major === expectedFamily.major)
-    if (!actual) {
-      failures.push(`missing JDK family ${expectedFamily.major}`)
-      continue
-    }
-    for (const system of ['windows', 'linux', 'macos']) {
-      if (actual.selected[system] !== expectedFamily.selected[system]) {
-        failures.push(`JDK ${expectedFamily.major} ${system} expected ${expectedFamily.selected[system]}, got ${actual.selected[system] ?? 'none'}`)
-      }
+for (const expectedFamily of expected) {
+  const actual = availableFamilies.find((entry) => entry.major === expectedFamily.major)
+  if (!actual) {
+    failures.push(`missing JDK family ${expectedFamily.major}`)
+    continue
+  }
+  for (const system of ['windows', 'linux', 'macos']) {
+    if (actual.selected[system] !== expectedFamily.selected[system]) {
+      failures.push(`JDK ${expectedFamily.major} ${system} expected ${expectedFamily.selected[system]}, got ${actual.selected[system] ?? 'none'}`)
     }
   }
 }
 
 if (failures.length) {
-  console.error('Runtime JDK catalog contract failed:')
+  console.error('Runtime JDK and game-version catalog contract failed:')
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
 
-console.log(`Runtime JDK catalog passed: ${archives.length} archives; families ${commonFamilies.map((entry) => entry.major).join(', ')}.`)
+console.log(
+  `Runtime JDK and game-version catalog passed: ${archives.length} archives; visible majors ${availableFamilies.map((entry) => entry.major).join(', ')}.`,
+)

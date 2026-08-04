@@ -158,3 +158,38 @@
   cursor: not-allowed;
 }
 
+
+
+.admin-server-version-field {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.admin-server-version-field > span {
+  color: var(--color-text-muted);
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.admin-server-version-field > small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: .68rem;
+  line-height: 1.45;
+}
+
+.admin-server-version-field .ui-select-box,
+.server-runtime-field .ui-select-box {
+  position: relative;
+  z-index: 2;
+}
+
+.admin-server-version-field .ui-select-box.is-open,
+.server-runtime-field .ui-select-box.is-open {
+  z-index: 130;
+}

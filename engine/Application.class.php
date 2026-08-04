@@ -173,6 +173,7 @@ final class Application
             ENGINE_DIR . 'classes/services/UserTextureLocator.class.php',
             ENGINE_DIR . 'classes/services/RewardClaimService.class.php',
             ENGINE_DIR . 'classes/services/RuntimeJdkCatalog.class.php',
+            ENGINE_DIR . 'classes/services/GameVersionCatalog.class.php',
             ENGINE_DIR . 'classes/support/ExceptionContext.class.php',
             ENGINE_DIR . 'classes/support/UtilityLoader.class.php',
             ENGINE_DIR . 'classes/security/CsrfToken.class.php',

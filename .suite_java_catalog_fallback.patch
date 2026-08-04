@@ -1,0 +1,57 @@
+diff --git a/engine/classes/services/RuntimeJdkCatalog.class.php b/engine/classes/services/RuntimeJdkCatalog.class.php
+--- a/engine/classes/services/RuntimeJdkCatalog.class.php
++++ b/engine/classes/services/RuntimeJdkCatalog.class.php
+@@ -110,6 +110,49 @@ final class RuntimeJdkCatalog
+                         $candidate['system'] = self::SYSTEM_BY_PLATFORM[$platform];
+                         $families[$major]['platforms'][$platform][] = $candidate;
+                         ++$matchedArchives;
+                     } catch (Throwable $error) {
++                        $inspectionUnavailable = str_contains($error->getMessage(), 'requires the PHP ZipArchive extension')
++                            || str_contains($error->getMessage(), 'requires PharData support');
++                        $installName = '';
++                        $fallbackVersion = '';
++                        try {
++                            $installName = runtimeInstallDirectoryName(basename($absolutePath));
++                            $fallbackVersion = runtimeVersionFromArchiveName($installName);
++                        } catch (Throwable) {
++                            $fallbackVersion = '';
++                        }
++                        if ($inspectionUnavailable && $fallbackVersion !== '') {
++                            $size = filesize($resolvedPath);
++                            $major = runtimeMajorFromVersion($fallbackVersion);
++                            if (is_int($size) && $size > 0 && $major > 0) {
++                                $archive = detectRuntimeArchiveFormat(basename($absolutePath));
++                                $javaName = str_starts_with($platform, 'windows-') ? 'java.exe' : 'java';
++                                $candidate = [
++                                    'absolute_path' => $resolvedPath,
++                                    'path' => $relativePath,
++                                    'catalog_branch' => $branch,
++                                    'runtime_id' => runtimeSlug(implode('-', [
++                                        'filename-fallback', 'jdk', $fallbackVersion, $platform, $installName,
++                                    ])),
++                                    'file_name' => basename($absolutePath),
++                                    'archive' => $archive,
++                                    'platform' => $platform,
++                                    'version' => $fallbackVersion,
++                                    'version_core' => runtimeVersionCore($fallbackVersion),
++                                    'java_major' => $major,
++                                    'vendor' => inferRuntimeVendor($relativePath),
++                                    'distribution' => 'jdk',
++                                    'name' => $installName,
++                                    'install_path' => 'runtime/' . $installName,
++                                    'java_path' => 'bin/' . $javaName,
++                                    'strip_components' => 1,
++                                    'inspection' => 'archive-file-name-fallback',
++                                    'stable' => runtimeIsStableVersion($fallbackVersion),
++                                    'size' => $size,
++                                    'modified_at' => (int)(filemtime($resolvedPath) ?: 0),
++                                    'system' => self::SYSTEM_BY_PLATFORM[$platform],
++                                ];
++                                $families[$major]['platforms'][$platform][] = $candidate;
++                                ++$matchedArchives;
++                                continue;
++                            }
++                        }
+                         ++$ignoredArchives;
+                         if (count($ignoredCandidates) < 100) {
+                             $ignoredCandidates[] = [

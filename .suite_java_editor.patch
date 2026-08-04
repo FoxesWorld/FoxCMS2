@@ -1,0 +1,63 @@
+diff --git a/templates/foxengine2/src/foxEngine/admin/servers/ServerEditor.vue b/templates/foxengine2/src/foxEngine/admin/servers/ServerEditor.vue
+--- a/templates/foxengine2/src/foxEngine/admin/servers/ServerEditor.vue
++++ b/templates/foxengine2/src/foxEngine/admin/servers/ServerEditor.vue
+@@ -1,7 +1,7 @@
+ <script setup lang="ts">
+ import { t } from '@/i18n'
+ 
+-import { computed, watch } from 'vue'
++import { computed } from 'vue'
+ import UiCheckbox from '@/components/UiCheckbox.vue'
+ import UiSelectBox from '@/components/UiSelectBox.vue'
+@@ -73,22 +73,15 @@ const ignoreDirectories = computed({
+   },
+ })
+ 
+-function normalizeJavaMajor(value: unknown): string {
+-  const normalized = String(value ?? '').trim()
+-  const match = normalized.match(/^(?:1\.)?([0-9]+)(?:\.[0-9]+)*(?:[-_+].*)?$/)
+-  if (!match) return normalized
+-  const major = Number(match[1])
+-  return Number.isInteger(major) && major > 0 ? String(major) : normalized
+-}
+-
+ const rawRuntimeValue = computed(() => String(props.draft.jreVersion ?? '').trim())
+-const runtimeValue = computed(() => normalizeJavaMajor(rawRuntimeValue.value))
+ const selectedJdk = computed(() => props.jdkOptions.find((option) => (
+   option.value === rawRuntimeValue.value
+-  || option.versions.includes(rawRuntimeValue.value)
+-  || normalizeJavaMajor(option.value) === runtimeValue.value
+-  || option.versions.some((version) => normalizeJavaMajor(version) === runtimeValue.value)
++  || option.selectors.some((selector) => selector.toLocaleLowerCase() === rawRuntimeValue.value.toLocaleLowerCase())
+ )) ?? null)
+-const runtimeConfigured = computed(() => /^(?:1\.)?[0-9]+(?:\.[0-9]+)*$/.test(runtimeValue.value))
++const runtimeConfigured = computed(() => rawRuntimeValue.value !== '')
+ const runtimeSaveBlocked = computed(() => props.draft.enabled && !runtimeConfigured.value)
+ const legacyJdkValue = computed(() => rawRuntimeValue.value !== '' && !selectedJdk.value ? rawRuntimeValue.value : '')
+@@ -102,8 +95,15 @@ const jdkSelectOptions = computed(() => {
+   const options: ServerSelectOption[] = props.jdkOptions.map((runtime) => ({
+     value: runtime.value,
+     label: runtime.label,
+-    description: `Windows ${runtime.selectedVersions.windows} · Linux ${runtime.selectedVersions.linux} · macOS ${runtime.selectedVersions.macos}`,
+-    search: [runtime.value, runtime.label, ...runtime.versions, ...runtime.names].join(' '),
++    description: [
++      `Windows ${runtime.selectedVersions.windows}`,
++      `Linux ${runtime.selectedVersions.linux}`,
++      `macOS ${runtime.selectedVersions.macos}`,
++    ].join(' · '),
++    search: [
++      runtime.value, runtime.label, ...runtime.versions, ...runtime.names,
++      ...Object.values(runtime.artifacts).flatMap((artifact) => [artifact.platform, artifact.fileName, artifact.path]),
++    ].join(' '),
+   }))
+@@ -134,12 +134,6 @@ const gameVersionSelectOptions = computed(() => {
+   return options
+ })
+ 
+-watch(selectedJdk, (runtime) => {
+-  if (runtime && props.draft.jreVersion !== runtime.value) {
+-    props.draft.jreVersion = runtime.value
+-  }
+-}, { immediate: true })
+-
+ const serverInitial = computed(() => Array.from(props.draft.serverName.trim())[0]?.toLocaleUpperCase('ru') ?? 'S')
