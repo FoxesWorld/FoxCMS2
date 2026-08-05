@@ -100,7 +100,6 @@
       "view": "DevicesView",
       "title": "Мои устройства",
       "auth": "user",
-      "module": "UserSettings",
       "layout": "wide"
     },
     {

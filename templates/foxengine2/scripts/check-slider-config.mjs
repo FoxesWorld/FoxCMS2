@@ -38,7 +38,7 @@ for (const required of ['touch-action: pan-y', 'user-select: none', '-webkit-use
 }
 
 const admin = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
-for (const required of ["case 'slides'", "case 'saveSlides'", "case 'uploadSlideImage'", 'ThemeSlidesRepository', 'UploadPurpose::SLIDER_IMAGE']) {
+for (const required of ["'slides' => 'slides'", "'saveSlides' => 'saveSlides'", "'uploadSlideImage' => 'uploadSlideImage'", 'ThemeSlidesRepository', 'UploadPurpose::SLIDER_IMAGE']) {
   if (!admin.includes(required)) failures.push(`AdminOptions missing ${required}`)
 }
 const repository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeSlidesRepository.class.php'), 'utf8')

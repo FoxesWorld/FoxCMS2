@@ -10,7 +10,7 @@ const files = {
   authorise: join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'actions', 'authorise.class.php'),
   auth: join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'AuthReg.class.php'),
   actions: join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'UserActions.class.php'),
-  application: join(repositoryRoot, 'engine', 'Application.class.php'),
+  application: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Application', 'UserSessionSynchronizer.php'),
   health: join(repositoryRoot, 'engine', 'classes', 'services', 'HealthCheckService.class.php'),
   manifest: join(themeRoot, 'frontend.json'),
   userBlock: join(themeRoot, 'src', 'UserBlock.vue'),
@@ -85,7 +85,7 @@ requireText('Remembered session restore and logout', source.auth, [
   'private function setRememberCookie(',
 ])
 requireText('Request lifecycle synchronization', source.application, [
-  "ENGINE_DIR . 'classes/services/UserSessionRegistryService.class.php'",
+  'final class UserSessionSynchronizer',
   '$this->synchronizeBrowserSession();',
   '->synchronizeCurrentSession(',
 ])

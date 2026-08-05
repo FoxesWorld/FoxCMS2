@@ -7,16 +7,17 @@ const paths = {
   service: join(repositoryRoot, 'engine', 'classes', 'services', 'RuntimeJdkCatalog.class.php'),
   gameVersions: join(repositoryRoot, 'engine', 'classes', 'services', 'GameVersionCatalog.class.php'),
   backend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  serverBackend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminServerController.class.php'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   editor: join(themeRoot, 'src', 'foxEngine', 'admin', 'servers', 'ServerEditor.vue'),
   selectBox: join(repositoryRoot, 'engine', 'client', 'components', 'UiSelectBox.vue'),
   systemRequests: join(repositoryRoot, 'engine', 'SystemRequests.class.php'),
   getJre: join(repositoryRoot, 'engine', 'classes', 'utils', 'GetJre', '1.0.0', 'GetJre.class.php'),
-  request: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'request.php'),
-  platform: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'platform.php'),
-  selection: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'selection.php'),
-  resolver: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'resolver.php'),
-  archive: join(repositoryRoot, 'api', 'bootstrap', 'runtime-catalog', 'archive.php'),
+  request: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimeRequest.php'),
+  platform: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimePlatform.php'),
+  selection: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimeSelection.php'),
+  resolver: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimeResolver.php'),
+  archive: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimeArchive.php'),
 }
 
 function requireTokens(source, label, tokens) {
@@ -55,7 +56,7 @@ forbidTokens(service, 'RuntimeJdkCatalog persistence', [
   "array_diff(self::REQUIRED_PLATFORMS, array_keys($selectedByPlatform)) !== []",
 ])
 
-const backend = await readFile(paths.backend, 'utf8')
+const backend = (await Promise.all([paths.backend, paths.serverBackend].map((path) => readFile(path, 'utf8')))).join('\n')
 requireTokens(backend, 'Admin server runtime backend', [
   'private RuntimeJdkCatalog $runtimeJdkCatalog',
   'private GameVersionCatalog $gameVersionCatalog',

@@ -96,7 +96,7 @@ function completedDate(timestamp: number | null): string {
         </div>
       </details>
       <p v-else class="achievement-tree-node__nobody">
-        <i class="fa-regular fa-circle" aria-hidden="true" />
+        <i class="fa-solid fa-circle" aria-hidden="true" />
         {{ t('engine.views.achievements.056') }}
       </p>
     </article>

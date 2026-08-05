@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url'
 const themeRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = resolve(themeRoot, '..', '..')
 const files = {
-  admin: await readFile(resolve(repositoryRoot, 'engine/classes/modules/AdminPanel/AdminOptions.class.php'), 'utf8'),
+  admin: (await Promise.all([
+    'engine/classes/modules/AdminPanel/AdminOptions.class.php',
+    'engine/classes/modules/AdminPanel/AdminServerController.class.php',
+  ].map((path) => readFile(resolve(repositoryRoot, path), 'utf8')))).join('\n'),
   schema: await readFile(resolve(repositoryRoot, 'database/schema-000.sql'), 'utf8'),
   repair: await readFile(resolve(repositoryRoot, 'database/repair-legacy-schema.sql'), 'utf8'),
   migration004: await readFile(resolve(repositoryRoot, 'database/migrations/004_repair_legacy_schema.sql'), 'utf8'),
@@ -23,7 +26,7 @@ for (const [name, source] of Object.entries({ schema: files.schema, repair: file
 }
 
 requireText(files.admin, '$this->ensureServerStructuredStorage();', 'saveServer must repair structured storage before persistence')
-requireText(files.admin, 'private function ensureServerStructuredStorage(): void', 'AdminOptions must own the structured-storage repair')
+requireText(files.admin, 'private function ensureServerStructuredStorage(): void', 'AdminServerController must own the structured-storage repair')
 requireText(files.admin, "'serverGroups' => '[]'", 'runtime repair must cover serverGroups')
 requireText(files.admin, "'ignoreDirs' => '[]'", 'runtime repair must cover ignoreDirs')
 requireText(files.admin, "'modsInfo' => '[]'", 'runtime repair must cover modsInfo')

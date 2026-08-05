@@ -11,12 +11,14 @@ const files = {
   panel: join(themeRoot, 'src', 'userOptions', 'userOptions', 'AdminPanel.vue'),
   table: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserTable.vue'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
-  backend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  backendFacade: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  userBackend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminUserController.class.php'),
   notifications: join(repositoryRoot, 'engine', 'classes', 'services', 'NotificationService.class.php'),
   badges: join(repositoryRoot, 'engine', 'client', 'domain', 'userBadges.ts'),
   styles: join(themeRoot, 'src', 'styles', 'admin-users.css'),
 }
-const [editor, badgeEditor, users, panel, table, client, backend, notifications, badges, styles] = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
+const [editor, badgeEditor, users, panel, table, client, backendFacade, userBackend, notifications, badges, styles] = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
+const backend = `${backendFacade}\n${userBackend}`
 const requireText = (label, text, tokens) => { for (const token of tokens) if (!includesLocalized(text, token)) failures.push(`${label} is missing ${token}`) }
 const rejectText = (label, text, tokens) => { for (const token of tokens) if (text.includes(token)) failures.push(`${label} must not contain ${token}`) }
 
@@ -70,7 +72,7 @@ requireText('Administrative badge backend', backend, [
   "'rewardClaimChanged' => false",
   "'balanceChanged' => false",
 ])
-const mutationBackend = backend.slice(backend.indexOf('private function grantUserBadge'), backend.indexOf('private function servers'))
+const mutationBackend = userBackend
 rejectText('Administrative badge mutation side effects', mutationBackend, ['RewardClaimService', 'rewardClaims', 'BalanceMatrix::increment', '`balance` =', 'currencyAmount'])
 requireText('Badge revocation notification', notifications, [
   'public function notifyBadgeRevoked(',

@@ -4,11 +4,14 @@ import { repositoryRoot, themeRoot } from './theme-paths.mjs'
 import { includesLocalized } from './i18n-test-utils.mjs'
 
 const contracts = [
-  ['engine/Application.class.php', [
+  ['engine/src/FoxCMS/Engine/Application/ApplicationKernel.php', [
     "loadPriority(MODULES_DIR, 'preInit', ['AuthReg'])",
-    'enforceMaintenance($maintenance)',
-    'new MaintenanceRenderer(',
+    '(new MaintenanceGate())->enforce($maintenance, $this->context)',
+  ]],
+  ['engine/src/FoxCMS/Engine/Application/MaintenanceGate.php', [
+    'new \\MaintenanceRenderer(',
     '], 503',
+    '\MaintenanceModePolicy::allows($settings, $context->session)',
   ]],
   ['engine/classes/services/MaintenanceModePolicy.class.php', [
     '$session->isAdmin()',

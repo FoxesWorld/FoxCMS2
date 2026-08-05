@@ -1,2 +1,0 @@
-import{o as e,t}from"./context-Cyo45b9O.js";function n(n){let r=String(n??``).trim().replaceAll(`\\`,`/`);if(!r)return``;if(/^(?:https?:|data:|blob:)/i.test(r)||r.startsWith(`//`)||r.startsWith(`/`))return r;if(r.startsWith(`uploads/`)||r.startsWith(`templates/`))return`/${r}`;let i=r.replace(/^assets\//,``);return e(t,i.includes(`/`)?i:`img/servers/${i}`)}export{n as t};
-//# sourceMappingURL=serverImage-DksugxDb.js.map

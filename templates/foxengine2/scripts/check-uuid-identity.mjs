@@ -50,7 +50,7 @@ const requiredContracts = new Map([
   ['engine/classes/modules/AuthReg/actions/register.class.php', ['Uuid::v7()', "':uuid' => $userUuid"]],
   ['engine/classes/session/UserSession.class.php', ['function uuid()', 'Uuid::compact($uuid)', 'public function userFolder()', "$canonicalFolder . $canonical . '-skin.png'", "$canonicalFolder . $canonical . '-cape.png'", 'function persistAuthenticatedState', "unset($_SESSION[$field])"]],
   ['engine/classes/themes/ThemeRenderer.class.php', ["'uuid'", "'user' => $safeUser"]],
-  ['engine/Application.class.php', ['Uuid::databaseCandidates($this->session->uuid())', "WHERE `uuid` IN ("]],
+  ['engine/src/FoxCMS/Engine/Application/UserSessionSynchronizer.php', ['Uuid::databaseCandidates($this->session->uuid())', "WHERE `uuid` IN ("]],
   ['engine/SystemRequests.class.php', ['function resolveMutationUserUuid(', '$this->resolveMutationUserUuid(false)', "request->string('userUuid')", '$this->textures->locate(']],
   ['engine/classes/services/UserTextureLocator.class.php', ["$canonicalFolder . $canonical . '-skin.png'", "$canonicalFolder . $canonical . '-cape.png'"]],
   ['engine/classes/uploads/UploadService.class.php', ['UploadPurpose::MINECRAFT_SKIN', 'UploadPurpose::MINECRAFT_CAPE', 'Uuid::canonical($this->policies->ownerUuid($context))', ". '-skin.png'", ". '-cape.png'"]],

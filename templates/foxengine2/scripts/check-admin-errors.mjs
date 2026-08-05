@@ -4,9 +4,11 @@ import { repositoryRoot } from './theme-paths.mjs'
 import { includesLocalized } from './i18n-test-utils.mjs'
 
 const read = (path) => readFile(join(repositoryRoot, path), 'utf8')
-const [presenter, options, panel, ui] = await Promise.all([
+const [presenter, options, rewardController, badgeSchema, panel, ui] = await Promise.all([
   read('engine/classes/modules/AdminPanel/AdminFailurePresenter.class.php'),
   read('engine/classes/modules/AdminPanel/AdminOptions.class.php'),
+  read('engine/classes/modules/AdminPanel/AdminRewardController.class.php'),
+  read('engine/classes/modules/AdminPanel/AdminBadgeCatalogSchema.class.php'),
   read('engine/classes/modules/AdminPanel/AdminPanel.class.php'),
   read('templates/foxengine2/src/userOptions/userOptions/AdminPanel.vue'),
 ])
@@ -30,11 +32,12 @@ for (const token of [
   "'rewardClaims' => [",
   'rewardClaims.uq_reward_claim_reward_user',
   'необходима миграция 021',
-]) requireToken('Reward schema preflight', options, token)
+]) requireToken('Reward schema preflight', rewardController, token)
 for (const token of [
-  'private function assertBadgeCatalogSchema(): void',
+  'final class AdminBadgeCatalogSchema',
+  'public function assertAvailable(): void',
   "TABLE_NAME = 'badgesList'",
-]) requireToken('Badge catalog preflight', options, token)
+]) requireToken('Badge catalog preflight', badgeSchema, token)
 for (const token of [
   'AdminFailurePresenter::payload(',
   'AdminFailurePresenter::status(',

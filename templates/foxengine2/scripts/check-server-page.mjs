@@ -7,7 +7,7 @@ const [page, mods, styles, route, admin, adminState, systemRequests, monitor, mo
   readFile(join(themeRoot, 'src', 'foxEngine', 'serverPage', 'ServerMods.vue'), 'utf8'),
   readFile(join(themeRoot, 'assets', 'css', 'legacy-continuation.css'), 'utf8'),
   readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'GameScanner', 'client', 'views', 'ServerView.vue'), 'utf8'),
-  readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8'),
+  readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminServerController.class.php'), 'utf8'),
   readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8'),
   readFile(join(repositoryRoot, 'engine', 'SystemRequests.class.php'), 'utf8'),
   readFile(join(themeRoot, 'src', 'foxEngine', 'monitor', 'Monitoring.vue'), 'utf8'),

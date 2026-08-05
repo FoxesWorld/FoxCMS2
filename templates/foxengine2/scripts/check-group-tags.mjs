@@ -16,11 +16,19 @@ const contracts = [
     "return $this->group() === 'admin';",
     "'groupTag' => 'guest'",
   ]],
-  ['engine/classes/modules/AdminPanel/AdminOptions.class.php', [
+  ['engine/classes/modules/AdminPanel/AdminGroupListNormalizer.class.php', [
+    'public function normalize(mixed $value): array',
+    '$this->groups->resolveTag(',
+    '$this->groups->exists($tag)',
+  ]],
+  ['engine/classes/modules/AdminPanel/AdminUserController.class.php', [
     "'groupTag'",
-    "'groups' => $this->groupRepository->all()",
-    'normalizeGroupList(',
+    "'groups' => $groups",
+    'GroupRepository::normalizeTag(',
+  ]],
+  ['engine/classes/modules/AdminPanel/AdminCatalogController.class.php', [
     'стабильным идентификатором',
+    'AdminGroupListNormalizer',
   ]],
   ['templates/foxengine2/src/foxEngine/admin/users/UserEditor.vue', [
     '<select v-model="draft.groupTag"',

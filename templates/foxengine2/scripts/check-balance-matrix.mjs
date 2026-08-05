@@ -9,7 +9,7 @@ const files = {
   renderer: join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeRenderer.class.php'),
   auth: join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'AuthReg.class.php'),
   profileApi: join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'UserActions.class.php'),
-  adminApi: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  adminApi: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminUserController.class.php'),
   normalizer: join(repositoryRoot, 'engine', 'client', 'domain', 'userBalance.ts'),
   shell: join(repositoryRoot, 'engine', 'client', 'shell', 'useEngineShell.ts'),
   userBlock: join(themeRoot, 'src', 'UserBlock.vue'),

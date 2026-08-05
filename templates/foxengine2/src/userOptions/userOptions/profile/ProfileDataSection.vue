@@ -73,5 +73,8 @@ const balanceCounter = computed(() => {
     </div>
 
     <p v-else class="profile-panel__empty">{{ emptyText || t('theme.useroptions.useroptions.profile.profiledatasection.003') }}</p>
+    <p v-if="isBalance" class="profile-balance-footer">
+      {{ t('theme.useroptions.useroptions.profile.profiledatasection.007') }}
+    </p>
   </section>
 </template>

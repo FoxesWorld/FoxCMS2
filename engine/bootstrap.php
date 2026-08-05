@@ -5,7 +5,7 @@ declare(strict_types=1);
 $rootDirectory = dirname(__DIR__);
 
 require_once __DIR__ . '/data/environment.php';
-require_once __DIR__ . '/classes/support/RuntimeErrorHandler.class.php';
+require_once __DIR__ . '/autoload.php';
 
 RuntimeErrorHandler::register($rootDirectory, false);
 foxLoadEnv($rootDirectory . DIRECTORY_SEPARATOR . '.env');
@@ -23,7 +23,6 @@ if (!defined('FOXXEY')) {
     define('FOXXEY', true);
 }
 
-require_once __DIR__ . '/classes/http/NetworkContext.class.php';
 $trustedProxies = array_values(array_filter(array_map(
     'trim',
     explode(',', foxEnv('FOXESCRAFT_TRUSTED_PROXIES', '') ?? ''),
@@ -32,6 +31,7 @@ $network = NetworkContext::fromGlobals($trustedProxies);
 $GLOBALS['foxNetworkContext'] = $network;
 
 require_once __DIR__ . '/data/const.php';
+
 $config = require __DIR__ . '/data/config.php';
 if (!is_array($config)) {
     throw new RuntimeException('FoxCMS configuration did not return an array.');
@@ -43,13 +43,10 @@ date_default_timezone_set((string)($config['other']['timezone'] ?? 'Europe/Amste
 define('CURRENT_TEMPLATE', TEMPLATE_DIR . (string)$config['siteSettings']['siteTpl'] . DIRECTORY_SEPARATOR);
 define('RT_DIR', CURRENT_TEMPLATE . 'randTexts' . DIRECTORY_SEPARATOR);
 
-require_once __DIR__ . '/classes/http/SecurityHeaders.class.php';
 SecurityHeaders::apply(
     $network,
     (string)($config['environment']['name'] ?? 'production') === 'development',
 );
-
-require_once __DIR__ . '/Application.class.php';
 
 return new Application($config, $network, [
     'init' => true,

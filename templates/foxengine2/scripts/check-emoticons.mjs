@@ -46,11 +46,11 @@ for (const entry of await readdir(directory, { withFileTypes: true })) {
   }
 }
 
-const api = await readFile(join(repositoryRoot, 'api', 'content.php'), 'utf8')
+const api = await readFile(join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Content', 'ContentApiApplication.php'), 'utf8')
 const repository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeEmoticonRepository.class.php'), 'utf8')
 const renderer = await readFile(join(repositoryRoot, 'engine', 'client', 'emoticons', 'render.ts'), 'utf8')
 for (const [label, source, tokens] of [
-  ['content API', api, ["registry === 'emoticons'", 'ThemeEmoticonRepository']],
+  ['content API', api, ["'emoticons' =>", 'ThemeEmoticonRepository']],
   ['emoticon repository', repository, ["'syntax' => ':emoji:'", "'shortcode' => ':' . $name . ':'"]],
   ['client renderer', renderer, ['shortcodePattern', 'blockedSelector', 'fox-emoticon']],
 ]) {

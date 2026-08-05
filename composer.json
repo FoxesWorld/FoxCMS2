@@ -18,7 +18,8 @@
   },
   "autoload": {
     "psr-4": {
-      "FoxCMS\\Api\\": "api/src/FoxCMS/Api/"
+      "FoxCMS\\Api\\": "api/src/FoxCMS/Api/",
+      "FoxCMS\\Engine\\": "engine/src/FoxCMS/Engine/"
     }
   }
 }

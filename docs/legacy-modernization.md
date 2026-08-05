@@ -9,18 +9,43 @@ The repository-level legacy migration is complete. FoxCMS now uses an explicit P
 ```text
 index.php
   -> engine/bootstrap.php
-  -> Application
-      -> NetworkContext + SecurityHeaders
-      -> HttpRequest
-      -> UserSession (immutable user UUID)
-      -> PDO facade + structured Logger
-      -> JSON module manifest
-      -> System/API services
-      -> ThemeRenderer
+  -> engine/autoload.php
+  -> Application (legacy-compatible adapter)
+      -> FoxCMS\Engine\Application\ApplicationKernel
+          -> PhpSessionStarter
+          -> LegacyLibraries (procedural compatibility boundary)
+          -> ApplicationContextFactory
+              -> PDO facade + structured Logger
+              -> HttpRequest + NetworkContext
+              -> UserSessionSynchronizer
+              -> ModulesLoader
+          -> MaintenanceGate
+          -> SystemRequests (HTTP facade)
+              -> FoxCMS\Engine\Launcher\LauncherAccess
+              -> FoxCMS\Engine\Launcher\LauncherRequestController
+          -> FrontendResponder
   -> templates/<theme>/ Vue 3 + TypeScript application
 ```
 
 The browser receives a whitelist JSON bootstrap containing public account fields, including the canonical user UUID, site metadata and a session-bound CSRF token. Password hashes, remember tokens, launcher tokens, internal permissions and credentials are never serialized.
+
+## Engine decomposition contract
+
+New engine code belongs to the `FoxCMS\Engine` namespace and is loaded from `engine/src/FoxCMS/Engine` through the engine autoloader. Existing global classes remain available through an explicit compatibility map so migration can proceed incrementally without a flag-day rename of every module.
+
+The runtime follows these ownership boundaries:
+
+- `bootstrap.php` configures process-level concerns and constructs the application adapter;
+- `ApplicationKernel` controls request phases but does not implement infrastructure or rendering details;
+- `ApplicationContextFactory` is the composition root for request-scoped dependencies;
+- `UserSessionSynchronizer` owns database refresh, activity touch, browser-session registry synchronization and related telemetry;
+- `MaintenanceGate` owns maintenance authorization and the 503 response;
+- `FrontendResponder` owns theme resolution and frontend bootstrap rendering;
+- `SystemRequests` remains a transport facade; launcher authentication and playtime commands are delegated to launcher services;
+- `AdminOptions` remains a compatibility facade; cohesive administrative use-cases are extracted into focused controllers such as `AdminRewardController`, `AdminContentController`, `AdminServerController`, `AdminCatalogController` and `AdminUserController`; shared `AdminResponder`, `AdminRequestPayload`, `AdminBadgeOptionsProvider` and schema guards remove repeated transport, lookup and validation code;
+- vendored libraries and guarded utilities remain behind `UtilityLoader` and are not folded into the application namespace.
+
+Presentation ownership is strict: reusable runtime controls may live under `engine/client`, while theme-specific layout and visual components belong to `templates/<theme>`. Backend modules do not own route manifests; the selected theme owns route composition.
 
 ## User identity contract
 
@@ -88,6 +113,8 @@ php scripts/migrate-user-storage.php
 ## Release gates
 
 `npm run check` performs Vue typecheck/build, asset and route validation, PHP parsing and architecture checks, API contract checks, UUID identity enforcement, secret scanning, removed-runtime checks, zero-regression legacy audit and bundle-budget validation.
+
+The aggregate pipeline also invokes `check:achievements`. The engine and theme gates pass independently; the aggregate remains blocked until the separate Forge 1.7.10 achievements target and game API integration are completed.
 
 The UUID gate rejects mutation by login/user ID, legacy identity columns, login-derived user storage and launcher sessions not keyed by `userUuid`.
 

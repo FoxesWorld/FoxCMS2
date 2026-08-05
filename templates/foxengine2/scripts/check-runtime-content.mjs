@@ -179,17 +179,26 @@ const badgeRepository = await readFile(join(repositoryRoot, 'engine', 'classes',
 for (const token of ['final class ThemeBadgePageRepository', "'q'", 'public function exists(', 'public function read(', 'public function save(', 'public function move(', 'public function render(', 'private function sanitize(', "'.html'", 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
   if (!includesLocalized(badgeRepository, token)) failures.push(`ThemeBadgePageRepository is missing ${token}`)
 }
-const application = await readFile(join(repositoryRoot, 'engine', 'Application.class.php'), 'utf8')
+const engineAutoload = await readFile(join(repositoryRoot, 'engine', 'autoload.php'), 'utf8')
 for (const repository of ['ThemeContentRepository.class.php', 'BadgeSlug.class.php', 'ThemeBadgePageRepository.class.php']) {
-  if (!application.includes(repository)) failures.push(`Application does not load ${repository}`)
+  await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', repository), 'utf8').catch(() => {
+    failures.push(`Engine content core is missing ${repository}`)
+  })
+}
+for (const token of ['RecursiveDirectoryIterator', "str_ends_with($entry->getFilename(), '.class.php')", '$legacyClassMap[strtolower($name)]']) {
+  if (!engineAutoload.includes(token)) failures.push(`Engine autoload does not expose content classes through ${token}`)
 }
 
-const adminBackend = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
-if (adminBackend.includes('logWarning(')) failures.push('Admin content uses unsupported Logger::logWarning; use logWarn')
-for (const method of ['logWarn(', 'logError(', 'logInfo(']) {
-  if (!adminBackend.includes(method)) failures.push(`Admin content logging is missing ${method}`)
+const adminFacade = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
+const adminContent = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminContentController.class.php'), 'utf8')
+const adminCatalog = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminCatalogController.class.php'), 'utf8')
+const adminBackend = `${adminFacade}
+${adminContent}
+${adminCatalog}`
+for (const method of ['$this->logger->event(', '$this->logger->deviation(', '$this->logger->exception(']) {
+  if (!adminBackend.includes(method)) failures.push(`Admin content structured logging is missing ${method}`)
 }
-for (const token of ["case 'content'", "case 'saveProjectPages'", "case 'saveBadgePage'", "case 'deleteBadgePage'", 'ThemeBadgePageRepository', 'BadgeSlug::assign', '$this->badgePageRepository->exists($slug)', "'.html'", 'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`']) {
+for (const token of ["'content' => 'content'", "'saveProjectPages' => 'saveProjectPages'", "'saveBadgePage' => 'saveBadgePage'", "'deleteBadgePage' => 'deleteBadgePage'", 'ThemeBadgePageRepository', 'BadgeSlug::assign', '$this->badgePageRepository->exists($slug)', "'.html'", 'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`']) {
   if (!includesLocalized(adminBackend, token)) failures.push(`Admin content backend is missing ${token}`)
 }
 for (const token of ["mb_strlen($badgeName) > 120", "preg_match('/[\\x00-\\x1F\\x7F]/u', $badgeName)", 'renameBadgeAssignments', '$this->badgePageRepository->move($oldSlug, $newSlug, $badgeName)']) {

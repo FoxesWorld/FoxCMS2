@@ -9,7 +9,7 @@ const files = {
   telemetry: join(repositoryRoot, 'engine', 'classes', 'observability', 'RequestTelemetry.class.php'),
   query: join(repositoryRoot, 'engine', 'classes', 'observability', 'LogQueryService.class.php'),
   logger: join(repositoryRoot, 'engine', 'classes', 'syslib', 'syslog'),
-  application: join(repositoryRoot, 'engine', 'Application.class.php'),
+  application: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Application', 'UserSessionSynchronizer.php'),
   modules: join(repositoryRoot, 'engine', 'ModulesLoader.class.php'),
   logUi: join(themeRoot, 'src', 'foxEngine', 'admin', 'Logs.vue'),
   adminClient: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),

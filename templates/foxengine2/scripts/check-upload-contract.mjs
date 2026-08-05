@@ -51,9 +51,14 @@ for (const [file, required] of consumers) {
   }
 }
 
-const application = await readFile(join(engineRoot, 'Application.class.php'), 'utf8')
+const engineAutoload = await readFile(join(engineRoot, 'autoload.php'), 'utf8')
 for (const file of ['UploadException.class.php', 'UploadPermission.class.php', 'UploadPurpose.class.php', 'UploadResult.class.php', 'UploadService.class.php']) {
-  if (!application.includes(file)) violations.push(`engine/Application.class.php: upload core does not load ${file}`)
+  await readFile(join(engineRoot, 'classes', 'uploads', file), 'utf8').catch(() => {
+    violations.push(`engine upload core is missing ${file}`)
+  })
+}
+for (const token of ['RecursiveDirectoryIterator', "str_ends_with($entry->getFilename(), '.class.php')", '$legacyClassMap[strtolower($name)]']) {
+  if (!engineAutoload.includes(token)) violations.push(`engine/autoload.php does not expose upload classes through ${token}`)
 }
 
 const service = await readFile(uploadService, 'utf8')
@@ -61,6 +66,7 @@ const uploadInspector = await readFile(uploadInspectorPath, 'utf8')
 const uploadFilesystem = await readFile(uploadFilesystemPath, 'utf8')
 const adminFileManager = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminFileManager.class.php'), 'utf8')
 const adminOptions = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
+const adminServer = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminServerController.class.php'), 'utf8')
 const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
 const fileManager = await readFile(join(repositoryRoot, 'templates', 'foxengine2', 'src', 'foxEngine', 'admin', 'FileManager.vue'), 'utf8')
 const adminPanel = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminPanel.class.php'), 'utf8')
@@ -206,7 +212,7 @@ for (const token of [
   "normalizeServerImageReference",
   "validateReference(UploadPurpose::SERVER_IMAGE",
 ]) {
-  if (!includesLocalized(adminOptions, token)) violations.push(`Admin server image backend is missing ${token}`)
+  if (!includesLocalized(`${adminOptions}\n${adminServer}`, token)) violations.push(`Admin server image backend is missing ${token}`)
 }
 for (const token of [
   "'uploadServerImage'",

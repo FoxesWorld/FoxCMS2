@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url'
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
 const files = {
-  manifest: await readFile(join(repositoryRoot, 'api/bootstrap/manifest.php'), 'utf8'),
-  report: await readFile(join(repositoryRoot, 'api/bootstrap/hardware-report.php'), 'utf8'),
-  repository: await readFile(join(repositoryRoot, 'api/bootstrap/hardware-inventory.php'), 'utf8'),
+  manifest: `${await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/ManifestController.php'), 'utf8')}\n${await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/HardwareInventoryRegistrar.php'), 'utf8')}`,
+  report: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/HardwareReportValidator.php'), 'utf8'),
+  repository: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/HardwareInventoryRepository.php'), 'utf8'),
   migration: await readFile(join(repositoryRoot, 'database/migrations/011_system_hardware_inventory.sql'), 'utf8'),
   updaterHardware: await readFile(
     join(repositoryRoot, '../UpdaterNorth/src/domain/hardware.rs'),
@@ -23,7 +23,7 @@ const files = {
 
 const requirements = [
   [files.manifest, "X-FoxesCraft-Hardware-Inventory: ", 'manifest inventory result header'],
-  [files.manifest, "if ($requestMethod === 'POST')", 'POST hardware registration boundary'],
+  [files.manifest, "$this->request->method() === 'POST'", 'POST hardware registration boundary'],
   [files.report, "preg_match('/^[a-f0-9]{64}$/D'", 'SHA-256-only systemHWID validation'],
   [files.report, 'hardware_report_platform_mismatch', 'platform consistency validation'],
   [files.repository, 'INSERT IGNORE INTO `system_hardware_inventory`', 'insert-once repository SQL'],

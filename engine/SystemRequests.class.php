@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/classes/services/PlayTimeService.php';
-require_once __DIR__ . '/classes/services/LauncherSessionService.class.php';
-
 final class SystemRequests
 {
     private const REQUEST_HEADER = 'sysRequest';
@@ -34,7 +31,8 @@ final class SystemRequests
 
     private LauncherSessionService $launcherSessions;
     private UploadService $uploads;
-    private PlayTimeService $playTime;
+    private FoxCMS\Engine\Launcher\LauncherAccess $launcherAccess;
+    private FoxCMS\Engine\Launcher\LauncherRequestController $launcherController;
     private HardwareReportService $hardwareReports;
     private PublicFileLocator $publicFiles;
     private ArtifactRepository $artifacts;
@@ -49,7 +47,17 @@ final class SystemRequests
     ) {
         $this->launcherSessions = new LauncherSessionService($db, $logger);
         $this->uploads = new UploadService($db, $userSession, $logger, $request);
-        $this->playTime = new PlayTimeService($db, $logger);
+        $this->launcherAccess = new FoxCMS\Engine\Launcher\LauncherAccess(
+            $request,
+            $userSession,
+            $this->launcherSessions,
+        );
+        $this->launcherController = new FoxCMS\Engine\Launcher\LauncherRequestController(
+            $db,
+            $request,
+            $this->launcherAccess,
+            new PlayTimeService($db, $logger),
+        );
         $this->hardwareReports = new HardwareReportService($db, $logger);
         $this->publicFiles = new PublicFileLocator(ROOT_DIR);
         $this->artifacts = new ArtifactRepository(ROOT_DIR, ROOT_DIR . UPLOADS_DIR);
@@ -447,7 +455,7 @@ final class SystemRequests
 
         $systemInformation = $this->request->string('systemInformation');
         if ($systemInformation !== '') {
-            $launcher = $this->launcherSessions->authenticate($this->launcherToken());
+            $launcher = $this->launcherSessions->authenticate($this->launcherAccess->token());
             if ($launcher !== null) {
                 $this->hardwareReports->store($systemInformation, $launcher['userUuid']);
             }
@@ -458,80 +466,27 @@ final class SystemRequests
 
     private function handleStartedPlaying(): void
     {
-        $this->playTime->start(
-            $this->authenticatedLauncherUuid(),
-            $this->request->string('serverName'),
-            $this->request->string('uuid'),
-        );
+        $this->launcherController->startedPlaying();
     }
 
     private function handlePlaying(): void
     {
-        $this->playTime->heartbeat(
-            $this->authenticatedLauncherUuid(),
-            $this->request->string('uuid'),
-        );
+        $this->launcherController->playing();
     }
 
     private function handleCheckStatus(): void
     {
-        $this->playTime->status(
-            $this->authenticatedLauncherUuid(),
-            $this->request->string('serverName'),
-            $this->request->string('uuid'),
-        );
+        $this->launcherController->checkStatus();
     }
 
     private function handleDonePlaying(): void
     {
-        $this->playTime->finish(
-            $this->authenticatedLauncherUuid(),
-            $this->request->string('serverName'),
-            $this->request->string('uuid'),
-        );
+        $this->launcherController->donePlaying();
     }
 
     private function handleLauncherUserData(): never
     {
-        $launcher = $this->launcherSessions->requireAuthenticated($this->launcherToken());
-        $requestedProfile = strtolower($this->request->string('uuid'));
-        if ($requestedProfile !== '' && !Uuid::equals($launcher['userUuid'], $requestedProfile)) {
-            throw new HttpException('Launcher profile mismatch.', 403);
-        }
-
-        UtilityLoader::load('LoadUserInfo', '1.0.0');
-        $userData = LoadUserInfo::byUuid($launcher['userUuid'], $this->db)->userInfoArray();
-        $group = (new GroupRepository($this->db))->find((string)($userData['groupTag'] ?? 'guest'));
-        JsonResponse::send([
-            'login' => (string)($userData['login'] ?? ''),
-            'realname' => (string)($userData['realname'] ?? ''),
-            'colorScheme' => (string)($userData['colorScheme'] ?? ''),
-            'userStatus' => (string)($userData['userStatus'] ?? ''),
-            'land' => (string)($userData['land'] ?? ''),
-            'profilePhoto' => (string)($userData['profilePhoto'] ?? ''),
-            'groupTag' => (string)($group['groupTag'] ?? 'guest'),
-            'groupName' => (string)($group['groupName'] ?? 'Гости'),
-        ]);
-    }
-
-    private function authenticatedLauncherUuid(): string
-    {
-        if ($this->userSession->isLogged()) {
-            return $this->userSession->uuid();
-        }
-        return $this->launcherSessions->requireAuthenticated($this->launcherToken())['userUuid'];
-    }
-
-    private function launcherToken(): string
-    {
-        $token = strtolower($this->request->string('accessToken'));
-        if ($token === '') {
-            $authorization = $this->request->header('Authorization');
-            if (strncasecmp($authorization, 'Bearer ', 7) === 0) {
-                $token = strtolower(trim(substr($authorization, 7)));
-            }
-        }
-        return $token;
+        $this->launcherController->userData();
     }
 
     private function resolveMutationUserUuid(bool $authorize = true): string

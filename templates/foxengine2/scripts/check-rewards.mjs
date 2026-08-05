@@ -12,10 +12,13 @@ const rejectText = (label, text, tokens) => {
   for (const token of tokens) if (text.includes(token)) failures.push(`${label} must not contain ${token}`)
 }
 
-const [service, admin, userActions, state, rewardsUi, catalogs, contentUi, panel,
+const [service, admin, adminRewards, adminCatalog, adminUsers, userActions, state, rewardsUi, catalogs, contentUi, panel,
   homeView, welcome, staticView, staticContent, offerDomain, offerComposable, migration, schema] = await Promise.all([
   read('engine/classes/services/RewardClaimService.class.php'),
   read('engine/classes/modules/AdminPanel/AdminOptions.class.php'),
+  read('engine/classes/modules/AdminPanel/AdminRewardController.class.php'),
+  read('engine/classes/modules/AdminPanel/AdminCatalogController.class.php'),
+  read('engine/classes/modules/AdminPanel/AdminUserController.class.php'),
   read('engine/classes/modules/UserSettings/UserActions.class.php'),
   read('engine/classes/modules/AdminPanel/client/useAdminPanel.ts'),
   read('templates/foxengine2/src/foxEngine/admin/Rewards.vue'),
@@ -129,7 +132,7 @@ requireText('Reward migration', migration, [
   'ALTER TABLE `badgesList` DROP COLUMN `rewardAmount`',
 ])
 
-requireText('Reward administration endpoints', admin, [
+requireText('Reward administration endpoints', `${admin}\n${adminRewards}`, [
   "'rewards' => 'rewards'",
   "'saveReward' => 'saveReward'",
   "'deleteReward' => 'deleteReward'",
@@ -139,7 +142,7 @@ requireText('Reward administration endpoints', admin, [
   '$this->rewardClaims->issue(',
   '$this->rewardClaims->revoke(',
 ])
-requireText('Badge administration is catalog-only', admin, [
+requireText('Badge administration is catalog-only', `${admin}\n${adminCatalog}`, [
   "'fields' => ['badgeName', 'description', 'img']",
   'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`',
   'SELECT COUNT(*) FROM `rewardDefinitions` WHERE `badgeId` = :badgeId',
@@ -150,10 +153,7 @@ rejectText('Badge administration reward fields', admin, [
 rejectText('Direct admin reward grant', admin, [
   "'grantBadgeToUser'", "'grantRewardToUser'", 'private function grantReward',
 ])
-const adminBadgeMutation = admin.slice(
-  admin.indexOf('private function grantUserBadge'),
-  admin.indexOf('private function servers'),
-)
+const adminBadgeMutation = adminUsers
 requireText('Independent administrative badge operations', adminBadgeMutation, [
   "'UPDATE `users` SET `badges` = :badges WHERE `uuid` = :uuid'",
   "'rewardClaimChanged' => false",
