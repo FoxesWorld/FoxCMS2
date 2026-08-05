@@ -776,6 +776,34 @@ final class AdminOptions {
             $data[$field] = is_string($value) ? trim($value) : $value;
         }
         $data['serverName'] = $serverName;
+        $requiredJavaMajor = $this->requiredJavaMajorForServerVersion((string)($data['serverVersion'] ?? ''));
+        if ($requiredJavaMajor !== null) {
+            $configuredJavaMajor = trim((string)($data['jreVersion'] ?? ''));
+            $data['jreVersion'] = $requiredJavaMajor;
+            if ($configuredJavaMajor !== $requiredJavaMajor) {
+                $compatibilityWarning = 'Для Minecraft ' . (string)($data['serverVersion'] ?? '')
+                    . ' принудительно выбран JDK ' . $requiredJavaMajor
+                    . ': legacy Forge LaunchWrapper несовместим с Java 9 и новее.';
+                $runtimeWarning = $runtimeWarning !== ''
+                    ? $runtimeWarning . ' ' . $compatibilityWarning
+                    : $compatibilityWarning;
+            }
+            try {
+                if ($this->runtimeJdkCatalog->normalizeVersion($requiredJavaMajor) === null) {
+                    $missingRuntimeWarning = 'Архив JDK ' . $requiredJavaMajor
+                        . ' отсутствует в runtime-каталоге; загрузите его до запуска клиента.';
+                    $runtimeWarning = $runtimeWarning !== ''
+                        ? $runtimeWarning . ' ' . $missingRuntimeWarning
+                        : $missingRuntimeWarning;
+                }
+            } catch (Throwable $error) {
+                $catalogWarning = 'Не удалось проверить наличие обязательного JDK '
+                    . $requiredJavaMajor . ': ' . $error->getMessage();
+                $runtimeWarning = $runtimeWarning !== ''
+                    ? $runtimeWarning . ' ' . $catalogWarning
+                    : $catalogWarning;
+            }
+        }
         if ($enabled && (!isset($data['jreVersion']) || trim((string)$data['jreVersion']) === '')) {
             $this->respond([
                 'message' => 'Для включённого сервера Java runtime обязателен. Выберите major-версию JDK.',
@@ -1960,6 +1988,17 @@ final class AdminOptions {
     }
 
     /** @return list<string> */
+    private function requiredJavaMajorForServerVersion(string $serverVersion): ?string {
+        $normalized = trim($serverVersion);
+        if ($normalized === '') {
+            return null;
+        }
+        if (preg_match('/(?:^|[^0-9])1\.(?:7\.10|12\.2)(?:[^0-9]|$)/', $normalized) === 1) {
+            return '8';
+        }
+        return null;
+    }
+
     private function normalizeServerIgnoreDirectories(mixed $value): array {
         if (is_string($value)) {
             $raw = trim($value);

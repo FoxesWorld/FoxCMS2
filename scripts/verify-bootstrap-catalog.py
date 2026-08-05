@@ -18,7 +18,7 @@ from typing import Any, BinaryIO, Callable, Iterable
 PLATFORM_RE = re.compile(
     r"^(?:(?:windows|linux)-(?:x86|x86_64|aarch64)|macos-(?:x86_64|aarch64))$"
 )
-VERSION_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)+$")
+VERSION_RE = re.compile(r"^(?:8u[0-9]+|[0-9]+(?:\.[0-9]+)+)$", re.IGNORECASE)
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
 IGNORED_SUFFIXES = (".sha256", ".sig", ".part", ".tmp", ".bak", ".wrong")
 MAX_ARCHIVE_ENTRIES = 200_000
@@ -35,9 +35,15 @@ PLATFORM_BRANCHES: dict[str, tuple[tuple[str, str], ...]] = {
         ("win", "arm64"), ("win", "aarch64"),
         ("windows", "arm64"), ("windows", "aarch64"),
     ),
-    "linux-x86": (("linux", "x32"), ("linux", "x86")),
-    "linux-x86_64": (("linux", "x64"), ("linux", "amd64"), ("linux", "x86_64")),
-    "linux-aarch64": (("linux", "arm64"), ("linux", "aarch64")),
+    "linux-x86": (("linux", "x32"), ("linux", "x86"), ("unix", "x32"), ("unix", "x86")),
+    "linux-x86_64": (
+        ("linux", "x64"), ("linux", "amd64"), ("linux", "x86_64"),
+        ("unix", "x64"), ("unix", "amd64"), ("unix", "x86_64"),
+    ),
+    "linux-aarch64": (
+        ("linux", "arm64"), ("linux", "aarch64"),
+        ("unix", "arm64"), ("unix", "aarch64"),
+    ),
     "macos-x86_64": (
         ("mac", "x64"), ("macos", "x64"), ("osx", "x64"),
         ("mac", "x86_64"), ("macos", "x86_64"),
@@ -172,11 +178,17 @@ def runtime_archive_name(file_name: str) -> str:
 
 
 def archive_name_version(name: str) -> str:
+    legacy = re.search(r"(?:jdk|jre|java)[-_]?(1\.8\.0[_-][0-9]+|8u[0-9]+)", name, re.IGNORECASE)
+    if legacy:
+        return version_core(legacy.group(1))
     match = re.search(r"(?:jdk|jre|java)[-_]?([0-9]+(?:\.[0-9]+)+)", name, re.IGNORECASE)
     if match:
-        return match.group(1)
+        return version_core(match.group(1))
+    legacy = re.match(r"^(1\.8\.0[_-][0-9]+|8u[0-9]+)(?:$|[-_+])", name, re.IGNORECASE)
+    if legacy:
+        return version_core(legacy.group(1))
     match = re.match(r"^([0-9]+(?:\.[0-9]+)+)(?:$|[-_+])", name)
-    return match.group(1) if match else ""
+    return version_core(match.group(1)) if match else ""
 
 
 def normalize_entry_name(value: str) -> str:
@@ -210,7 +222,14 @@ def parse_release(content: bytes) -> dict[str, str]:
 
 
 def version_core(value: str) -> str:
-    match = re.match(r"^[0-9]+(?:\.[0-9]+)*", value.strip())
+    value = value.strip().strip('"')
+    legacy = re.match(r"^1\.8\.0[_-]([0-9]+)", value, re.IGNORECASE)
+    if legacy:
+        return f"8u{int(legacy.group(1))}"
+    legacy = re.match(r"^8u([0-9]+)", value, re.IGNORECASE)
+    if legacy:
+        return f"8u{int(legacy.group(1))}"
+    match = re.match(r"^[0-9]+(?:\.[0-9]+)*", value)
     return match.group(0) if match else ""
 
 
@@ -289,9 +308,30 @@ def inspect_entries(
         raise CatalogError(f"runtime archive has no bin/{expected_java}")
 
     roots = {tuple(part.lower() for part in root): (entry, root) for entry, root in candidates}
-    if len(roots) != 1:
+    selected: tuple[ArchiveEntry, tuple[str, ...]] | None = None
+    if len(roots) == 1:
+        selected = next(iter(roots.values()))
+    else:
+        # Java 8 full JDKs include a bundled <jdk>/jre/bin/java. The unique
+        # candidate with bin/javac is the real JDK root, not a second runtime.
+        jdk_roots = {
+            key: candidate
+            for key, candidate in roots.items()
+            if (("/".join(key) + "/" if key else "") + f"bin/{expected_javac}") in files
+        }
+        if len(jdk_roots) == 1:
+            selected = next(iter(jdk_roots.values()))
+        else:
+            release_roots = {
+                key: candidate
+                for key, candidate in roots.items()
+                if (("/".join(key) + "/" if key else "") + "release") in files
+            }
+            if len(release_roots) == 1:
+                selected = next(iter(release_roots.values()))
+    if selected is None:
         raise CatalogError("runtime archive contains multiple ambiguous Java homes")
-    _, root = next(iter(roots.values()))
+    _, root = selected
     prefix = "/".join(root)
     release_name = (prefix + "/release" if prefix else "release").lower()
     release_entry = files.get(release_name)
@@ -382,7 +422,7 @@ def inspect_runtime(storage: Path, path: Path, platform: str, branch: tuple[str,
         "strip_components": inspected["strip_components"],
         "version": inspected["version"],
         "version_core": core,
-        "java_major": int(core.split(".", 1)[0]),
+        "java_major": 8 if core.lower().startswith("8u") else int(core.split(".", 1)[0]),
         "vendor": vendor,
         "distribution": inspected["distribution"],
         "stable": stable_version(inspected["version"]),

@@ -128,10 +128,41 @@ function analyzeRuntimeArchiveEntries(
     foreach ($javaCandidates as $candidate) {
         $roots[implode('/', array_map('strtolower', $candidate['root']))] = $candidate;
     }
-    if (count($roots) !== 1) {
+
+    $selected = null;
+    if (count($roots) === 1) {
+        $selected = reset($roots);
+    } else {
+        // Java 8 JDK archives legitimately contain both <jdk>/bin/java and
+        // <jdk>/jre/bin/java. Prefer the unique Java home that also owns javac;
+        // it is the complete JDK root, while the nested home is its bundled JRE.
+        $jdkRoots = array();
+        foreach ($roots as $rootKey => $candidate) {
+            $candidatePrefix = $rootKey !== '' ? $rootKey . '/' : '';
+            if (isset($filesByLowerName[$candidatePrefix . 'bin/' . $expectedJavac])) {
+                $jdkRoots[$rootKey] = $candidate;
+            }
+        }
+        if (count($jdkRoots) === 1) {
+            $selected = reset($jdkRoots);
+        } else {
+            // A unique release file is a safe secondary discriminator for JRE-only
+            // archives that happen to contain helper Java homes.
+            $releaseRoots = array();
+            foreach ($roots as $rootKey => $candidate) {
+                $candidatePrefix = $rootKey !== '' ? $rootKey . '/' : '';
+                if (isset($filesByLowerName[$candidatePrefix . 'release'])) {
+                    $releaseRoots[$rootKey] = $candidate;
+                }
+            }
+            if (count($releaseRoots) === 1) {
+                $selected = reset($releaseRoots);
+            }
+        }
+    }
+    if (!is_array($selected)) {
         throw new RuntimeException('Runtime archive contains multiple ambiguous Java homes.');
     }
-    $selected = reset($roots);
     $rootSegments = $selected['root'];
     $rootPrefix = count($rootSegments) > 0 ? implode('/', $rootSegments) . '/' : '';
     $release = array();

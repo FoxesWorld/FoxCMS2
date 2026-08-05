@@ -193,3 +193,13 @@
 .server-runtime-field .ui-select-box.is-open {
   z-index: 130;
 }
+
+
+.server-runtime-field .server-runtime-select .ui-select-box__options {
+  max-height: min(520px, 68vh);
+  scrollbar-gutter: stable;
+}
+
+.server-runtime-field .server-runtime-select .ui-select-box__option {
+  min-height: 58px;
+}

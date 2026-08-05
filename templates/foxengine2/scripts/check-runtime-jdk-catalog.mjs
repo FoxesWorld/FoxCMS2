@@ -64,6 +64,8 @@ requireTokens(backend, 'Admin server runtime backend', [
   'RuntimeJdkCatalog::normalizeMajorSelector($value)',
   '$value = $major',
   '$this->runtimeJdkCatalog->normalizeVersion($value)',
+  '$this->requiredJavaMajorForServerVersion',
+  "$data['jreVersion'] = $requiredJavaMajor",
   "if ($enabled && (!isset($data['jreVersion'])",
   "'type' => $runtimeWarning !== '' ? 'warning' : 'success'",
   "foxEnv('FOXESCRAFT_GAME_VERSIONS_DIRECTORY'",
@@ -124,6 +126,10 @@ requireTokens(editor, 'ServerEditor custom selects', [
   "runtimeVersionOrMissing(runtime, 'macos')",
   "tone: runtime.complete ? 'default' as const : 'warning' as const",
   'selectedJdk.missingPlatforms.join',
+  'compatibilityRequiredJavaMajor',
+  'requiredJavaMajorForGameVersion',
+  'label: `JDK ${runtime.javaMajor}`',
+  'class="server-runtime-select"',
   "runtime.versions.join(', ')",
   "selectedJdk.versions.join(', ')",
 ])
@@ -149,6 +155,8 @@ requireTokens(selectBox, 'UiSelectBox', [
   "event.key === 'Escape'",
   'type="search"',
   'filteredOptions',
+  'scrollActiveOptionIntoView',
+  "scrollIntoView({ block: 'nearest' })",
   'document.addEventListener(\'pointerdown\'',
 ])
 
@@ -205,6 +213,10 @@ const archive = await readFile(paths.archive, 'utf8')
 requireTokens(archive, 'Runtime archive parser', [
   "$version = $metadataVersion !== '' ? $metadataVersion : $fileVersion",
   'release === array()',
+  '$jdkRoots',
+  "$candidatePrefix . 'bin/' . $expectedJavac",
+  '$releaseRoots',
+  'Java 8 JDK archives legitimately contain',
   'The Java version cannot be derived from release metadata or the archive filename.',
 ])
 

@@ -81,12 +81,19 @@ function selectedIndex(options = filteredOptions.value): number {
   return index >= 0 ? index : firstEnabledIndex(options)
 }
 
+function scrollActiveOptionIntoView(): void {
+  const option = filteredOptions.value[activeIndex.value]
+  if (!option) return
+  document.getElementById(optionId(option))?.scrollIntoView({ block: 'nearest' })
+}
+
 async function open(): Promise<void> {
   if (props.disabled || opened.value) return
   opened.value = true
   query.value = ''
   activeIndex.value = selectedIndex(props.options)
   await nextTick()
+  scrollActiveOptionIntoView()
   if (props.searchable) searchInput.value?.focus()
 }
 
@@ -123,7 +130,7 @@ function moveActive(direction: 1 | -1): void {
     index = (index + direction + options.length) % options.length
     if (!options[index]?.disabled) {
       activeIndex.value = index
-      nextTick(() => document.getElementById(optionId(options[index]!))?.scrollIntoView({ block: 'nearest' }))
+      nextTick(scrollActiveOptionIntoView)
       return
     }
   }

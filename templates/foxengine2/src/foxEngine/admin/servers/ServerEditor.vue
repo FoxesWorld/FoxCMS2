@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import UiSelectBox from '@/components/UiSelectBox.vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
@@ -90,6 +90,27 @@ const selectedJdk = computed(() => props.jdkOptions.find((option) => (
 const runtimeConfigured = computed(() => rawRuntimeValue.value !== '')
 const runtimeSaveBlocked = computed(() => props.draft.enabled && !runtimeConfigured.value)
 const legacyJdkValue = computed(() => rawRuntimeValue.value !== '' && !selectedJdk.value ? rawRuntimeValue.value : '')
+function requiredJavaMajorForGameVersion(version: string): string {
+  return /(?:^|[^0-9])1\.(?:7\.10|12\.2)(?:[^0-9]|$)/u.test(version.trim()) ? '8' : ''
+}
+
+const compatibilityRequiredJavaMajor = computed(() => requiredJavaMajorForGameVersion(props.draft.serverVersion))
+watch(
+  () => [
+    props.draft.serverVersion,
+    props.draft.jreVersion,
+    props.jdkOptions.map((option) => option.value).join('|'),
+  ] as const,
+  () => {
+    const requiredMajor = compatibilityRequiredJavaMajor.value
+    if (!requiredMajor || !props.jdkOptions.some((option) => option.value === requiredMajor)) return
+    if (javaMajorFromSelector(String(props.draft.jreVersion ?? '')) !== requiredMajor) {
+      props.draft.jreVersion = requiredMajor
+    }
+  },
+  { immediate: true },
+)
+
 const selectedGameVersion = computed(() => props.gameVersionOptions.find((option) => option.value === props.draft.serverVersion.trim()) ?? null)
 const legacyGameVersionValue = computed(() => {
   const value = props.draft.serverVersion.trim()
@@ -102,13 +123,15 @@ function runtimeVersionOrMissing(runtime: JdkRuntimeOption, system: 'windows' | 
 const jdkSelectOptions = computed(() => {
   const options: ServerSelectOption[] = props.jdkOptions.map((runtime) => ({
     value: runtime.value,
-    label: runtime.label,
+    label: `JDK ${runtime.javaMajor}`,
     description: [
       `Windows ${runtimeVersionOrMissing(runtime, 'windows')}`,
       `Linux ${runtimeVersionOrMissing(runtime, 'linux')}`,
       `macOS ${runtimeVersionOrMissing(runtime, 'macos')}`,
-      t('theme.foxengine.admin.servers.servereditor.080', [runtime.versions.join(', ')]),
-    ].join(' · '),
+      runtime.versions.length > 1
+        ? t('theme.foxengine.admin.servers.servereditor.080', [runtime.versions.join(', ')])
+        : '',
+    ].filter(Boolean).join(' · '),
     search: [
       runtime.value, runtime.label, ...runtime.versions, ...runtime.names,
       ...runtime.platforms, ...runtime.missingPlatforms,
@@ -250,6 +273,7 @@ function serverStyle(): Record<string, string> {
         <span>{{ t('theme.foxengine.admin.servers.servereditor.019') }}</span>
         <UiSelectBox
           v-model="draft.jreVersion"
+          class="server-runtime-select"
           :options="jdkSelectOptions"
           :placeholder="t('theme.foxengine.admin.servers.servereditor.020')"
           :search-placeholder="t('theme.foxengine.admin.servers.servereditor.075')"
@@ -267,7 +291,7 @@ function serverStyle(): Record<string, string> {
             'is-error': !jdkCatalog.available,
             'is-empty': jdkCatalog.available && jdkOptions.length === 0,
             'is-ready': selectedJdk,
-            'is-warning': legacyJdkValue || !jdkCatalog.available || jdkOptions.length === 0,
+            'is-warning': compatibilityRequiredJavaMajor || legacyJdkValue || !jdkCatalog.available || jdkOptions.length === 0,
           }"
         >
           <i
@@ -287,6 +311,9 @@ function serverStyle(): Record<string, string> {
           <div v-else-if="selectedJdk">
             <strong>{{ selectedJdk.label }}</strong>
             <small> {{ t('theme.foxengine.admin.servers.servereditor.028') }} {{ runtimeVersionOrMissing(selectedJdk, 'windows') }} {{ t('theme.foxengine.admin.servers.servereditor.029') }} {{ runtimeVersionOrMissing(selectedJdk, 'linux') }} {{ t('theme.foxengine.admin.servers.servereditor.030') }} {{ runtimeVersionOrMissing(selectedJdk, 'macos') }}
+            </small>
+            <small v-if="compatibilityRequiredJavaMajor">
+              {{ t('theme.foxengine.admin.servers.servereditor.081', [draft.serverVersion, compatibilityRequiredJavaMajor]) }}
             </small>
             <small>{{ t('theme.foxengine.admin.servers.servereditor.080', [selectedJdk.versions.join(', ')]) }}</small>
             <small v-if="!selectedJdk.complete">

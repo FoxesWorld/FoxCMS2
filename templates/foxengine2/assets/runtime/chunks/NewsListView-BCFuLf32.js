@@ -1,2 +1,0 @@
-import{A as e,d as t,v as n}from"./i18n-6CD-PXH_.js";import{t as r}from"./NewsFeed-Bb8bUNyg.js";var i=n({__name:`NewsListView`,setup(n){return(n,i)=>(e(),t(r,{archive:``}))}});export{i as default};
-//# sourceMappingURL=NewsListView-BCFuLf32.js.map

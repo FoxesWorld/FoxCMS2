@@ -601,6 +601,7 @@
   "theme.foxengine.admin.servers.servereditor.078": "архив отсутствует",
   "theme.foxengine.admin.servers.servereditor.079": "Неполное покрытие платформ: {0}. Лаунчер сможет скачать runtime только для загруженных платформ.",
   "theme.foxengine.admin.servers.servereditor.080": "Найдены версии: {0}",
+  "theme.foxengine.admin.servers.servereditor.081": "Для {0} обязателен JDK {1}: legacy Forge LaunchWrapper несовместим с Java 9 и новее.",
   "theme.foxengine.admin.servers.servertable.001": "Серверы",
   "theme.foxengine.admin.servers.servertable.002": "Новый сервер",
   "theme.foxengine.admin.servers.servertable.003": "Удалить сервер",
