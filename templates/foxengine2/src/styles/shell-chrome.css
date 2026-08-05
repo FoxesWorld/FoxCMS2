@@ -148,6 +148,7 @@
 
 .theme-toggle,
 .profile-button,
+.user-panel__icon-button,
 .menu-toggle {
   border-color: color-mix(in srgb, var(--color-border-strong) 48%, var(--color-border));
   background: color-mix(in srgb, var(--color-control) 90%, transparent);
@@ -157,6 +158,8 @@
 .theme-toggle:hover,
 .profile-button:hover,
 .profile-button.is-open,
+.user-panel__icon-button:hover,
+.user-panel__icon-button.is-open,
 .menu-toggle:hover {
   border-color: var(--color-border-strong);
   background: var(--color-control-hover);
@@ -176,6 +179,19 @@
     radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 45%),
     var(--color-surface-strong);
   box-shadow: var(--shadow-large);
+}
+
+.user-panel-dropdown {
+  top: calc(100% + 12px);
+  border-color: var(--color-border-strong);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 45%),
+    var(--color-surface-strong);
+  box-shadow: var(--shadow-large);
+}
+
+.user-panel__separator {
+  background: color-mix(in srgb, var(--color-border-strong) 54%, transparent);
 }
 
 .mobile-nav-backdrop {

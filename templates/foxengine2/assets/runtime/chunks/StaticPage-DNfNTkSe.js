@@ -1,0 +1,2 @@
+import{I as e,j as t,p as n,q as r,y as i}from"./i18n-Ca7IkW0P.js";var a=[`innerHTML`],o=i({__name:`StaticPage`,props:{page:{}},setup(i){return(o,s)=>{let c=e(`emoticons`);return r((t(),n(`div`,{class:`static-page-html`,innerHTML:i.page.html},null,8,a)),[[c]])}}});export{o as t};
+//# sourceMappingURL=StaticPage-DNfNTkSe.js.map

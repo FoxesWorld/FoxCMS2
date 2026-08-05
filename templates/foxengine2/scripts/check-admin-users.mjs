@@ -12,10 +12,11 @@ const files = {
   table: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserTable.vue'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   backend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  notifications: join(repositoryRoot, 'engine', 'classes', 'services', 'NotificationService.class.php'),
   badges: join(repositoryRoot, 'engine', 'client', 'domain', 'userBadges.ts'),
   styles: join(themeRoot, 'src', 'styles', 'admin-users.css'),
 }
-const [editor, badgeEditor, users, panel, table, client, backend, badges, styles] = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
+const [editor, badgeEditor, users, panel, table, client, backend, notifications, badges, styles] = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
 const requireText = (label, text, tokens) => { for (const token of tokens) if (!includesLocalized(text, token)) failures.push(`${label} is missing ${token}`) }
 const rejectText = (label, text, tokens) => { for (const token of tokens) if (text.includes(token)) failures.push(`${label} must not contain ${token}`) }
 
@@ -35,6 +36,7 @@ requireText('Badge management UI', badgeEditor, [
   "emit('grant', { badgeId: badge.id, reason: reasonValue.value })",
   "emit('revoke', { badgeName: badge.badgeName, reason: reasonValue.value })",
   'Валютные начисления и история наград останутся без изменений.',
+  'Причина обязательна и попадёт в административный журнал и уведомление пользователя.',
   "assignment.source === 'admin'",
 ])
 rejectText('Badge UI reward coupling', badgeEditor, ['currencyAmount', 'currencyCode', 'rewardAmount', 'rewardCurrency', 'issueRewardClaimKey'])
@@ -64,11 +66,20 @@ requireText('Administrative badge backend', backend, [
   "'source' => 'admin'",
   "'admin.user_badge.' . $operation",
   "'reason' => $reason",
+  'notifyBadgeRevoked(',
   "'rewardClaimChanged' => false",
   "'balanceChanged' => false",
 ])
 const mutationBackend = backend.slice(backend.indexOf('private function grantUserBadge'), backend.indexOf('private function servers'))
 rejectText('Administrative badge mutation side effects', mutationBackend, ['RewardClaimService', 'rewardClaims', 'BalanceMatrix::increment', '`balance` =', 'currencyAmount'])
+requireText('Badge revocation notification', notifications, [
+  'public function notifyBadgeRevoked(',
+  "'achievement.badge_revoked'",
+  "'warning'",
+  "'Бейдж отозван'",
+  "Причина: ' . $reason",
+  "'reason' => $reason",
+])
 requireText('Administrative badge client', client, [
   'async function grantUserBadge(badgeId: number, reason: string)',
   "admPanel: 'grantUserBadge'",

@@ -144,6 +144,7 @@ final class AuthManager extends Module
         if (MaintenanceModePolicy::isEnabled($maintenance)
             && !MaintenanceModePolicy::allows($maintenance, $this->session)) {
             $rejectedGroup = $this->session->group();
+            $this->revokeCurrentBrowserSessionSafely();
             $this->session->clear();
             $this->clearRememberCookie();
             throw new AuthFailure(
@@ -213,6 +214,7 @@ final class AuthManager extends Module
         try {
             $this->restoreRememberedSession();
         } catch (Throwable $error) {
+            $this->revokeCurrentBrowserSessionSafely();
             $this->session->clear();
             $this->clearRememberCookie();
             $this->logger->exception(
@@ -252,6 +254,23 @@ final class AuthManager extends Module
             return;
         }
 
+        $context = (new LoginContextResolver())->resolve($this->request);
+        $registry = new UserSessionRegistryService($this->db, $this->config);
+        try {
+            $restored = $registry->restoreRememberedSession($token, $this->session, $context);
+            if ($restored !== null) {
+                $this->setRememberCookie((string)$restored['token'], (int)$restored['expiresAt']);
+                $this->completeRememberedRestore('registry');
+                return;
+            }
+        } catch (Throwable $error) {
+            if (!UserSessionRegistryService::isSchemaMissing($error)) {
+                throw $error;
+            }
+        }
+
+        // Migration bridge: accept the pre-024 token once, then move it into
+        // the per-device registry without invalidating other registry sessions.
         $digest = RememberToken::digest($token);
         $statement = $this->db->prepare('SELECT * FROM `users` WHERE `token` = :token LIMIT 1');
         $statement->execute([':token' => $digest]);
@@ -278,7 +297,27 @@ final class AuthManager extends Module
         }
         $user['uuid'] = $userUuid;
         $this->session->authenticate($user);
-        $this->rotateRememberToken($userUuid, $ttl);
+        try {
+            $issued = $registry->issueForAuthenticatedSession(
+                $this->session,
+                $userUuid,
+                true,
+                $context,
+            );
+            $this->updateUserTokenByUuid($userUuid, '');
+            $this->setRememberCookie((string)$issued['token'], (int)$issued['expiresAt']);
+            $this->completeRememberedRestore('legacy_migrated');
+        } catch (Throwable $error) {
+            if (!UserSessionRegistryService::isSchemaMissing($error)) {
+                throw $error;
+            }
+            $this->rotateRememberToken($userUuid, $ttl);
+            $this->completeRememberedRestore('legacy');
+        }
+    }
+
+    private function completeRememberedRestore(string $source): void
+    {
         RequestTelemetry::annotate([
             'actorUuid' => $this->session->uuid(),
             'actorLogin' => $this->session->login(),
@@ -288,7 +327,11 @@ final class AuthManager extends Module
         $this->logger->event(
             'auth.remembered_session.restored',
             'Remembered user session restored and token rotated.',
-            ['component' => 'authentication', 'operation' => 'restore_remembered_session'],
+            [
+                'component' => 'authentication',
+                'operation' => 'restore_remembered_session',
+                'source' => $source,
+            ],
             'INFO',
             'success',
         );
@@ -323,7 +366,15 @@ final class AuthManager extends Module
         }
 
         $userUuid = $this->session->uuid();
-        $this->updateUserTokenByUuid($userUuid, '');
+        try {
+            (new UserSessionRegistryService($this->db, $this->config))
+                ->revokeCurrentSession($this->session);
+        } catch (Throwable $error) {
+            if (!UserSessionRegistryService::isSchemaMissing($error)) {
+                throw $error;
+            }
+            $this->updateUserTokenByUuid($userUuid, '');
+        }
         $this->clearRememberCookie();
         $this->session->clear();
         CsrfToken::rotate();
@@ -369,6 +420,17 @@ final class AuthManager extends Module
         }
     }
 
+    private function setRememberCookie(string $token, int $expiresAt): void
+    {
+        setcookie(self::REMEMBER_COOKIE, $token, [
+            'expires' => $expiresAt,
+            'path' => '/',
+            'secure' => $this->request->isSecure(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+
     private function clearRememberCookie(): void
     {
         setcookie(self::REMEMBER_COOKIE, '', [
@@ -378,6 +440,26 @@ final class AuthManager extends Module
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
+    }
+
+    private function revokeCurrentBrowserSessionSafely(): void
+    {
+        if (!$this->session->isLogged() || $this->session->browserSessionUuid() === '') {
+            return;
+        }
+        try {
+            (new UserSessionRegistryService($this->db, $this->config))
+                ->revokeCurrentSession($this->session);
+        } catch (Throwable $error) {
+            if (!UserSessionRegistryService::isSchemaMissing($error)) {
+                $this->logger->exception(
+                    'session.browser_registry.revoke_failed',
+                    $error,
+                    'Browser session registry entry could not be revoked during authentication cleanup.',
+                    ['component' => 'session', 'operation' => 'registry_revoke'],
+                );
+            }
+        }
     }
 
     private function handleExpectedFailure(AuthFailure $failure, string $action): never
@@ -417,6 +499,7 @@ final class AuthManager extends Module
     private function handleUnexpectedFailure(Throwable $error, string $action): never
     {
         if (in_array($action, ['auth', 'register'], true)) {
+            $this->revokeCurrentBrowserSessionSafely();
             $this->session->clear();
             $this->clearRememberCookie();
         }

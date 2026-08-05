@@ -7,6 +7,7 @@ final class ResetPassword
     public function __construct(
         private db $db,
         private Logger $logger,
+        private HttpRequest $request,
     ) {
     }
 
@@ -70,6 +71,25 @@ final class ResetPassword
                 $deleteLauncherSessions->execute([':userUuid' => $userUuid]);
                 return $userUuid;
             });
+            try {
+                $context = (new LoginContextResolver())->resolve($this->request);
+                (new NotificationService($this->db))->notifyPasswordChanged(
+                    $userUuid,
+                    'recovery',
+                    $context,
+                );
+            } catch (Throwable $notificationError) {
+                $this->logger->exception(
+                    'notifications.password_reset.failed',
+                    $notificationError,
+                    'Password reset completed, but its security notification could not be recorded.',
+                    [
+                        'component' => 'notifications',
+                        'operation' => 'password_reset',
+                        'targetUserUuid' => $userUuid,
+                    ],
+                );
+            }
             $this->logger->event(
                 'password_reset.completed',
                 'Password reset completed and active sessions were revoked.',

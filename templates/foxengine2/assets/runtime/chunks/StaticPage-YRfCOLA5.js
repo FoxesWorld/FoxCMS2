@@ -1,2 +1,0 @@
-import{A as e,F as t,K as n,p as r,v as i}from"./i18n-DMNoI_XG.js";var a=[`innerHTML`],o=i({__name:`StaticPage`,props:{page:{}},setup(i){return(o,s)=>{let c=t(`emoticons`);return n((e(),r(`div`,{class:`static-page-html`,innerHTML:i.page.html},null,8,a)),[[c]])}}});export{o as t};
-//# sourceMappingURL=StaticPage-YRfCOLA5.js.map

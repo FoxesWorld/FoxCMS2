@@ -55,9 +55,24 @@ final class Application
                 (string)$theme['frontend'],
                 ENGINE_DIR . 'data/modules.json',
             );
+            $themeUser = $this->session->all();
+            if ($this->session->isLogged()) {
+                try {
+                    $themeUser['notificationsUnread'] = (new NotificationService($this->db))
+                        ->countUnread($this->session->uuid());
+                } catch (Throwable $error) {
+                    $themeUser['notificationsUnread'] = 0;
+                    $this->logger->exception(
+                        'notifications.bootstrap.failed',
+                        $error,
+                        'Unread notification count could not be added to the frontend bootstrap.',
+                        ['component' => 'notifications', 'operation' => 'bootstrap_count'],
+                    );
+                }
+            }
             (new ThemeRenderer(
                 $this->config,
-                $this->session->all(),
+                $themeUser,
                 $theme,
                 $frontend->manifest(),
             ))->render();
@@ -172,6 +187,9 @@ final class Application
             ENGINE_DIR . 'classes/services/HardwareInventoryStatisticsService.class.php',
             ENGINE_DIR . 'classes/services/UserTextureLocator.class.php',
             ENGINE_DIR . 'classes/services/RewardClaimService.class.php',
+            ENGINE_DIR . 'classes/services/NotificationService.class.php',
+            ENGINE_DIR . 'classes/services/LoginContextResolver.class.php',
+            ENGINE_DIR . 'classes/services/UserSessionRegistryService.class.php',
             ENGINE_DIR . 'classes/services/RuntimeJdkCatalog.class.php',
             ENGINE_DIR . 'classes/services/GameVersionCatalog.class.php',
             ENGINE_DIR . 'classes/support/ExceptionContext.class.php',
@@ -242,6 +260,7 @@ final class Application
         try {
             $this->session->synchronizeWithDatabase();
             $this->touchCurrentUser();
+            $this->synchronizeBrowserSession();
             $authenticated = $this->session->isLogged();
             $sessionDuration = round(max(0, hrtime(true) - $sessionStartedAt) / 1_000_000, 3);
             $sessionState = !$wasAuthenticated
@@ -322,6 +341,40 @@ final class Application
             $this->session,
             $this->config,
         );
+    }
+
+    private function synchronizeBrowserSession(): void
+    {
+        if (!$this->session->isLogged()) {
+            return;
+        }
+        try {
+            $valid = (new UserSessionRegistryService($this->db, $this->config))
+                ->synchronizeCurrentSession(
+                    $this->session,
+                    (new LoginContextResolver())->resolve($this->request),
+                );
+            if (!$valid && $this->session->browserSessionUuid() !== '') {
+                $this->logger->event(
+                    'session.browser_registry.expired',
+                    'Browser session registry entry expired or was revoked.',
+                    ['component' => 'session', 'operation' => 'registry_sync'],
+                    'NOTICE',
+                    'expired',
+                );
+                $this->session->clear();
+            }
+        } catch (Throwable $error) {
+            if (UserSessionRegistryService::isSchemaMissing($error)) {
+                return;
+            }
+            $this->logger->exception(
+                'session.browser_registry.sync_failed',
+                $error,
+                'Browser session registry could not be synchronized.',
+                ['component' => 'session', 'operation' => 'registry_sync'],
+            );
+        }
     }
 
     private function touchCurrentUser(): void

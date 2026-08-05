@@ -12,6 +12,7 @@ import ToastViewport from '@theme/ToastViewport.vue'
 import { themeAsset, type FrontendLayout } from '@engine/domain/bootstrap'
 import { useEngineShell } from '@engine/shell/useEngineShell'
 import { restoreQueuedToast } from '@engine/notifications/toasts'
+import { startNotificationPolling, stopNotificationPolling } from '@engine/notifications/notificationCenter'
 import { getSeasonBackground, getSiteSeason } from '@theme/domain/season'
 
 type ColorTheme = 'light' | 'dark'
@@ -80,9 +81,13 @@ watch(colorTheme, applyTheme)
 
 onMounted(() => {
   restoreQueuedToast()
+  startNotificationPolling()
   systemThemeQuery.addEventListener('change', handleSystemThemeChange)
 })
-onBeforeUnmount(() => systemThemeQuery.removeEventListener('change', handleSystemThemeChange))
+onBeforeUnmount(() => {
+  stopNotificationPolling()
+  systemThemeQuery.removeEventListener('change', handleSystemThemeChange)
+})
 </script>
 
 <template>

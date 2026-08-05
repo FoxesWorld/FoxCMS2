@@ -102,6 +102,29 @@ final class EditUser
             throw new RuntimeException('UUID update affected more than one user.');
         }
 
+        $passwordChanged = array_key_exists('password', $updates);
+        if ($passwordChanged) {
+            try {
+                $context = (new LoginContextResolver())->resolve($this->request);
+                (new NotificationService($this->db))->notifyPasswordChanged(
+                    $targetUuid,
+                    $isAdmin && !Uuid::equals($sessionUuid, $targetUuid) ? 'administrator' : 'profile',
+                    $context,
+                );
+            } catch (Throwable $error) {
+                $this->logger->exception(
+                    'notifications.password_change.failed',
+                    $error,
+                    'Profile password changed, but its security notification could not be recorded.',
+                    [
+                        'component' => 'notifications',
+                        'operation' => 'password_changed',
+                        'targetUserUuid' => $targetUuid,
+                    ],
+                );
+            }
+        }
+
         if (Uuid::equals($sessionUuid, $targetUuid)) {
             $this->session->refreshFromDatabase();
             RequestTelemetry::annotate([
@@ -114,7 +137,7 @@ final class EditUser
         return [
             'targetUserUuid' => $targetUuid,
             'fields' => array_values(array_diff(array_keys($updates), ['password', 'token'])),
-            'passwordChanged' => array_key_exists('password', $updates),
+            'passwordChanged' => $passwordChanged,
         ];
     }
 

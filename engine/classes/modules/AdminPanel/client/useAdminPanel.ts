@@ -214,6 +214,17 @@ export interface ProjectPageDraft {
   title: string
   html: string
 }
+export interface SystemPageDraft {
+  id: string
+  title: string
+  description: string
+  route: string
+  routeName: string
+  view: string
+  source: string
+  capability: string
+  editable: boolean
+}
 export interface BadgePageDraft {
   badgeName: string
   slug: string
@@ -504,6 +515,7 @@ export function useAdminPanel() {
   })
   const sliderRoutes = ref<SlideRouteOption[]>([])
   const projectPages = ref<ProjectPageDraft[]>([])
+  const systemPages = ref<SystemPageDraft[]>([])
   const badgePages = ref<BadgePageDraft[]>([])
   const contentBadges = ref<BadgeCatalogRow[]>([])
   const rewardDefinitions = ref<RewardDefinitionRow[]>([])
@@ -825,11 +837,13 @@ export function useAdminPanel() {
   async function loadContent(): Promise<void> {
     const response = await run(() => foxesApi.post<{
       projectPages: RuntimeContentDocument<ProjectPageDraft>
+      systemPages: SystemPageDraft[]
       badgePages: { pages: BadgePageDraft[] }
       badges: BadgeCatalogRow[]
     }>({ admPanel: 'content' }))
     if (!response) return
     projectPages.value = cloneContent(response.projectPages.pages)
+    systemPages.value = cloneContent(response.systemPages ?? [])
     badgePages.value = cloneContent(response.badgePages.pages)
     contentBadges.value = response.badges.map((badge) => ({ ...badge, id: Number(badge.id) }))
   }
@@ -1331,7 +1345,7 @@ export function useAdminPanel() {
 
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-    maintenance, sliderSettings, sliderRoutes, projectPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
+    maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,

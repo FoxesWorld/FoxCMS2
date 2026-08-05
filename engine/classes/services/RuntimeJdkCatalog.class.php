@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-$runtimeCatalogLibrary = dirname(__DIR__, 3) . '/api/bootstrap/runtime-catalog';
-require_once $runtimeCatalogLibrary . '/platform.php';
-require_once $runtimeCatalogLibrary . '/filesystem.php';
-require_once $runtimeCatalogLibrary . '/metadata.php';
-require_once $runtimeCatalogLibrary . '/archive.php';
-require_once $runtimeCatalogLibrary . '/zip.php';
-require_once $runtimeCatalogLibrary . '/tar.php';
+require_once dirname(__DIR__, 3) . '/api/autoload.php';
+
+use FoxCMS\Api\Bootstrap\Runtime\RuntimeArchive;
+use FoxCMS\Api\Bootstrap\Runtime\RuntimeFilesystem;
+use FoxCMS\Api\Bootstrap\Runtime\RuntimeMetadata;
+use FoxCMS\Api\Bootstrap\Runtime\RuntimePlatform;
 
 final class RuntimeJdkCatalog
 {
@@ -77,8 +76,8 @@ final class RuntimeJdkCatalog
         $seenFiles = [];
 
         foreach (self::SUPPORTED_PLATFORMS as $platform) {
-            foreach (runtimeCatalogScanRoots($runtimeRoot, $platform) as $branch => $scanRoot) {
-                foreach (runtimeArchiveFiles($scanRoot) as $absolutePath) {
+            foreach (RuntimePlatform::runtimeCatalogScanRoots($runtimeRoot, $platform) as $branch => $scanRoot) {
+                foreach (RuntimeFilesystem::runtimeArchiveFiles($scanRoot) as $absolutePath) {
                     $resolvedPath = realpath($absolutePath);
                     if (!is_string($resolvedPath)) {
                         continue;
@@ -92,15 +91,15 @@ final class RuntimeJdkCatalog
 
                     $relativePath = '';
                     try {
-                        $relativePath = runtimeCatalogRelativePath($storageRoot, $resolvedPath);
-                        $candidate = inspectRuntimeArchive(
+                        $relativePath = RuntimeFilesystem::runtimeCatalogRelativePath($storageRoot, $resolvedPath);
+                        $candidate = RuntimeArchive::inspectRuntimeArchive(
                             $resolvedPath,
                             $relativePath,
                             $platform,
                             $branch,
                         );
                         $major = (int)($candidate['java_major'] ?? 0);
-                        $version = runtimeNormalizeVersion((string)($candidate['version'] ?? ''));
+                        $version = RuntimeMetadata::runtimeNormalizeVersion((string)($candidate['version'] ?? ''));
                         if ($major < 1 || $version === '') {
                             throw new RuntimeException('Полная версия Java не определена.');
                         }
@@ -110,7 +109,7 @@ final class RuntimeJdkCatalog
                             throw new RuntimeException('Размер runtime-архива не определён.');
                         }
                         $candidate['version'] = $version;
-                        $candidate['version_core'] = runtimeVersionCore($version);
+                        $candidate['version_core'] = RuntimeMetadata::runtimeVersionCore($version);
                         $candidate['size'] = $size;
                         $candidate['modified_at'] = (int)(filemtime($resolvedPath) ?: 0);
                         $candidate['system'] = self::SYSTEM_BY_PLATFORM[$platform];
@@ -122,38 +121,38 @@ final class RuntimeJdkCatalog
                         $installName = '';
                         $fallbackVersion = '';
                         try {
-                            $installName = runtimeInstallDirectoryName(basename($absolutePath));
-                            $fallbackVersion = runtimeVersionFromArchiveName($installName);
+                            $installName = RuntimeMetadata::runtimeInstallDirectoryName(basename($absolutePath));
+                            $fallbackVersion = RuntimeMetadata::runtimeVersionFromArchiveName($installName);
                         } catch (Throwable) {
                             $fallbackVersion = '';
                         }
                         if ($inspectionUnavailable && $fallbackVersion !== '') {
                             $size = filesize($resolvedPath);
-                            $major = runtimeMajorFromVersion($fallbackVersion);
+                            $major = RuntimeMetadata::runtimeMajorFromVersion($fallbackVersion);
                             if (is_int($size) && $size > 0 && $major > 0) {
-                                $archive = detectRuntimeArchiveFormat(basename($absolutePath));
+                                $archive = RuntimeMetadata::detectRuntimeArchiveFormat(basename($absolutePath));
                                 $javaName = str_starts_with($platform, 'windows-') ? 'java.exe' : 'java';
                                 $candidate = [
                                     'absolute_path' => $resolvedPath,
                                     'path' => $relativePath,
                                     'catalog_branch' => $branch,
-                                    'runtime_id' => runtimeSlug(implode('-', [
+                                    'runtime_id' => RuntimeMetadata::runtimeSlug(implode('-', [
                                         'filename-fallback', 'jdk', $fallbackVersion, $platform, $installName,
                                     ])),
                                     'file_name' => basename($absolutePath),
                                     'archive' => $archive,
                                     'platform' => $platform,
                                     'version' => $fallbackVersion,
-                                    'version_core' => runtimeVersionCore($fallbackVersion),
+                                    'version_core' => RuntimeMetadata::runtimeVersionCore($fallbackVersion),
                                     'java_major' => $major,
-                                    'vendor' => inferRuntimeVendor($relativePath),
+                                    'vendor' => RuntimeMetadata::inferRuntimeVendor($relativePath),
                                     'distribution' => 'jdk',
                                     'name' => $installName,
                                     'install_path' => 'runtime/' . $installName,
                                     'java_path' => 'bin/' . $javaName,
                                     'strip_components' => 1,
                                     'inspection' => 'archive-file-name-fallback',
-                                    'stable' => runtimeIsStableVersion($fallbackVersion),
+                                    'stable' => RuntimeMetadata::runtimeIsStableVersion($fallbackVersion),
                                     'size' => $size,
                                     'modified_at' => (int)(filemtime($resolvedPath) ?: 0),
                                     'system' => self::SYSTEM_BY_PLATFORM[$platform],
@@ -168,7 +167,7 @@ final class RuntimeJdkCatalog
                             $ignoredCandidates[] = [
                                 'path' => $relativePath !== '' ? $relativePath : str_replace('\\', '/', $absolutePath),
                                 'name' => basename($absolutePath),
-                                'version' => runtimeVersionFromArchiveName(runtimeInstallDirectoryName(basename($absolutePath))),
+                                'version' => RuntimeMetadata::runtimeVersionFromArchiveName(RuntimeMetadata::runtimeInstallDirectoryName(basename($absolutePath))),
                                 'platform' => $platform,
                                 'system' => self::SYSTEM_BY_PLATFORM[$platform],
                                 'reason' => $error->getMessage(),
@@ -184,7 +183,7 @@ final class RuntimeJdkCatalog
             $selectedByPlatform = [];
             foreach (($family['platforms'] ?? []) as $platform => $candidates) {
                 usort($candidates, static function (array $left, array $right): int {
-                    $versionOrder = compareRuntimeVersions(
+                    $versionOrder = RuntimeMetadata::compareRuntimeVersions(
                         (string)$right['version'],
                         (string)$left['version'],
                     );
@@ -217,7 +216,7 @@ final class RuntimeJdkCatalog
             foreach ($selectedByPlatform as $platform => $candidate) {
                 $profileVersions[$platform] = (string)$candidate['version'];
             }
-            $profile = runtimeBuildProfileSelector((int)$major, $profileVersions);
+            $profile = RuntimeMetadata::runtimeBuildProfileSelector((int)$major, $profileVersions);
             $artifacts = [];
             $versions = [];
             $versionsBySystem = ['windows' => [], 'linux' => [], 'macos' => []];
@@ -297,10 +296,10 @@ final class RuntimeJdkCatalog
             $availableSystems = array_keys($availableSystems);
             $missingSystems = array_values(array_diff(['windows', 'linux', 'macos'], $availableSystems));
             $versionList = array_keys($versions);
-            usort($versionList, static fn(string $left, string $right): int => compareRuntimeVersions($right, $left));
+            usort($versionList, static fn(string $left, string $right): int => RuntimeMetadata::compareRuntimeVersions($right, $left));
             foreach ($versionsBySystem as $system => $systemVersions) {
                 $list = array_keys($systemVersions);
-                usort($list, static fn(string $left, string $right): int => compareRuntimeVersions($right, $left));
+                usort($list, static fn(string $left, string $right): int => RuntimeMetadata::compareRuntimeVersions($right, $left));
                 $versionsBySystem[$system] = $list;
             }
             foreach ($files as $system => $systemFiles) {
@@ -385,7 +384,7 @@ final class RuntimeJdkCatalog
         if ($selector === '') {
             return null;
         }
-        $parsedProfile = runtimeParseProfileSelector($selector);
+        $parsedProfile = RuntimeMetadata::runtimeParseProfileSelector($selector);
         $canonicalProfile = is_array($parsedProfile) ? (string)$parsedProfile['selector'] : '';
         $normalizedAlias = self::normalizeSelectorAlias($selector);
         $major = (int)(self::normalizeMajorSelector($selector) ?? 0);
@@ -464,13 +463,13 @@ final class RuntimeJdkCatalog
         if ($selector === '' || strlen($selector) > 512) {
             return null;
         }
-        $profile = runtimeParseProfileSelector($selector);
+        $profile = RuntimeMetadata::runtimeParseProfileSelector($selector);
         if (is_array($profile)) {
             $major = (int)($profile['java_major'] ?? 0);
             return $major > 0 && $major <= 100 ? (string)$major : null;
         }
         $normalized = self::normalizeSelectorAlias($selector);
-        $major = runtimeMajorFromVersion($normalized);
+        $major = RuntimeMetadata::runtimeMajorFromVersion($normalized);
         return $major > 0 && $major <= 100 ? (string)$major : null;
     }
 
@@ -512,6 +511,6 @@ final class RuntimeJdkCatalog
         if (!is_string($selector)) {
             return '';
         }
-        return runtimeNormalizeVersion($selector);
+        return RuntimeMetadata::runtimeNormalizeVersion($selector);
     }
 }

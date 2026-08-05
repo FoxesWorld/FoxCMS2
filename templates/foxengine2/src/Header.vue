@@ -3,11 +3,14 @@ import { t } from '@/i18n'
 
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { appBootstrap } from '@engine/app/context'
 import type { NavigationDefinition } from '@engine/domain/bootstrap'
 import type { BalanceMatrix } from '@engine/domain/userBalance'
 import Logo from '@theme/Logo.vue'
 import UserBlock from '@theme/UserBlock.vue'
 import { accountNavigationIcon } from '@theme/domain/accountNavigation'
+import { formatUnreadCounter, resolveUserPanelState } from '@theme/domain/userPanel'
+import { notificationCenter } from '@engine/notifications/notificationCenter'
 
 interface Props {
   displayName: string
@@ -29,6 +32,7 @@ const emit = defineEmits<{
   toggleTheme: []
 }>()
 const route = useRoute()
+const userPanel = resolveUserPanelState(appBootstrap)
 
 const mobileOpen = ref(false)
 const isMobile = ref(false)
@@ -89,6 +93,11 @@ function activate(item: NavigationDefinition): void {
 
 function isCurrent(item: NavigationDefinition): boolean {
   return Boolean(item.route && route.name === item.route)
+}
+
+function openUserPanelPage(url: string): void {
+  closeMenu(false)
+  window.location.assign(url)
 }
 
 function handleDocumentKeydown(event: KeyboardEvent): void {
@@ -190,6 +199,28 @@ onBeforeUnmount(() => {
 
         <div class="mobile-account-actions">
           <span class="mobile-account-actions__label">{{ t('theme.header.004') }}</span>
+          <button
+            v-if="!isGuest"
+            type="button"
+            @click="openUserPanelPage(userPanel.messagesUrl)"
+          >
+            <i class="fa-solid fa-envelope" aria-hidden="true" />
+            <span>{{ t('theme.userblock.005') }}</span>
+            <span v-if="userPanel.messagesUnread > 0" class="mobile-account-actions__counter">
+              {{ formatUnreadCounter(userPanel.messagesUnread) }}
+            </span>
+          </button>
+          <button
+            v-if="!isGuest"
+            type="button"
+            @click="openUserPanelPage(userPanel.notificationsUrl)"
+          >
+            <i class="fa-solid fa-bell" aria-hidden="true" />
+            <span>{{ t('theme.userblock.008') }}</span>
+            <span v-if="notificationCenter.unreadCount > 0" class="mobile-account-actions__counter">
+              {{ formatUnreadCounter(notificationCenter.unreadCount) }}
+            </span>
+          </button>
           <button
             v-for="item in isGuest ? guestItems : accountItems"
             :key="t('theme.header.005', [item.intent, item.label])"

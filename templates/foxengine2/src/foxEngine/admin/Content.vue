@@ -4,7 +4,7 @@ import { t } from '@/i18n'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { BadgeDefinition, StaticPageDefinition } from '@engine/content/contentData'
 import type {
-  BadgeCatalogRow, BadgePageDraft, ProjectPageDraft,
+  BadgeCatalogRow, BadgePageDraft, ProjectPageDraft, SystemPageDraft,
 } from '@modules/AdminPanel/client/useAdminPanel'
 import StaticPage from '@theme/userOptions/content/StaticPage.vue'
 import BadgePage from '@theme/userOptions/pages/badges/Badge.vue'
@@ -13,6 +13,7 @@ const CodeEditor = defineAsyncComponent(() => import('@theme/foxEngine/editor/Co
 
 const props = defineProps<{
   projectPages: ProjectPageDraft[]
+  systemPages: SystemPageDraft[]
   badgePages: BadgePageDraft[]
   badges: BadgeCatalogRow[]
   loading: boolean
@@ -24,13 +25,15 @@ const emit = defineEmits<{
   deleteBadgePage: [page: BadgePageDraft]
 }>()
 
-const mode = ref<'project' | 'badges'>('project')
+const mode = ref<'project' | 'system' | 'badges'>('project')
 const projectWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const badgeWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const selectedProjectId = ref('')
+const selectedSystemPageId = ref('')
 const selectedBadgeName = ref('')
 
 const selectedProject = computed(() => props.projectPages.find((page) => page.id === selectedProjectId.value) ?? null)
+const selectedSystemPage = computed(() => props.systemPages.find((page) => page.id === selectedSystemPageId.value) ?? null)
 const selectedBadge = computed(() => props.badges.find((badge) => badge.badgeName === selectedBadgeName.value) ?? null)
 const selectedBadgePage = computed(() => {
   const badge = selectedBadge.value
@@ -107,6 +110,10 @@ watch(() => props.projectPages, (pages) => {
   if (!pages.some((page) => page.id === selectedProjectId.value)) selectedProjectId.value = pages[0]?.id ?? ''
 }, { immediate: true, deep: true })
 
+watch(() => props.systemPages, (pages) => {
+  if (!pages.some((page) => page.id === selectedSystemPageId.value)) selectedSystemPageId.value = pages[0]?.id ?? ''
+}, { immediate: true, deep: true })
+
 watch(() => props.badges, (badges) => {
   if (!badges.some((badge) => badge.badgeName === selectedBadgeName.value)) selectedBadgeName.value = badges[0]?.badgeName ?? ''
 }, { immediate: true, deep: true })
@@ -153,13 +160,17 @@ function deleteBadgePage(): void {
     <header class="admin-content-editor__header">
       <div>
         <span class="eyebrow">{{ t('theme.foxengine.admin.content.001') }}</span>
-        <h2>{{ mode === 'project' ? t('theme.foxengine.admin.content.002') : t('theme.foxengine.admin.content.003') }}</h2>
+        <h2>{{ mode === 'project' ? t('theme.foxengine.admin.content.002') : mode === 'system' ? t('theme.foxengine.admin.content.047') : t('theme.foxengine.admin.content.003') }}</h2>
         <p v-if="mode === 'project'">{{ t('theme.foxengine.admin.content.004') }}</p>
+        <p v-else-if="mode === 'system'">{{ t('theme.foxengine.admin.content.048') }}</p>
         <p v-else>{{ t('theme.foxengine.admin.content.005') }}</p>
       </div>
       <div class="admin-content-editor__modes">
         <button type="button" :class="{ active: mode === 'project' }" @click="mode = 'project'">
           <i class="fa-solid fa-newspaper" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.002') }}</span>
+        </button>
+        <button type="button" :class="{ active: mode === 'system' }" @click="mode = 'system'">
+          <i class="fa-solid fa-window-maximize" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.047') }}</span>
         </button>
         <button type="button" :class="{ active: mode === 'badges' }" @click="mode = 'badges'">
           <i class="fa-solid fa-award" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.003') }}</span>
@@ -227,6 +238,54 @@ function deleteBadgePage(): void {
           <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.025') }} {{ selectedProject.id }}.html</span></button>
         </footer>
       </form>
+    </div>
+
+    <div v-else-if="mode === 'system'" class="admin-content-editor__workspace">
+      <aside class="admin-content-editor__list">
+        <button
+          v-for="page in systemPages"
+          :key="page.id"
+          type="button"
+          :class="{ active: selectedSystemPageId === page.id }"
+          @click="selectedSystemPageId = page.id"
+        >
+          <i class="fa-solid fa-window-maximize" aria-hidden="true" />
+          <span><strong>{{ page.title }}</strong><small>{{ page.route }}</small></span>
+        </button>
+      </aside>
+
+      <article v-if="selectedSystemPage" class="admin-content-form admin-system-page-detail">
+        <header class="admin-content-form__title">
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.content.049') }}</span>
+            <h3>{{ selectedSystemPage.title }}</h3>
+            <p>{{ selectedSystemPage.description }}</p>
+          </div>
+          <RouterLink class="button button--ghost" :to="selectedSystemPage.route">
+            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />
+            <span>{{ t('theme.foxengine.admin.content.057') }}</span>
+          </RouterLink>
+        </header>
+
+        <div class="admin-system-page-detail__notice">
+          <i class="fa-solid fa-code" aria-hidden="true" />
+          <span><strong>{{ t('theme.foxengine.admin.content.058') }}</strong><small>{{ t('theme.foxengine.admin.content.050') }}</small></span>
+        </div>
+
+        <dl class="admin-system-page-detail__meta">
+          <div><dt>{{ t('theme.foxengine.admin.content.051') }}</dt><dd><code>{{ selectedSystemPage.route }}</code></dd></div>
+          <div><dt>{{ t('theme.foxengine.admin.content.052') }}</dt><dd><code>{{ selectedSystemPage.view }}</code></dd></div>
+          <div><dt>{{ t('theme.foxengine.admin.content.053') }}</dt><dd><code>{{ selectedSystemPage.source }}</code></dd></div>
+          <div><dt>{{ t('theme.foxengine.admin.content.054') }}</dt><dd><code>{{ selectedSystemPage.capability }}</code></dd></div>
+          <div><dt>{{ t('theme.foxengine.admin.content.055') }}</dt><dd>{{ selectedSystemPage.editable ? t('theme.foxengine.admin.content.056') : t('theme.foxengine.admin.content.050') }}</dd></div>
+        </dl>
+      </article>
+
+      <div v-else class="admin-content-empty-page">
+        <i class="fa-solid fa-window-maximize" aria-hidden="true" />
+        <strong>{{ t('theme.foxengine.admin.content.047') }}</strong>
+        <p>{{ t('theme.foxengine.admin.content.048') }}</p>
+      </div>
     </div>
 
     <div v-else-if="mode === 'badges'" class="admin-content-editor__workspace">

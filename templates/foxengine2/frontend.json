@@ -73,10 +73,34 @@
       "layout": "standard"
     },
     {
+      "path": "/achievements/:value?",
+      "name": "achievements",
+      "view": "AchievementsView",
+      "title": "Достижения",
+      "props": true,
+      "layout": "wide"
+    },
+    {
       "path": "/badges",
       "name": "badges",
       "view": "BadgesView",
       "title": "Бейджи",
+      "layout": "wide"
+    },
+    {
+      "path": "/notifications",
+      "name": "notifications",
+      "view": "NotificationsView",
+      "title": "Уведомления",
+      "layout": "wide"
+    },
+    {
+      "path": "/devices",
+      "name": "devices",
+      "view": "DevicesView",
+      "title": "Мои устройства",
+      "auth": "user",
+      "module": "UserSettings",
       "layout": "wide"
     },
     {
@@ -365,6 +389,23 @@
       "label": "Бейджи",
       "route": "badges",
       "order": 60
+    },
+    {
+      "area": "header",
+      "label": "Достижения",
+      "route": "achievements",
+      "order": 55
+    },
+    {
+      "area": "account",
+      "intent": "achievements",
+      "label": "Достижения",
+      "route": "achievements",
+      "order": 20,
+      "auth": "user",
+      "paramsFromUser": {
+        "value": "login"
+      }
     }
   ],
   "legacy": [
@@ -553,7 +594,8 @@
     {
       "name": "players.top",
       "module": "UserTop"
-    }
+    },
+    "game.achievements"
   ],
   "endpoints": {
     "actions": "/",

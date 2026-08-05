@@ -117,27 +117,27 @@ branches that map to the requested platform are scanned.
 
 ## Runtime scanner
 
-`runtime-catalog.php` is now a stable facade. The implementation lives in:
+`runtime-catalog.php` remains a stable public compatibility facade. The namespaced implementation lives in:
 
 ```text
-api/bootstrap/runtime-catalog/
-├── request.php      request parsing and validation
-├── platform.php     platform aliases and branch mapping
-├── filesystem.php   safe catalog traversal
-├── metadata.php     version, filename and vendor helpers
-├── archive.php      archive-independent Java-home analysis
-├── zip.php          ZIP inspection
-├── tar.php          TAR.GZ/TGZ inspection
-├── selection.php    compatibility, ranking and diagnostics
-└── resolver.php     orchestration and response assembly
+api/src/FoxCMS/Api/Bootstrap/Runtime/
+├── RuntimeRequest.php      request parsing and validation
+├── RuntimePlatform.php     platform aliases and branch mapping
+├── RuntimeFilesystem.php   safe catalog traversal
+├── RuntimeMetadata.php     version, filename and vendor helpers
+├── RuntimeArchive.php      archive-independent Java-home analysis
+├── RuntimeZip.php          ZIP inspection
+├── RuntimeTar.php          TAR.GZ/TGZ inspection
+├── RuntimeSelection.php    compatibility, ranking and diagnostics
+└── RuntimeResolver.php     orchestration and response assembly
 ```
 
-The facade remains the only include used by `manifest.php`, so the public entry
-point is unchanged.
+`ManifestController` calls the `RuntimeCatalog` facade through the `FoxCMS\Api`
+PSR-4 namespace; public endpoint URLs are unchanged.
 
 The runtime catalog supports:
 
-- `.zip`, `.tar.gz` and `.tgz` archives;
+- `.zip`, `.tar.gz` and `.tgz` archives; ZIP uses `ZipArchive` when available and a `PharData` fallback otherwise;
 - Windows x86, x86-64 and ARM64;
 - Linux x86, x86-64 and ARM64;
 - macOS x86-64 and ARM64;
@@ -217,7 +217,7 @@ FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY=/var/www/FoxCMS/uploads/bootstrap
 FOXESCRAFT_BOOTSTRAP_CACHE_MAX_AGE=60
 ```
 
-Launcher JVM arguments remain server policy in `api/bootstrap/config.php`.
+Launcher JVM arguments remain server policy in `BootstrapConfig` and are validated by `BootstrapSettings`.
 
 ## Verification
 

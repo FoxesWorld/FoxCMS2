@@ -7,25 +7,11 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-final class BootstrapHardwareContractException extends RuntimeException
-{
-    public function __construct(
-        public readonly int $status,
-        public readonly string $errorCode,
-        string $message,
-        public readonly array $details = [],
-    ) {
-        parent::__construct($message);
-    }
-}
-
-function fail(int $statusCode, string $errorCode, string $message, array $details = []): void
-{
-    throw new BootstrapHardwareContractException($statusCode, $errorCode, $message, $details);
-}
-
 $root = dirname(__DIR__);
-require_once $root . '/api/bootstrap/hardware-report.php';
+require_once $root . '/api/autoload.php';
+
+use FoxCMS\Api\Bootstrap\HardwareReportFactory;
+use FoxCMS\Api\Core\HttpException;
 
 $valid = [
     'schemaVersion' => 1,
@@ -52,7 +38,8 @@ $valid = [
     ],
 ];
 
-$report = BootstrapHardwareReport::fromArray($valid);
+$factory = new HardwareReportFactory();
+$report = $factory->fromArray($valid);
 assertSame(str_repeat('a', 64), $report->systemHwid(), 'systemHWID must be preserved');
 assertSame('windows-x86_64', $report->platform(), 'platform must be preserved');
 assertSame(16, $report->logicalCpuCount(), 'logical CPU count must be preserved');
@@ -62,7 +49,7 @@ $duplicateAdapters = $valid;
 $duplicateAdapters['systemInformation']['gpu']['adapters'] = ['Contract GPU', 'Contract GPU'];
 assertSame(
     ['Contract GPU'],
-    BootstrapHardwareReport::fromArray($duplicateAdapters)->gpuAdapters(),
+    $factory->fromArray($duplicateAdapters)->gpuAdapters(),
     'GPU adapter names must be de-duplicated',
 );
 
@@ -74,7 +61,7 @@ $platformMismatch = $valid;
 $platformMismatch['systemInformation']['os']['architecture'] = 'aarch64';
 assertRejected($platformMismatch, 'hardware_report_platform_mismatch');
 
-$repositorySource = requireText($root . '/api/bootstrap/hardware-inventory.php');
+$repositorySource = requireText($root . '/api/src/FoxCMS/Api/Bootstrap/HardwareInventoryRepository.php');
 assertContains('INSERT IGNORE INTO `system_hardware_inventory`', $repositorySource, 'repository must insert idempotently');
 if (str_contains(strtoupper($repositorySource), 'ON DUPLICATE KEY UPDATE')) {
     throw new RuntimeException('Hardware inventory must not update an existing first-seen record.');
@@ -90,9 +77,9 @@ fwrite(STDOUT, "Bootstrap hardware contract passed: validation, privacy-safe sys
 function assertRejected(array $payload, string $expectedCode): void
 {
     try {
-        BootstrapHardwareReport::fromArray($payload);
-    } catch (BootstrapHardwareContractException $exception) {
-        assertSame($expectedCode, $exception->errorCode, 'unexpected validation error code');
+        (new HardwareReportFactory())->fromArray($payload);
+    } catch (HttpException $exception) {
+        assertSame($expectedCode, $exception->errorCode(), 'unexpected validation error code');
         return;
     }
     throw new RuntimeException('Expected hardware report validation to fail with ' . $expectedCode);

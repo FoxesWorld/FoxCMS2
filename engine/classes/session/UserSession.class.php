@@ -93,6 +93,35 @@ final class UserSession
         return $this->group() === 'admin';
     }
 
+    public function browserSessionUuid(): string
+    {
+        $value = trim((string)($_SESSION['_fox_browser_session_uuid'] ?? ''));
+        return Uuid::isValid($value) ? Uuid::normalize($value) : '';
+    }
+
+    public function browserSessionType(): string
+    {
+        return ($_SESSION['_fox_browser_session_type'] ?? '') === 'remembered'
+            ? 'remembered'
+            : 'short';
+    }
+
+    public function issuedAt(): int
+    {
+        return max(0, (int)($_SESSION['_fox_issued_at'] ?? 0));
+    }
+
+    public function lastSeenAt(): int
+    {
+        return max(0, (int)($_SESSION['_fox_last_seen'] ?? 0));
+    }
+
+    public function bindBrowserSession(string $sessionUuid, string $sessionType): void
+    {
+        $_SESSION['_fox_browser_session_uuid'] = Uuid::normalize($sessionUuid);
+        $_SESSION['_fox_browser_session_type'] = $sessionType === 'remembered' ? 'remembered' : 'short';
+    }
+
     public function set(string $key, mixed $value, bool $persist = false): void
     {
         if (!$this->isAllowedField($key)) {
@@ -139,6 +168,7 @@ final class UserSession
             throw new InvalidArgumentException('Authenticated user data must contain UUID and login.');
         }
 
+        unset($_SESSION['_fox_browser_session_uuid'], $_SESSION['_fox_browser_session_type']);
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }

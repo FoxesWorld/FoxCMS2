@@ -68,6 +68,7 @@ final class Authorise
             );
         }
 
+        $previousLastDate = max(0, (int)($user['last_date'] ?? 0));
         $storageUuid = (string)($user['uuid'] ?? '');
         try {
             $userUuid = Uuid::normalize($storageUuid);
@@ -112,13 +113,53 @@ final class Authorise
         $user['logged_ip'] = $clientIp;
         unset($user['password'], $user['token']);
 
+        $loginContext = new LoginContextResolver();
+        $context = $loginContext->resolve($this->request);
         try {
-            $this->updateRememberToken($storageUuid, $remember);
             $this->session->authenticate($user);
+            try {
+                $issuedSession = (new UserSessionRegistryService($this->db, $this->config))
+                    ->issueForAuthenticatedSession($this->session, $userUuid, $remember, $context);
+                if (is_string($issuedSession['token']) && $issuedSession['token'] !== '') {
+                    $this->setRememberCookie($issuedSession['token'], (int)$issuedSession['expiresAt']);
+                } else {
+                    $this->clearRememberCookie();
+                }
+            } catch (Throwable $error) {
+                if (!UserSessionRegistryService::isSchemaMissing($error)) {
+                    throw $error;
+                }
+                $this->updateRememberToken($storageUuid, $remember);
+            }
         } catch (Throwable $error) {
             $this->session->clear();
             $this->clearRememberCookie();
             throw $error;
+        }
+
+        try {
+            $notifications = new NotificationService($this->db);
+            $notifications->notifyLogin($userUuid, $context, CURRENT_TIME);
+            $absenceSeconds = $previousLastDate > 0 ? max(0, CURRENT_TIME - $previousLastDate) : 0;
+            if ($previousLastDate > 0 && $absenceSeconds >= $loginContext->welcomeBackThresholdSeconds()) {
+                $notifications->notifyWelcomeBack(
+                    $userUuid,
+                    (string)($user['login'] ?? $login),
+                    $absenceSeconds,
+                    CURRENT_TIME,
+                );
+            }
+        } catch (Throwable $error) {
+            $this->logger->exception(
+                'notifications.login.failed',
+                $error,
+                'Login completed, but account notifications could not be recorded.',
+                [
+                    'component' => 'notifications',
+                    'operation' => 'login_events',
+                    'targetUserUuid' => $userUuid,
+                ],
+            );
         }
 
         RequestTelemetry::annotate([
@@ -166,6 +207,17 @@ final class Authorise
         }
 
         setcookie(AuthManager::REMEMBER_COOKIE, $cookieValue, [
+            'expires' => $expiresAt,
+            'path' => '/',
+            'secure' => $this->request->isSecure(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+
+    private function setRememberCookie(string $token, int $expiresAt): void
+    {
+        setcookie(AuthManager::REMEMBER_COOKIE, $token, [
             'expires' => $expiresAt,
             'path' => '/',
             'secure' => $this->request->isSecure(),

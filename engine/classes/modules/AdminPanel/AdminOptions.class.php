@@ -450,7 +450,7 @@ final class AdminOptions {
         }
 
         $actorUuid = $this->session->uuid();
-        $result = $this->db->transactional(function () use ($grant, $userUuid, $badgeName, $badge): array {
+        $result = $this->db->transactional(function () use ($grant, $userUuid, $badgeName, $badge, $reason): array {
             $statement = $this->db->prepare(
                 'SELECT `uuid`, `login`, `badges` FROM `users` WHERE `uuid` = :uuid LIMIT 1 FOR UPDATE'
             );
@@ -495,6 +495,23 @@ final class AdminOptions {
             if ($changed) {
                 $update = $this->db->prepare('UPDATE `users` SET `badges` = :badges WHERE `uuid` = :uuid');
                 $update->execute([':badges' => $badgesJson, ':uuid' => $userUuid]);
+                $notificationService = new NotificationService($this->db);
+                if ($grant && $badge !== null) {
+                    $notificationService->notifyBadgeAwarded($userUuid, $badge, 'administrator');
+                } elseif (!$grant) {
+                    $notificationService->notifyBadgeRevoked(
+                        $userUuid,
+                        $badge ?? [
+                            'id' => 0,
+                            'badgeName' => $badgeName,
+                            'title' => $badgeName,
+                            'description' => '',
+                            'image' => null,
+                        ],
+                        $reason,
+                        'administrator',
+                    );
+                }
             }
 
             return [
@@ -1149,6 +1166,19 @@ final class AdminOptions {
 
         $this->respond([
             'projectPages' => $this->contentRepository->readProjectPages(),
+            'systemPages' => [
+                [
+                    'id' => 'achievements',
+                    'title' => 'Достижения',
+                    'description' => 'Общая статистика, дерево достижений и страницы прогресса игроков.',
+                    'route' => '/achievements?view=statistics',
+                    'routeName' => 'achievements',
+                    'view' => 'AchievementsView',
+                    'source' => 'engine/client/views/AchievementsView.vue',
+                    'capability' => 'game.achievements',
+                    'editable' => false,
+                ],
+            ],
             'badgePages' => ['pages' => $badgePages],
             'badges' => array_values($badges),
         ]);

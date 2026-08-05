@@ -3,6 +3,7 @@ import { t } from '@/i18n'
 
 import { useRouter } from 'vue-router'
 import type { ProfileBadge, ProfileEntry, ProfileRecord } from '@engine/contracts/user-pages'
+import ProfileAchievements from './profile/ProfileAchievements.vue'
 import ProfileBadges from './profile/ProfileBadges.vue'
 import ProfileDataSection from './profile/ProfileDataSection.vue'
 import ProfileFacts from './profile/ProfileFacts.vue'
@@ -88,6 +89,7 @@ function openUserSettings(): void {
     <div class="profile-content-grid">
       <div class="profile-content-grid__main">
         <ProfileInfo :profile="profile" />
+        <ProfileAchievements v-if="profile.uuid" :player-uuid="profile.uuid" />
         <ProfileDataSection
           :title="t('theme.useroptions.useroptions.profile.007')"
           :eyebrow="t('theme.useroptions.useroptions.profile.008')"

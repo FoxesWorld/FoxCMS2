@@ -76,6 +76,34 @@ if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'news')) {
   }
 }
 
+if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'devices')) {
+  const component = viewModules.get('DevicesView')
+  if (component) {
+    console.warn('[FoxesCraft] Devices route is missing from bootstrap; applying client fallback.')
+    routes.push({
+      path: '/devices',
+      name: 'devices',
+      component,
+      meta: { title: t('engine.router.index.005'), layout: 'wide' },
+    })
+  }
+}
+
+
+if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'achievements')) {
+  const component = viewModules.get('AchievementsView')
+  if (component) {
+    console.warn('[FoxesCraft] Achievements route is missing from bootstrap; applying client fallback.')
+    routes.push({
+      path: '/achievements/:value?',
+      name: 'achievements',
+      component,
+      props: true,
+      meta: { title: t('engine.router.index.006'), layout: 'wide' },
+    })
+  }
+}
+
 export const router = createRouter({
   history: createWebHashHistory(),
   routes,

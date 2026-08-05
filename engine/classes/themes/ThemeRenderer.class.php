@@ -7,6 +7,7 @@ final class ThemeRenderer
     private const USER_FIELDS = [
         'isLogged', 'uuid', 'user_id', 'login', 'realname', 'groupTag', 'profilePhoto',
         'userStatus', 'land', 'colorScheme', 'balance', 'email', 'groupName', 'groupColor',
+        'notificationsUnread',
     ];
 
     public function __construct(

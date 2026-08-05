@@ -45,6 +45,11 @@ final class UserActions
             'getBadgeOffer' => 'getRewardOffer',
             'claimReward' => 'claimReward',
             'claimBadge' => 'claimReward',
+            'getNotifications' => 'getNotifications',
+            'getActiveSessions' => 'getActiveSessions',
+            'revokeActiveSession' => 'revokeActiveSession',
+            'markNotificationRead' => 'markNotificationRead',
+            'markAllNotificationsRead' => 'markAllNotificationsRead',
             'lostpassword' => 'lostPassword',
             'resetpassword' => 'resetPassword',
             default => 'unresolved',
@@ -64,6 +69,11 @@ final class UserActions
             'getBadgeOffer' => $this->getRewardOffer(),
             'claimReward' => $this->claimReward(),
             'claimBadge' => $this->claimReward(),
+            'getNotifications' => $this->getNotifications(),
+            'getActiveSessions' => $this->getActiveSessions(),
+            'revokeActiveSession' => $this->revokeActiveSession(),
+            'markNotificationRead' => $this->markNotificationRead(),
+            'markAllNotificationsRead' => $this->markAllNotificationsRead(),
             'lostpassword' => $this->lostPassword(),
             'resetpassword' => $this->resetPassword(),
             default => $this->respond(['message' => 'Unknown user request.', 'type' => 'error'], 400),
@@ -96,7 +106,7 @@ final class UserActions
     private function resetPassword(): never
     {
         require_once __DIR__ . '/actions/resetpassword.class.php';
-        (new ResetPassword($this->db, $this->logger))->reset(
+        (new ResetPassword($this->db, $this->logger, $this->request))->reset(
             $this->request->string('token'),
             $this->request->string('new_password'),
             $this->request->string('confirm_password'),
@@ -201,6 +211,210 @@ final class UserActions
             'badges' => is_array($badges) ? $badges : [],
             'balance' => $result['balance'] ?? null,
         ]);
+    }
+
+
+    private function getActiveSessions(): never
+    {
+        $userUuid = $this->requireAuthenticatedUser();
+        try {
+            $result = (new UserSessionRegistryService($this->db, $this->config))->activeSessions(
+                $userUuid,
+                $this->session->browserSessionUuid(),
+            );
+            $this->respond($result);
+        } catch (Throwable $error) {
+            if (UserSessionRegistryService::isSchemaMissing($error)) {
+                $this->respond([
+                    'message' => 'Реестр устройств не инициализирован. Примените миграцию 024_user_browser_sessions.sql.',
+                    'type' => 'error',
+                    'migration' => '024_user_browser_sessions.sql',
+                ], 503);
+            }
+            $this->logger->exception(
+                'sessions.list.failed',
+                $error,
+                'Active browser sessions could not be loaded.',
+                ['component' => 'sessions', 'operation' => 'list', 'targetUserUuid' => $userUuid],
+            );
+            $this->respond(['message' => 'Не удалось загрузить активные устройства.', 'type' => 'error'], 500);
+        }
+    }
+
+    private function revokeActiveSession(): never
+    {
+        $userUuid = $this->requireAuthenticatedUser();
+        CsrfToken::requireValid($this->request->csrfToken());
+        $sessionUuid = trim($this->request->string('sessionUuid'));
+        if (!Uuid::isValid($sessionUuid)) {
+            $this->respond(['message' => 'Некорректный идентификатор сессии.', 'type' => 'error'], 400);
+        }
+        $sessionUuid = Uuid::normalize($sessionUuid);
+        $currentSessionUuid = $this->session->browserSessionUuid();
+        if ($currentSessionUuid !== '' && Uuid::equals($sessionUuid, $currentSessionUuid)) {
+            $this->respond([
+                'message' => 'Текущую сессию нельзя деактивировать с этой страницы.',
+                'type' => 'error',
+            ], 409);
+        }
+
+        try {
+            $service = new UserSessionRegistryService($this->db, $this->config);
+            if (!$service->revokeSession($userUuid, $sessionUuid, $currentSessionUuid)) {
+                $this->respond([
+                    'message' => 'Сессия не найдена или уже была деактивирована.',
+                    'type' => 'error',
+                ], 404);
+            }
+            $active = $service->activeSessions($userUuid, $currentSessionUuid);
+            $this->logger->event(
+                'sessions.revoke.completed',
+                'A remote browser session was revoked by its owner.',
+                [
+                    'component' => 'sessions',
+                    'operation' => 'revoke',
+                    'targetUserUuid' => $userUuid,
+                    'targetSessionUuid' => $sessionUuid,
+                ],
+                'NOTICE',
+                'success',
+            );
+            $this->respond([
+                'message' => 'Сессия деактивирована. На выбранном устройстве доступ будет завершён.',
+                'type' => 'success',
+                'revoked' => true,
+                'sessionUuid' => $sessionUuid,
+                'activeCount' => (int)$active['activeCount'],
+            ]);
+        } catch (LogicException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 409);
+        } catch (Throwable $error) {
+            if (UserSessionRegistryService::isSchemaMissing($error)) {
+                $this->respond([
+                    'message' => 'Реестр устройств не инициализирован. Примените миграцию 024_user_browser_sessions.sql.',
+                    'type' => 'error',
+                    'migration' => '024_user_browser_sessions.sql',
+                ], 503);
+            }
+            $this->logger->exception(
+                'sessions.revoke.failed',
+                $error,
+                'Remote browser session could not be revoked.',
+                [
+                    'component' => 'sessions',
+                    'operation' => 'revoke',
+                    'targetUserUuid' => $userUuid,
+                    'targetSessionUuid' => $sessionUuid,
+                ],
+            );
+            $this->respond(['message' => 'Не удалось деактивировать сессию.', 'type' => 'error'], 500);
+        }
+    }
+
+    private function getNotifications(): never
+    {
+        $userUuid = $this->requireAuthenticatedUser();
+        try {
+            $page = (new NotificationService($this->db))->pageForUser(
+                $userUuid,
+                $this->request->integer('limit', 20),
+                $this->request->integer('beforeId'),
+            );
+            $this->respond($page);
+        } catch (InvalidArgumentException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        } catch (Throwable $error) {
+            if (NotificationService::isSchemaMissing($error)) {
+                $this->respond([
+                    'message' => 'Цент уведомлений не инициализирован. Примените миграцию 023_user_notifications.sql.',
+                    'type' => 'error',
+                    'migration' => '023_user_notifications.sql',
+                ], 503);
+            }
+            $this->logger->exception(
+                'notifications.list.failed',
+                $error,
+                'User notification inbox could not be loaded.',
+                ['component' => 'notifications', 'operation' => 'list', 'targetUserUuid' => $userUuid],
+            );
+            $this->respond(['message' => 'Не удалось загрузить уведомления.', 'type' => 'error'], 500);
+        }
+    }
+
+    private function markNotificationRead(): never
+    {
+        $userUuid = $this->requireAuthenticatedUser();
+        CsrfToken::requireValid($this->request->csrfToken());
+        $notificationId = $this->request->integer('notificationId');
+        try {
+            $service = new NotificationService($this->db);
+            $updated = $service->markRead($userUuid, $notificationId);
+            $this->respond([
+                'updated' => $updated,
+                'notificationId' => $notificationId,
+                'unreadCount' => $service->countUnread($userUuid),
+            ]);
+        } catch (InvalidArgumentException $error) {
+            $this->respond(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        } catch (Throwable $error) {
+            if (NotificationService::isSchemaMissing($error)) {
+                $this->respond([
+                    'message' => 'Цент уведомлений не инициализирован. Примените миграцию 023_user_notifications.sql.',
+                    'type' => 'error',
+                    'migration' => '023_user_notifications.sql',
+                ], 503);
+            }
+            $this->logger->exception(
+                'notifications.mark_read.failed',
+                $error,
+                'Notification could not be marked as read.',
+                [
+                    'component' => 'notifications',
+                    'operation' => 'mark_read',
+                    'targetUserUuid' => $userUuid,
+                    'notificationId' => $notificationId,
+                ],
+            );
+            $this->respond(['message' => 'Не удалось отметить уведомление прочитанным.', 'type' => 'error'], 500);
+        }
+    }
+
+    private function markAllNotificationsRead(): never
+    {
+        $userUuid = $this->requireAuthenticatedUser();
+        CsrfToken::requireValid($this->request->csrfToken());
+        try {
+            $service = new NotificationService($this->db);
+            $updatedCount = $service->markAllRead($userUuid);
+            $this->respond(['updatedCount' => $updatedCount, 'unreadCount' => 0]);
+        } catch (Throwable $error) {
+            if (NotificationService::isSchemaMissing($error)) {
+                $this->respond([
+                    'message' => 'Цент уведомлений не инициализирован. Примените миграцию 023_user_notifications.sql.',
+                    'type' => 'error',
+                    'migration' => '023_user_notifications.sql',
+                ], 503);
+            }
+            $this->logger->exception(
+                'notifications.mark_all_read.failed',
+                $error,
+                'Notifications could not be marked as read.',
+                ['component' => 'notifications', 'operation' => 'mark_all_read', 'targetUserUuid' => $userUuid],
+            );
+            $this->respond(['message' => 'Не удалось отметить уведомления прочитанными.', 'type' => 'error'], 500);
+        }
+    }
+
+    private function requireAuthenticatedUser(): string
+    {
+        if (!$this->session->isLogged()) {
+            $this->respond(['message' => 'Нужно войти в аккаунт.', 'type' => 'error'], 401);
+        }
+        $userUuid = $this->session->uuid();
+        if (!Uuid::isValid($userUuid)) {
+            $this->respond(['message' => 'Некорректный UUID пользователя.', 'type' => 'error'], 409);
+        }
+        return Uuid::normalize($userUuid);
     }
 
 

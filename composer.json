@@ -3,16 +3,22 @@
   "description": "FoxesCraft UUID-bound PHP engine and theme runtime",
   "type": "project",
   "require": {
-    "php": ">=8.1",
     "ext-fileinfo": "*",
     "ext-gd": "*",
     "ext-json": "*",
     "ext-mbstring": "*",
     "ext-pdo": "*",
     "ext-pdo_mysql": "*",
-    "ext-session": "*"
+    "ext-phar": "*",
+    "ext-session": "*",
+    "php": ">=8.1"
   },
   "config": {
     "sort-packages": true
+  },
+  "autoload": {
+    "psr-4": {
+      "FoxCMS\\Api\\": "api/src/FoxCMS/Api/"
+    }
   }
 }

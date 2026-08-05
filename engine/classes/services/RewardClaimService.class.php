@@ -525,8 +525,20 @@ final class RewardClaimService
         );
         $consume->execute([':updatedAt' => $now, ':id' => (int)$row['id']]);
 
+        $reward = $this->rewardResponse($row);
+        $notifications = new NotificationService($this->db);
+        $notifications->notifyRewardClaimed(
+            $userUuid,
+            $reward,
+            $badgeApplied ? $badge : null,
+            $currencyApplied ? $currency : null,
+        );
+        if ($badgeApplied && $badge !== null) {
+            $notifications->notifyBadgeAwarded($userUuid, $badge, $assignmentSource);
+        }
+
         return [
-            'reward' => $this->rewardResponse($row),
+            'reward' => $reward,
             'badge' => $badge,
             'currency' => $currency,
             'alreadyClaimed' => false,

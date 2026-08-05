@@ -127,8 +127,12 @@ for (const route of frontend.routes ?? []) {
   if (typeof pageId !== 'string' || !pageIds.has(pageId)) failures.push(`StaticContentView route ${route?.name} references missing runtime page ${String(pageId)}`)
 }
 
-const api = await readFile(join(repositoryRoot, 'api', 'content.php'), 'utf8')
-for (const token of ['BadgeSlug::assign', 'ThemeBadgePageRepository', 'FROM `badgesList`', 'contentBadgeCatalog', 'contentBadgePage', "registry === 'badges'", "registry === 'badge'", '$repository->exists($slug)', "'pageConfigured' => $repository->exists($slug)"]) {
+const api = (await Promise.all([
+  join(repositoryRoot, 'api', 'content.php'),
+  join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Content', 'ContentApiApplication.php'),
+  join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Content', 'BadgeCatalogService.php'),
+].map((path) => readFile(path, 'utf8')))).join('\n')
+for (const token of ['BadgeSlug::assign', 'ThemeBadgePageRepository', 'FROM `badgesList`', 'BadgeCatalogService', "'badges' => $this->badges", "'badge' => $this->badge", '$this->repository->exists', "$item['pageConfigured']"]) {
   if (!includesLocalized(api, token)) failures.push(`content API is missing contract ${token}`)
 }
 for (const forbidden of ['imageKey', 'pageNameKey', 'badgeNameKey === $slugKey', 'WHERE `badgeName` = :badgeName LIMIT 1']) {
