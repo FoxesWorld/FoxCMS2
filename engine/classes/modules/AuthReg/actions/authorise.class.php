@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use FoxCMS\Engine\Auth\RememberCookie;
+
 if (!defined('auth')) {
     http_response_code(403);
     exit('Forbidden');
@@ -12,6 +14,7 @@ final class Authorise
     private const DUMMY_PASSWORD_HASH = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.';
 
     private AuthInputValidator $validator;
+    private RememberCookie $rememberCookie;
 
     public function __construct(
         private HttpRequest $request,
@@ -21,6 +24,7 @@ final class Authorise
         private array $config,
     ) {
         $register = is_array($config['register'] ?? null) ? $config['register'] : [];
+        $this->rememberCookie = new RememberCookie($request, AuthManager::REMEMBER_COOKIE);
         $this->validator = new AuthInputValidator(
             (int)($register['maxLoginLength'] ?? 64),
             (int)($register['passminCount'] ?? 10),
@@ -121,9 +125,9 @@ final class Authorise
                 $issuedSession = (new UserSessionRegistryService($this->db, $this->config))
                     ->issueForAuthenticatedSession($this->session, $userUuid, $remember, $context);
                 if (is_string($issuedSession['token']) && $issuedSession['token'] !== '') {
-                    $this->setRememberCookie($issuedSession['token'], (int)$issuedSession['expiresAt']);
+                    $this->rememberCookie->set($issuedSession['token'], (int)$issuedSession['expiresAt']);
                 } else {
-                    $this->clearRememberCookie();
+                    $this->rememberCookie->clear();
                 }
             } catch (Throwable $error) {
                 if (!UserSessionRegistryService::isSchemaMissing($error)) {
@@ -133,7 +137,7 @@ final class Authorise
             }
         } catch (Throwable $error) {
             $this->session->clear();
-            $this->clearRememberCookie();
+            $this->rememberCookie->clear();
             throw $error;
         }
 
@@ -206,34 +210,11 @@ final class Authorise
             throw new RuntimeException('Remember-token update affected more than one account.');
         }
 
-        setcookie(AuthManager::REMEMBER_COOKIE, $cookieValue, [
-            'expires' => $expiresAt,
-            'path' => '/',
-            'secure' => $this->request->isSecure(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
+        if ($remember) {
+            $this->rememberCookie->set($cookieValue, $expiresAt);
+        } else {
+            $this->rememberCookie->clear();
+        }
     }
 
-    private function setRememberCookie(string $token, int $expiresAt): void
-    {
-        setcookie(AuthManager::REMEMBER_COOKIE, $token, [
-            'expires' => $expiresAt,
-            'path' => '/',
-            'secure' => $this->request->isSecure(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-    }
-
-    private function clearRememberCookie(): void
-    {
-        setcookie(AuthManager::REMEMBER_COOKIE, '', [
-            'expires' => time() - 3600,
-            'path' => '/',
-            'secure' => $this->request->isSecure(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-    }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Launcher;
 
-use FoxCMS\Api\Core\Environment;
+use FoxCMS\Shared\Environment\Environment;
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\Request;
 use InvalidArgumentException;
@@ -24,25 +24,25 @@ final class FileCatalogController
 
     public function run(): never
     {
-        Environment::load($this->rootDirectory);
+        $environment = Environment::boot($this->rootDirectory);
         $this->applyHeaders();
 
         try {
             $this->request->requireMethod('POST');
-            (new BridgeAuthenticator())->authenticate($this->request);
+            (new BridgeAuthenticator($environment))->authenticate($this->request);
             [$client, $version, $platform] = $this->validatedParameters();
             $this->loadScanner();
 
-            $ttl = max(1, min(3600, \foxEnvInt('FOXESCRAFT_LAUNCHER_CATALOG_TTL', 60)));
+            $ttl = $environment->integer('FOXESCRAFT_LAUNCHER_CATALOG_TTL', 60, 1, 3600);
             $cache = new FileCatalogCache(
                 $this->rootDirectory . '/engine/cache/launcher-file-catalog',
                 $ttl,
             );
             $key = hash('sha256', $client . "\0" . $version . "\0" . (string)$platform);
-            $result = $cache->remember($key, function () use ($client, $version, $platform): string {
+            $result = $cache->remember($key, function () use ($client, $version, $platform, $environment): string {
                 $config = [
                     'launcherSettings' => [
-                        'gameFiles' => trim((string)(\foxEnv('FOXESCRAFT_GAME_FILES_DIR', 'files/clients/') ?? 'files/clients/')),
+                        'gameFiles' => trim((string)($environment->string('FOXESCRAFT_GAME_FILES_DIR', 'game/') ?? 'game/')),
                     ],
                 ];
                 $scanner = new \GameScanner($client, $version, $platform, $config);
@@ -59,8 +59,19 @@ final class FileCatalogController
         } catch (HttpException $error) {
             $this->error($error->errorCode(), $error->getMessage(), $error->statusCode());
         } catch (Throwable $error) {
-            error_log('Launcher file catalog failed: ' . $error->getMessage());
-            $this->error('catalog_unavailable', 'Launcher file catalog is unavailable.', 503);
+            $requestId = \FoxCMS\Api\Core\RequestId::create();
+            error_log('[FoxesCraft launcher file catalog][' . $requestId . '] ' . $error->getMessage());
+            \FoxCMS\Api\Core\JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $error,
+                    $requestId,
+                    $this->rootDirectory,
+                    $environment->boolean('FOXESCRAFT_DEBUG', false),
+                    ['error' => 'catalog_unavailable'],
+                ),
+                503,
+                ['Cache-Control' => 'no-store', 'X-Request-ID' => $requestId],
+            );
         }
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Core;
 
+use FoxCMS\Shared\Environment\Environment;
 use RuntimeException;
 
 final class ApplicationContext
@@ -13,6 +14,7 @@ final class ApplicationContext
         private readonly string $rootDirectory,
         private readonly array $config,
         private readonly \NetworkContext $network,
+        private readonly Environment $environment,
     ) {
     }
 
@@ -22,14 +24,15 @@ final class ApplicationContext
         bool $applySecurityHeaders = true,
     ): self {
         $rootDirectory = rtrim($rootDirectory, '/\\');
+        require_once $rootDirectory . '/autoload.php';
+        $environment = Environment::boot($rootDirectory);
         require_once $rootDirectory . '/engine/data/environment.php';
         if ($registerErrorHandler) {
             require_once $rootDirectory . '/engine/classes/support/RuntimeErrorHandler.class.php';
             \RuntimeErrorHandler::register($rootDirectory, false);
         }
-        \foxLoadEnv($rootDirectory . '/.env');
         if ($registerErrorHandler) {
-            \RuntimeErrorHandler::setDebug(\foxEnvBool('FOXESCRAFT_DEBUG', false));
+            \RuntimeErrorHandler::setDebug($environment->boolean('FOXESCRAFT_DEBUG', false));
         }
 
         if (!defined('FOXXEY')) {
@@ -37,10 +40,7 @@ final class ApplicationContext
         }
 
         require_once $rootDirectory . '/engine/classes/http/NetworkContext.class.php';
-        $trustedProxies = array_values(array_filter(array_map(
-            'trim',
-            explode(',', \foxEnv('FOXESCRAFT_TRUSTED_PROXIES', '') ?? ''),
-        ), static fn (string $value): bool => $value !== ''));
+        $trustedProxies = $environment->csv('FOXESCRAFT_TRUSTED_PROXIES');
         $network = \NetworkContext::fromGlobals($trustedProxies);
         $GLOBALS['foxNetworkContext'] = $network;
 
@@ -55,7 +55,7 @@ final class ApplicationContext
             \SecurityHeaders::apply($network, false);
         }
 
-        return new self($rootDirectory, $config, $network);
+        return new self($rootDirectory, $config, $network, $environment);
     }
 
     public function rootDirectory(): string
@@ -73,6 +73,12 @@ final class ApplicationContext
     {
         return $this->network;
     }
+
+    public function environment(): Environment
+    {
+        return $this->environment;
+    }
+
 
     public function requireEngine(string ...$relativeFiles): void
     {

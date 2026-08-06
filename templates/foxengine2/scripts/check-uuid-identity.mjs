@@ -55,7 +55,7 @@ const requiredContracts = new Map([
   ['engine/classes/services/UserTextureLocator.class.php', ["$canonicalFolder . $canonical . '-skin.png'", "$canonicalFolder . $canonical . '-cape.png'"]],
   ['engine/classes/uploads/UploadService.class.php', ['UploadPurpose::MINECRAFT_SKIN', 'UploadPurpose::MINECRAFT_CAPE', 'Uuid::canonical($this->policies->ownerUuid($context))', ". '-skin.png'", ". '-cape.png'"]],
   ['authlib/AuthlibProfileService.class.php', ['$profileId = Uuid::compact($userUuid)', '$textureId = $userUuid', "$uuidDirectory . $textureId . '-skin.png'", "$uuidDirectory . $textureId . '-cape.png'"]],
-  ['engine/classes/modules/AuthReg/AuthReg.class.php', ['function updateUserTokenByUuid', 'Uuid::databaseCandidates($userUuid)']],
+  ['engine/src/FoxCMS/Engine/Auth/AuthSessionLifecycle.php', ['function updateUserTokenByUuid', 'Uuid::databaseCandidates($userUuid)']],
   ['engine/classes/services/PlayTimeService.php', ['Uuid::databaseCandidates($userUuid)', "WHERE `uuid` IN ("]],
   ['engine/classes/modules/UserSettings/client/views/ProfileSettingsView.vue', ["bootstrapString(appBootstrap, 'uuid')", "data.set('userUuid', userUuid)", "deleteFile', type, userUuid"]],
   ['engine/classes/modules/UserSettings/client/views/ProfileView.vue', ['const viewerUuid', 'profile.value?.uuid']],

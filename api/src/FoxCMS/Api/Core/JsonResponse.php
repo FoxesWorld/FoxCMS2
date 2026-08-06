@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Core;
 
+use FoxCMS\Shared\Http\ResponseHeaders;
 use JsonException;
 use RuntimeException;
 
@@ -25,29 +26,23 @@ final class JsonResponse
             throw new RuntimeException('Unable to encode JSON response.', 0, $error);
         }
 
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('X-Content-Type-Options: nosniff');
-        foreach ($headers as $name => $value) {
-            header($name . ': ' . $value);
-        }
-
         if ($conditional) {
             $etag = '"' . hash('sha256', $body) . '"';
-            header('ETag: ' . $etag);
+            $headers['ETag'] = $etag;
             if (trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
-                http_response_code(304);
+                ResponseHeaders::begin(304, 'application/json; charset=UTF-8', $headers);
                 exit;
             }
         }
 
+        ResponseHeaders::begin($status, 'application/json; charset=UTF-8', $headers);
         if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'HEAD') {
             echo $body;
         }
         exit;
     }
 
-    /** @param array<string, mixed> $details */
+    /** @param array<string, mixed> $details @param array<string, string> $headers */
     public static function error(
         string $code,
         string $message,

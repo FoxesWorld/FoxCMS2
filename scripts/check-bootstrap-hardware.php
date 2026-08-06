@@ -10,6 +10,7 @@ if (PHP_SAPI !== 'cli') {
 $root = dirname(__DIR__);
 require_once $root . '/api/autoload.php';
 
+use FoxCMS\Api\Bootstrap\BootstrapCorsPolicy;
 use FoxCMS\Api\Bootstrap\HardwareReportFactory;
 use FoxCMS\Api\Core\HttpException;
 
@@ -37,6 +38,13 @@ $valid = [
         ],
     ],
 ];
+
+assertSame('https://example.com', BootstrapCorsPolicy::normalizeOrigin('https://Example.COM:443/'), 'HTTPS default port must be canonicalized');
+assertSame('http://localhost:8080', BootstrapCorsPolicy::normalizeOrigin('http://LOCALHOST:8080'), 'non-default port must be retained');
+assertSame('', BootstrapCorsPolicy::normalizeOrigin('https://example.com/path'), 'origin paths must be rejected');
+assertSame('', BootstrapCorsPolicy::normalizeOrigin('https://user@example.com'), 'origin credentials must be rejected');
+assertSame('', BootstrapCorsPolicy::normalizeOrigin("https://example.com\r\nX-Test: injected"), 'CRLF origins must be rejected');
+assertSame('', BootstrapCorsPolicy::normalizeOrigin('ftp://example.com'), 'non-HTTP origins must be rejected');
 
 $factory = new HardwareReportFactory();
 $report = $factory->fromArray($valid);
@@ -71,7 +79,7 @@ $migrationSource = requireText($root . '/database/migrations/011_system_hardware
 assertContains('PRIMARY KEY (`systemHWID`)', $migrationSource, 'systemHWID must be the uniqueness boundary');
 assertContains('`report` JSON NOT NULL', $migrationSource, 'canonical report JSON must be retained');
 
-fwrite(STDOUT, "Bootstrap hardware contract passed: validation, privacy-safe systemHWID and insert-once SQL are present.\n");
+fwrite(STDOUT, "Bootstrap hardware contract passed: validation, restricted CORS, privacy-safe systemHWID and insert-once SQL are present.\n");
 
 /** @param array<string, mixed> $payload */
 function assertRejected(array $payload, string $expectedCode): void

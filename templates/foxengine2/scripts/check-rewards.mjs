@@ -12,7 +12,7 @@ const rejectText = (label, text, tokens) => {
   for (const token of tokens) if (text.includes(token)) failures.push(`${label} must not contain ${token}`)
 }
 
-const [service, admin, adminRewards, adminCatalog, adminUsers, userActions, state, rewardsUi, catalogs, contentUi, panel,
+const [service, admin, adminRewards, adminCatalog, adminUsers, userActions, userRewardController, runtimeOptions, runtimeOptionsSource, state, rewardsUi, catalogs, contentUi, panel,
   homeView, welcome, staticView, staticContent, offerDomain, offerComposable, migration, schema] = await Promise.all([
   read('engine/classes/services/RewardClaimService.class.php'),
   read('engine/classes/modules/AdminPanel/AdminOptions.class.php'),
@@ -20,11 +20,14 @@ const [service, admin, adminRewards, adminCatalog, adminUsers, userActions, stat
   read('engine/classes/modules/AdminPanel/AdminCatalogController.class.php'),
   read('engine/classes/modules/AdminPanel/AdminUserController.class.php'),
   read('engine/classes/modules/UserSettings/UserActions.class.php'),
+  read('engine/src/FoxCMS/Engine/User/UserRewardController.php'),
+  read('engine/client/runtime/userOptions.ts'),
+  read('templates/foxengine2/userOptions/AdminPanel.tpl'),
   read('engine/classes/modules/AdminPanel/client/useAdminPanel.ts'),
   read('templates/foxengine2/src/foxEngine/admin/Rewards.vue'),
   read('templates/foxengine2/src/foxEngine/admin/Catalogs.vue'),
   read('templates/foxengine2/src/foxEngine/admin/Content.vue'),
-  read('templates/foxengine2/src/userOptions/userOptions/AdminPanel.vue'),
+  read('templates/foxengine2/userOptions/AdminPanel.tpl'),
   read('engine/client/views/HomeView.vue'),
   read('templates/foxengine2/src/userOptions/content/Welcome.vue'),
   read('engine/client/views/StaticContentView.vue'),
@@ -163,8 +166,8 @@ rejectText('Administrative badge operation reward coupling', adminBadgeMutation,
   'rewardClaimKeys', 'BalanceMatrix::increment', '`balance` =', 'currencyAmount',
 ])
 
-requireText('Separate reward screen', `${state}\n${rewardsUi}\n${panel}`, [
-  "{ id: 'rewards', tab: 'rewards', category: 'community'",
+requireText('Separate reward screen', `${runtimeOptions}\n${state}\n${rewardsUi}\n${panel}`, [
+  "['rewards', { component: 'Rewards', tab: 'rewards' }]",
   'export interface RewardDefinitionRow',
   'export interface RewardDraft',
   'async function loadRewards()',
@@ -180,6 +183,18 @@ requireText('Separate reward screen', `${state}\n${rewardsUi}\n${panel}`, [
   'const hasExistingClaims = computed(',
   '<label v-if="draft.currencyCode">',
 ])
+const rewardToolMatch = runtimeOptionsSource.match(/<fox-admin-tool\b([^>]*\bid="rewards"[^>]*)\/>/u)
+const rewardAttributes = {}
+for (const match of (rewardToolMatch?.[1] ?? '').matchAll(/([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*("[^"]*"|'[^']*')/gu)) {
+  rewardAttributes[match[1].toLowerCase()] = match[2].slice(1, -1)
+}
+if (rewardAttributes.component !== 'Rewards'
+    || rewardAttributes.tab !== 'rewards'
+    || rewardAttributes.category !== 'community'
+    || rewardAttributes.enabled !== 'true') {
+  failures.push('AdminPanel.tpl must expose the enabled rewards tool in the community category')
+}
+
 rejectText('Locked reward composition editor', rewardsUi, [
   'payloadLocked', ':disabled="payloadLocked"',
 ])
@@ -190,19 +205,24 @@ rejectText('Content editor claim controls', contentUi, [
   'issueClaimKey', 'claimKeys:', 'issuedCode:', 'Коды получения', 'admin-claim-issuer',
 ])
 
-requireText('Authenticated reward endpoints', userActions, [
-  "'getRewardOffer' => 'getRewardOffer'",
-  "'getBadgeOffer' => 'getRewardOffer'",
-  "'claimReward' => 'claimReward'",
-  "'claimBadge' => 'claimReward'",
+requireText('Authenticated reward facade routes', userActions, [
+  "'getRewardOffer' => $this->rewards->getRewardOffer()",
+  "'getBadgeOffer' => $this->rewards->getRewardOffer()",
+  "'claimReward' => $this->rewards->claimReward()",
+  "'claimBadge' => $this->rewards->claimReward()",
+])
+requireText('Authenticated reward use-cases', userRewardController, [
   'new RewardClaimService(',
-  '$service->claim($claimCode, $this->session->uuid())',
-  '$service->claimPublicOffer($offerPlacement, $this->session->uuid())',
+  '$service->claim($claimCode, $userUuid)',
+  '$service->claimPublicOffer($offerPlacement, $userUuid)',
   "'alreadyClaimed' => $alreadyClaimed",
   "'badgeApplied' => ($result['badgeApplied'] ?? false) === true",
   "'currencyApplied' => ($result['currencyApplied'] ?? false) === true",
+  "'offer' => $result['offer'] ?? null",
+  '$this->guard->requireRewardAccess()',
 ])
-rejectText('Name-only reward claim', userActions, [
+rejectText('Name-only reward claim', `${userActions}
+${userRewardController}`, [
   "$this->request->string('badgeName')", "$this->request->string('rewardName')",
 ])
 

@@ -8,7 +8,7 @@ const files = {
   php: join(repositoryRoot, 'engine', 'classes', 'domain', 'BalanceMatrix.class.php'),
   renderer: join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeRenderer.class.php'),
   auth: join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'AuthReg.class.php'),
-  profileApi: join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'UserActions.class.php'),
+  profileApi: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'User', 'UserProfileQueryController.php'),
   adminApi: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminUserController.class.php'),
   normalizer: join(repositoryRoot, 'engine', 'client', 'domain', 'userBalance.ts'),
   shell: join(repositoryRoot, 'engine', 'client', 'shell', 'useEngineShell.ts'),

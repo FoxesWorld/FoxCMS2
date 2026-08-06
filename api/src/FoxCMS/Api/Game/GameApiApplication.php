@@ -48,19 +48,13 @@ final class GameApiApplication
             JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
         } catch (Throwable $error) {
             $requestId = RequestId::create();
-            error_log(sprintf(
-                '[FoxCMS API][%s] %s: %s at %s:%d',
+            \FoxCMS\Api\Core\FatalResponse::send(
+                $error,
+                $this->context,
+                'service_unavailable',
+                503,
                 $requestId,
-                $error::class,
-                $error->getMessage(),
-                $error->getFile(),
-                $error->getLine(),
-            ));
-            JsonResponse::send([
-                'error' => 'service_unavailable',
-                'message' => 'Сервис временно недоступен.',
-                'requestId' => $requestId,
-            ], 503, ['Cache-Control' => 'no-store, max-age=0', 'Pragma' => 'no-cache']);
+            );
         }
     }
 

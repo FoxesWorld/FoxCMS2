@@ -13,6 +13,16 @@ final class BootstrapSettings
     {
     }
 
+    public function rootDirectory(): string
+    {
+        return rtrim((string)($this->config['root_directory'] ?? ''), '/\\');
+    }
+
+    public function debug(): bool
+    {
+        return ($this->config['debug'] ?? false) === true;
+    }
+
     public function storageDirectory(): string
     {
         $value = $this->config['storage_directory'] ?? null;
@@ -42,6 +52,27 @@ final class BootstrapSettings
     public function launcherFileName(): string
     {
         return (string)($this->config['launcher_file_name'] ?? 'launcher.jar');
+    }
+
+    /** @return list<string> */
+    public function corsAllowedOrigins(): array
+    {
+        $value = $this->config['cors_allowed_origins'] ?? [];
+        if (!is_array($value)) {
+            throw new HttpException(500, 'bootstrap_configuration_invalid', 'cors_allowed_origins must be an array.');
+        }
+        $origins = [];
+        foreach ($value as $origin) {
+            if (!is_string($origin)) {
+                throw new HttpException(500, 'bootstrap_configuration_invalid', 'cors_allowed_origins contains an invalid value.');
+            }
+            $normalized = BootstrapCorsPolicy::normalizeOrigin($origin);
+            if ($normalized === '') {
+                throw new HttpException(500, 'bootstrap_configuration_invalid', 'cors_allowed_origins contains an invalid origin.');
+            }
+            $origins[] = $normalized;
+        }
+        return array_values(array_unique($origins));
     }
 
     /** @return list<string> */

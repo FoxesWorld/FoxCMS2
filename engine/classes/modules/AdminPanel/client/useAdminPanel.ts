@@ -7,13 +7,21 @@ import { bootstrapString } from '@/domain/bootstrap'
 import { normalizeBalanceMatrix } from '@/domain/userBalance'
 import { createJsonObjectTemplate, decodeJsonValue, mergeJsonWithTemplate, normalizeJsonValue } from '@/forms/json-form'
 import type { JsonObject, JsonValue } from '@/forms/json-form'
+import {
+  cloneRuntimeUserOptions, installRuntimeUserOptions, loadRuntimeUserOptions, runtimeAdminCategories, runtimeAdminTools, runtimeUserOptionsRevision,
+  type RuntimeUserOptionsDocument,
+} from '@/runtime/userOptions'
+import {
+  installRuntimePageTemplates,
+  type RuntimePageTemplatesDocument,
+} from '@/runtime/pageTemplates'
 
-export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs'
+export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type CatalogName = 'infobox' | 'badges' | 'groups'
 export type AdminToolId = Exclude<Tab, 'catalogs'> | 'infobox' | 'badges' | 'groups'
 export type AdminSection = 'home' | AdminToolId
 export type AdminView = 'home' | Tab
-export type AdminCategoryId = 'observability' | 'community' | 'content' | 'infrastructure'
+export type AdminCategoryId = string
 export interface AdminToolDefinition {
   id: AdminToolId
   tab: Tab
@@ -588,51 +596,30 @@ export function useAdminPanel() {
   const catalogFields = ref<string[]>([])
   const catalogDraft = ref<JsonObject>({})
   const originalCatalogKey = ref('')
+  const runtimeOptionsDraft = ref<RuntimeUserOptionsDocument | null>(cloneRuntimeUserOptions())
+  const runtimeOptionsUpdatedAt = ref(runtimeOptionsDraft.value?.updatedAt ?? '')
+  const runtimeOptionsStorageReady = ref(false)
+  const runtimePageTemplatesDraft = ref<RuntimePageTemplatesDocument | null>(null)
+  const runtimePageTemplatesStorageReady = ref(false)
 
-  const categories: AdminCategoryDefinition[] = [
-    {
-      id: 'observability',
-      label: t('modules.adminpanel.useadminpanel.004'),
-      description: t('modules.adminpanel.useadminpanel.005'),
-      icon: 'fa-chart-line',
-    },
-    {
-      id: 'community',
-      label: t('modules.adminpanel.useadminpanel.006'),
-      description: t('modules.adminpanel.useadminpanel.007'),
-      icon: 'fa-users',
-    },
-    {
-      id: 'content',
-      label: t('modules.adminpanel.useadminpanel.008'),
-      description: t('modules.adminpanel.useadminpanel.009'),
-      icon: 'fa-layer-group',
-    },
-    {
-      id: 'infrastructure',
-      label: t('modules.adminpanel.useadminpanel.010'),
-      description: t('modules.adminpanel.useadminpanel.011'),
-      icon: 'fa-server',
-    },
-  ]
-  const tabs: AdminToolDefinition[] = [
-    { id: 'overview', tab: 'overview', category: 'observability', label: t('modules.adminpanel.useadminpanel.012'), description: t('modules.adminpanel.useadminpanel.013'), icon: 'fa-chart-line' },
-    { id: 'logs', tab: 'logs', category: 'observability', label: t('modules.adminpanel.useadminpanel.014'), description: t('modules.adminpanel.useadminpanel.015'), icon: 'fa-rectangle-list' },
-    { id: 'users', tab: 'users', category: 'community', label: t('modules.adminpanel.useadminpanel.016'), description: t('modules.adminpanel.useadminpanel.017'), icon: 'fa-users' },
-    { id: 'infobox', tab: 'catalogs', category: 'community', catalog: 'infobox', label: t('modules.adminpanel.useadminpanel.018'), description: t('modules.adminpanel.useadminpanel.019'), icon: 'fa-circle-info' },
-    { id: 'badges', tab: 'catalogs', category: 'community', catalog: 'badges', label: t('modules.adminpanel.useadminpanel.020'), description: t('modules.adminpanel.useadminpanel.021'), icon: 'fa-award' },
-    { id: 'rewards', tab: 'rewards', category: 'community', label: t('modules.adminpanel.useadminpanel.022'), description: t('modules.adminpanel.useadminpanel.023'), icon: 'fa-coins' },
-    { id: 'groups', tab: 'catalogs', category: 'community', catalog: 'groups', label: t('modules.adminpanel.useadminpanel.024'), description: t('modules.adminpanel.useadminpanel.025'), icon: 'fa-user-group' },
-    { id: 'content', tab: 'content', category: 'content', label: t('modules.adminpanel.useadminpanel.026'), description: t('modules.adminpanel.useadminpanel.027'), icon: 'fa-newspaper' },
-    { id: 'slides', tab: 'slides', category: 'content', label: t('modules.adminpanel.useadminpanel.028'), description: t('modules.adminpanel.useadminpanel.029'), icon: 'fa-images' },
-    { id: 'settings', tab: 'settings', category: 'content', label: t('modules.adminpanel.useadminpanel.030'), description: t('modules.adminpanel.useadminpanel.031'), icon: 'fa-sliders' },
-    { id: 'servers', tab: 'servers', category: 'infrastructure', label: t('modules.adminpanel.useadminpanel.032'), description: t('modules.adminpanel.useadminpanel.033'), icon: 'fa-server' },
-    { id: 'files', tab: 'files', category: 'infrastructure', label: t('modules.adminpanel.useadminpanel.034'), description: t('modules.adminpanel.useadminpanel.035'), icon: 'fa-folder-open' },
-    { id: 'maintenance', tab: 'maintenance', category: 'infrastructure', label: t('modules.adminpanel.useadminpanel.036'), description: t('modules.adminpanel.useadminpanel.037'), icon: 'fa-screwdriver-wrench' },
-  ]
-  const groupedTabs = computed(() => categories.map((category) => ({
+  const categories = computed<AdminCategoryDefinition[]>(() => runtimeAdminCategories.value.map((category) => ({
+    id: category.id,
+    label: category.label,
+    description: category.description,
+    icon: category.icon,
+  })))
+  const tabs = computed<AdminToolDefinition[]>(() => runtimeAdminTools.value.map((tool) => ({
+    id: tool.id as AdminToolId,
+    tab: tool.tab as Tab,
+    category: tool.category,
+    label: tool.label,
+    description: tool.description,
+    icon: tool.icon,
+    ...(tool.catalog ? { catalog: tool.catalog as CatalogName } : {}),
+  })))
+  const groupedTabs = computed(() => categories.value.map((category) => ({
     ...category,
-    tools: tabs.filter((tab) => tab.category === category.id),
+    tools: tabs.value.filter((tab) => tab.category === category.id),
   })))
   const catalogKey = computed(() => ({ infobox: 'group_name', badges: 'badgeName', groups: 'groupTag' })[catalogName.value])
 
@@ -732,6 +719,33 @@ export function useAdminPanel() {
     siteSettingsUpdatedAt.value = response.updatedAt || ''
     siteSettingsStorageReady.value = response.storageReady
   }
+  async function loadUserOptionsEditor(): Promise<void> {
+    const response = await run(() => foxesApi.post<{
+      document: RuntimeUserOptionsDocument
+      updatedAt: string
+      storageReady: boolean
+    }>({ admPanel: 'userOptions' }))
+    if (!response) return
+    const installed = installRuntimeUserOptions(response.document)
+    runtimeOptionsDraft.value = structuredClone(installed)
+    runtimeOptionsUpdatedAt.value = response.updatedAt || installed.updatedAt
+    runtimeOptionsStorageReady.value = response.storageReady
+  }
+  async function saveUserOptionsEditor(templateId: string, source: string): Promise<void> {
+    if (!runtimeOptionsDraft.value || source.trim() === '') return
+    const response = await run(() => foxesApi.post<Feedback & {
+      document: RuntimeUserOptionsDocument
+      updatedAt: string
+      storageReady: boolean
+    }>({ admPanel: 'saveUserOptions', entry: JSON.stringify({ templateId, source }) }))
+    if (!response) return
+    feedback.value = response
+    const installed = installRuntimeUserOptions(response.document)
+    runtimeOptionsDraft.value = structuredClone(installed)
+    runtimeOptionsUpdatedAt.value = response.updatedAt || installed.updatedAt
+    runtimeOptionsStorageReady.value = response.storageReady
+  }
+
   async function loadMaintenance(): Promise<void> {
     const response = await run(() => foxesApi.post<{ settings: MaintenanceSettings; groups: GroupOption[] }>({ admPanel: 'maintenance' }))
     if (!response) return
@@ -837,12 +851,16 @@ export function useAdminPanel() {
   async function loadContent(): Promise<void> {
     const response = await run(() => foxesApi.post<{
       projectPages: RuntimeContentDocument<ProjectPageDraft>
+      pageTemplates: RuntimePageTemplatesDocument
+      pageTemplatesStorageReady: boolean
       systemPages: SystemPageDraft[]
       badgePages: { pages: BadgePageDraft[] }
       badges: BadgeCatalogRow[]
     }>({ admPanel: 'content' }))
     if (!response) return
     projectPages.value = cloneContent(response.projectPages.pages)
+    runtimePageTemplatesDraft.value = structuredClone(installRuntimePageTemplates(response.pageTemplates))
+    runtimePageTemplatesStorageReady.value = response.pageTemplatesStorageReady
     systemPages.value = cloneContent(response.systemPages ?? [])
     badgePages.value = cloneContent(response.badgePages.pages)
     contentBadges.value = response.badges.map((badge) => ({ ...badge, id: Number(badge.id) }))
@@ -966,6 +984,21 @@ export function useAdminPanel() {
     feedback.value = response
     projectPages.value = cloneContent(response.document.pages)
     invalidateContentRegistry('project-pages')
+  }
+
+  async function savePageTemplate(templateId: string, source: string): Promise<void> {
+    if (source.trim() === '') return
+    const response = await run(() => foxesApi.post<Feedback & {
+      document: RuntimePageTemplatesDocument
+      storageReady: boolean
+    }>({
+      admPanel: 'savePageTemplate',
+      entry: JSON.stringify({ templateId, source }),
+    }))
+    if (!response) return
+    feedback.value = response
+    runtimePageTemplatesDraft.value = structuredClone(installRuntimePageTemplates(response.document))
+    runtimePageTemplatesStorageReady.value = response.storageReady
   }
   async function saveBadgePage(page: BadgePageDraft): Promise<void> {
     const response = await run(() => foxesApi.post<Feedback & { page: BadgePageDraft }>({
@@ -1320,7 +1353,7 @@ export function useAdminPanel() {
       if (!overview.value || !hardware.value) await loadOverview()
       return
     }
-    const tool = tabs.find((entry) => entry.id === section)
+    const tool = tabs.value.find((entry) => entry.id === section)
     if (!tool) {
       activeTab.value = 'home'
       return
@@ -1338,7 +1371,17 @@ export function useAdminPanel() {
     if (tool.tab === 'files') await loadFiles()
     if (tool.tab === 'logs') await loadLogs()
     if (tool.tab === 'catalogs') await loadCatalog()
+    if (tool.tab === 'runtime-options') await loadUserOptionsEditor()
   }
+  void loadRuntimeUserOptions().catch((error: unknown) => {
+    console.error('[FoxesCraft] Runtime admin options failed to load', error)
+    feedback.value = {
+      type: 'error',
+      message: error instanceof Error && error.message.trim() !== ''
+        ? error.message
+        : t('engine.runtime.useroptions.010'),
+    }
+  })
   watch(logFile, () => void loadLogs())
   watch(autoRefreshLogs, updateLogTimer)
   onUnmounted(() => { if (logTimer) window.clearInterval(logTimer) })
@@ -1349,10 +1392,11 @@ export function useAdminPanel() {
     users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
-    originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp,
-    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMaintenance,
+    originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp, runtimeUserOptionsRevision,
+    runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimePageTemplatesDraft, runtimePageTemplatesStorageReady,
+    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
-    loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, saveBadgePage, deleteBadgePage,
+    loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, savePageTemplate, saveBadgePage, deleteBadgePage,
     loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,

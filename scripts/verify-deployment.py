@@ -14,8 +14,8 @@ from pathlib import Path
 STATIC_REQUIRED_FILES = {
     "index.php": "engine/bootstrap.php",
     "engine/bootstrap.php": "RuntimeErrorHandler::register",
-    "engine/Application.class.php": "classes/identity/Uuid.class.php",
-    "engine/SystemRequests.class.php": "authenticatedLauncherUuid",
+    "engine/Application.class.php": "ApplicationKernel",
+    "engine/SystemRequests.class.php": "final class SystemRequests",
     "engine/classes/config/AppConfigFactory.class.php": "final class AppConfigFactory",
     "engine/classes/database/MigrationRunner.class.php": "final class MigrationRunner",
     "engine/classes/frontend/FrontendRegistry.class.php": "final class FrontendRegistry",
@@ -30,7 +30,12 @@ STATIC_REQUIRED_FILES = {
     "engine/classes/session/UserSession.class.php": "public function uuid()",
     "engine/classes/support/RuntimeErrorHandler.class.php": "final class RuntimeErrorHandler",
     "engine/classes/themes/ThemeResolver.class.php": "final class ThemeResolver",
+    "engine/classes/themes/ThemePageStorage.class.php": "final class ThemePageStorage",
     "engine/classes/themes/ThemeContentRepository.class.php": "final class ThemeContentRepository",
+    "engine/classes/themes/ThemeRuntimeTplDocument.class.php": "final class ThemeRuntimeTplDocument",
+    "engine/classes/themes/ThemeRuntimeTplCompiler.class.php": "final class ThemeRuntimeTplCompiler",
+    "engine/classes/themes/ThemeUserOptionsRepository.class.php": "final class ThemeUserOptionsRepository",
+    "engine/classes/themes/ThemePageTemplateRepository.class.php": "final class ThemePageTemplateRepository",
     "engine/classes/themes/ThemeBadgePageRepository.class.php": "final class ThemeBadgePageRepository",
     "engine/classes/themes/ThemeRenderer.class.php": "'uuid'",
     "engine/classes/syslib/database.php": "final class db",
@@ -39,11 +44,11 @@ STATIC_REQUIRED_FILES = {
     "engine/data/environment.php": "function foxLoadEnv",
     "engine/data/locale.ru.php": "authWrong",
     "engine/data/modules.json": '"AuthManager"',
-    "templates/foxengine2/data/pages.json": '"pages"',
     "templates/foxengine2/data/badges/earlyuser.html": "data-badge-history",
     "authlib/AuthlibSessionRepository.class.php": "userUuid",
-    "api/autoload.php": "FoxCMS\\\\Api\\\\",
+    "api/autoload.php": "dirname(__DIR__) . '/autoload.php'",
     "api/content.php": "ContentApiApplication",
+    "api/src/FoxCMS/Api/Content/ContentApiApplication.php": "requireRegistryDependencies",
     "api/health.php": "HealthApiApplication",
     "api/src/FoxCMS/Api/Content/BadgeCatalogService.php": "final class BadgeCatalogService",
     "api/src/FoxCMS/Api/Bootstrap/BootstrapConfig.php": "FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY",
@@ -208,6 +213,41 @@ def verify_theme(root: Path, theme: str, failures: list[str]) -> list[str]:
     for required in (runtime_root / "theme.js", runtime_root / "theme.css"):
         if not required.is_file():
             failures.append(f"theme runtime entry is missing: {required.relative_to(root)}")
+
+    page_content_root = theme_root / "pages" / "content"
+    page_templates_root = theme_root / "pages" / "templates"
+    required_page_documents = {
+        page_content_root / "about.html": "data-project-page",
+        page_content_root / "start.html": "data-project-page",
+        page_templates_root / "StaticContent.tpl": '<fox-page-template id="static-content"',
+        page_templates_root / "StartGame.tpl": '<fox-page-template id="start-game"',
+        page_templates_root / "Achievements.tpl": '<fox-page-template id="achievements"',
+    }
+    for required, signature in required_page_documents.items():
+        relative = str(required.relative_to(root)).replace("\\", "/")
+        if not required.is_file():
+            failures.append(f"theme page document is missing: {relative}")
+            continue
+        source = required.read_text(encoding="utf-8", errors="replace")
+        if signature not in source:
+            failures.append(f"theme page document signature {signature!r} is missing from {relative}")
+        fingerprints.append(relative)
+
+    obsolete_page_paths = (
+        theme_root / "data" / "pages",
+        theme_root / "data" / "pages.json",
+    )
+    for obsolete in obsolete_page_paths:
+        if obsolete.exists():
+            failures.append(
+                "obsolete split page storage exists: "
+                + str(obsolete.relative_to(root)).replace("\\", "/")
+            )
+
+    runtime_templates_root = runtime_root / "templates"
+    for template_id in ("static-content", "start-game", "achievements"):
+        if not any(runtime_templates_root.glob(f"{template_id}.*.js")):
+            failures.append(f"runtime page render module is missing: {template_id}.<revision>.js")
 
     return fingerprints
 

@@ -19,7 +19,8 @@
   "autoload": {
     "psr-4": {
       "FoxCMS\\Api\\": "api/src/FoxCMS/Api/",
-      "FoxCMS\\Engine\\": "engine/src/FoxCMS/Engine/"
+      "FoxCMS\\Engine\\": "engine/src/FoxCMS/Engine/",
+      "FoxCMS\\Shared\\": "src/FoxCMS/Shared/"
     }
   }
 }

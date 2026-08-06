@@ -40,7 +40,10 @@ final class NewsApiApplication
             $repository = new \NewsRepository($database);
             $presenter = new NewsPresenter(
                 new \NewsContentSanitizer(),
-                new ImageDataUrlEncoder($this->context->rootDirectory(), ImageDataUrlEncoder::hostsFromRequest()),
+                new ImageDataUrlEncoder(
+                    $this->context->rootDirectory(),
+                    ImageDataUrlEncoder::allowedHosts($this->context->network(), $this->context->environment()),
+                ),
             );
             $includeImages = $this->request->booleanQuery('includeImages', false);
             $id = $this->request->query('id');
@@ -53,19 +56,13 @@ final class NewsApiApplication
             JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
         } catch (Throwable $error) {
             $requestId = RequestId::create();
-            error_log(sprintf(
-                '[FoxCMS news API][%s] %s: %s at %s:%d',
+            \FoxCMS\Api\Core\FatalResponse::send(
+                $error,
+                $this->context,
+                'news_unavailable',
+                503,
                 $requestId,
-                $error::class,
-                $error->getMessage(),
-                $error->getFile(),
-                $error->getLine(),
-            ));
-            JsonResponse::send([
-                'error' => 'news_unavailable',
-                'message' => 'Сервис новостей временно недоступен.',
-                'requestId' => $requestId,
-            ], 503, ['Cache-Control' => 'no-store, max-age=0']);
+            );
         }
     }
 

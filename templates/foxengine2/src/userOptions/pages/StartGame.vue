@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { computed } from 'vue'
+import { computed, markRaw, toRefs } from 'vue'
 import type { StaticPageDefinition } from '@engine/content/contentData'
+import RuntimeTpl from '@engine/runtime/RuntimeTpl.vue'
+import { loadRuntimePageTemplates, runtimePageTemplate, runtimePageTemplatesState } from '@engine/runtime/pageTemplates'
 
 const props = defineProps<{
   page: StaticPageDefinition | null
@@ -97,19 +99,32 @@ function handleAction(event: MouseEvent): void {
   }
   if (action === 'discord' && props.discordLink) emit('external', props.discordLink)
 }
+const pageTemplate = runtimePageTemplate('start-game')
+const runtimeTemplateComponents = markRaw({})
+const runtimeTemplateContext: Record<string, unknown> = {
+  t,
+  ...toRefs(props),
+  emit,
+  hydratedHtml,
+  handleAction,
+}
+void loadRuntimePageTemplates().catch((reason: unknown) => {
+  console.error('[FoxesCraft] StartGame.tpl failed to load', reason)
+})
 </script>
 
 <template>
-  <div v-if="loading" class="content-skeleton"><span /><span /><span /></div>
-  <div
-    v-else-if="page"
-    class="static-page-html start-page-runtime"
-    v-emoticons
-    @click.capture="handleAction"
-    v-html="hydratedHtml"
-  />
-  <div v-else-if="error" class="system-message system-message--error">
-    <strong>{{ t('theme.useroptions.pages.startgame.001') }}</strong>
-    <p>{{ t('theme.useroptions.pages.startgame.002') }} <code>data/pages/start.html</code>.</p>
+  <div v-if="runtimePageTemplatesState.error" class="system-message system-message--error" role="alert">
+    <strong>{{ t('engine.runtime.pagetemplates.003') }}</strong>
+    <p>{{ runtimePageTemplatesState.error }}</p>
   </div>
+  <RuntimeTpl
+    v-else-if="pageTemplate"
+    :template-id="pageTemplate.id"
+    :module-url="pageTemplate.moduleUrl"
+    :revision="pageTemplate.revision"
+    :context="runtimeTemplateContext"
+    :components="runtimeTemplateComponents"
+  />
+  <div v-else class="runtime-panel-skeleton" aria-hidden="true"><span /><span /><span /></div>
 </template>

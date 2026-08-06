@@ -7,7 +7,11 @@ import { fileURLToPath } from 'node:url'
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
 const files = {
+  manifestController: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/ManifestController.php'), 'utf8'),
   manifest: `${await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/ManifestController.php'), 'utf8')}\n${await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/HardwareInventoryRegistrar.php'), 'utf8')}`,
+  cors: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/BootstrapCorsPolicy.php'), 'utf8'),
+  bootstrapConfig: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/BootstrapConfig.php'), 'utf8'),
+  environmentExample: await readFile(join(repositoryRoot, '.env.example'), 'utf8'),
   report: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/HardwareReportValidator.php'), 'utf8'),
   repository: await readFile(join(repositoryRoot, 'api/src/FoxCMS/Api/Bootstrap/HardwareInventoryRepository.php'), 'utf8'),
   migration: await readFile(join(repositoryRoot, 'database/migrations/011_system_hardware_inventory.sql'), 'utf8'),
@@ -24,6 +28,13 @@ const files = {
 const requirements = [
   [files.manifest, "X-FoxesCraft-Hardware-Inventory: ", 'manifest inventory result header'],
   [files.manifest, "$this->request->method() === 'POST'", 'POST hardware registration boundary'],
+  [files.manifest, 'new BootstrapCorsPolicy($this->settings->corsAllowedOrigins())', 'bootstrap CORS policy wiring'],
+  [files.cors, 'private function requireAllowedWriteOrigin(', 'write-origin allowlist enforcement'],
+  [files.cors, "if ($origin === '')", 'native launcher no-Origin compatibility'],
+  [files.cors, "header('Access-Control-Allow-Origin: *')", 'public GET manifest CORS'],
+  [files.cors, "!in_array($path, ['', '/'], true)", 'origin path rejection'],
+  [files.bootstrapConfig, "FOXESCRAFT_BOOTSTRAP_CORS_ORIGINS", 'bootstrap CORS environment configuration'],
+  [files.environmentExample, 'FOXESCRAFT_BOOTSTRAP_CORS_ORIGINS=', 'documented bootstrap CORS allowlist'],
   [files.report, "preg_match('/^[a-f0-9]{64}$/D'", 'SHA-256-only systemHWID validation'],
   [files.report, 'hardware_report_platform_mismatch', 'platform consistency validation'],
   [files.repository, 'INSERT IGNORE INTO `system_hardware_inventory`', 'insert-once repository SQL'],
@@ -37,6 +48,10 @@ const requirements = [
 const failures = requirements
   .filter(([source, needle]) => !source.includes(needle))
   .map(([, , description]) => description)
+
+if (files.manifestController.includes("Access-Control-Allow-Origin: *")) {
+  failures.push('ManifestController must delegate CORS decisions instead of applying a wildcard to hardware POST')
+}
 
 if (files.repository.toUpperCase().includes('ON DUPLICATE KEY UPDATE')) {
   failures.push('existing first-seen hardware records must not be updated')

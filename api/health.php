@@ -6,7 +6,10 @@ use FoxCMS\Api\Core\ApplicationContext;
 use FoxCMS\Api\Core\Request;
 use FoxCMS\Api\Health\HealthApiApplication;
 
+$rootDirectory = dirname(__DIR__);
+require_once $rootDirectory . '/engine/EmergencyRuntimeHandler.php';
+EmergencyRuntimeHandler::register($rootDirectory);
 require_once __DIR__ . '/autoload.php';
 
-$context = ApplicationContext::boot(dirname(__DIR__));
+$context = ApplicationContext::boot($rootDirectory);
 (new HealthApiApplication($context, Request::fromGlobals()))->run();

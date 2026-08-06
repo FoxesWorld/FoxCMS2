@@ -4,20 +4,32 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Bootstrap;
 
-use FoxCMS\Api\Core\Environment;
+use FoxCMS\Shared\Environment\Environment;
 
 final class BootstrapConfig
 {
     /** @return array<string, mixed> */
     public static function load(string $rootDirectory): array
     {
-        $rootDirectory = Environment::load($rootDirectory);
+        $environment = Environment::boot($rootDirectory);
+        $rootDirectory = $environment->rootDirectory();
+        $corsOrigins = $environment->csv('FOXESCRAFT_BOOTSTRAP_CORS_ORIGINS');
+        $publicOrigin = BootstrapCorsPolicy::normalizeOrigin(
+            $environment->string('FOXESCRAFT_PUBLIC_BASE_URL', '') ?? '',
+        );
+        if ($publicOrigin !== '') {
+            $corsOrigins[] = $publicOrigin;
+        }
+        $corsOrigins = array_values(array_unique($corsOrigins));
         return [
+            'root_directory' => $rootDirectory,
+            'debug' => $environment->boolean('FOXESCRAFT_DEBUG', false),
             'storage_directory' => (string)(
-                \foxEnv('FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY')
+                $environment->string('FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY')
                 ?? ($rootDirectory . '/uploads/bootstrap')
             ),
-            'cache_max_age' => max(0, \foxEnvInt('FOXESCRAFT_BOOTSTRAP_CACHE_MAX_AGE', 60)),
+            'cache_max_age' => max(0, $environment->integer('FOXESCRAFT_BOOTSTRAP_CACHE_MAX_AGE', 60)),
+            'cors_allowed_origins' => $corsOrigins,
             'launcher_file_name' => 'launcher.jar',
             'launcher_jvm_args' => [
                 '-Xms256m',
@@ -27,19 +39,19 @@ final class BootstrapConfig
             ],
             'launcher_args' => [],
             'hardware_inventory' => [
-                'enabled' => \foxEnvBool('FOXESCRAFT_HARDWARE_INVENTORY_ENABLED', true),
+                'enabled' => $environment->boolean('FOXESCRAFT_HARDWARE_INVENTORY_ENABLED', true),
                 'max_payload_bytes' => max(
                     4096,
-                    min(131072, \foxEnvInt('FOXESCRAFT_HARDWARE_INVENTORY_MAX_BYTES', 32768)),
+                    min(131072, $environment->integer('FOXESCRAFT_HARDWARE_INVENTORY_MAX_BYTES', 32768)),
                 ),
             ],
             'database' => [
-                'host' => \foxEnv('FOXESCRAFT_DB_HOST', '127.0.0.1') ?? '127.0.0.1',
-                'port' => max(1, min(65535, \foxEnvInt('FOXESCRAFT_DB_PORT', 3306))),
-                'name' => \foxEnv('FOXESCRAFT_DB_NAME', 'foxescraft') ?? 'foxescraft',
-                'user' => \foxEnv('FOXESCRAFT_DB_USER', 'foxescraft') ?? 'foxescraft',
-                'password' => \foxEnv('FOXESCRAFT_DB_PASSWORD', '') ?? '',
-                'connect_timeout' => max(1, min(30, \foxEnvInt('FOXESCRAFT_DB_CONNECT_TIMEOUT', 5))),
+                'host' => $environment->string('FOXESCRAFT_DB_HOST', '127.0.0.1') ?? '127.0.0.1',
+                'port' => max(1, min(65535, $environment->integer('FOXESCRAFT_DB_PORT', 3306))),
+                'name' => $environment->string('FOXESCRAFT_DB_NAME', 'foxescraft') ?? 'foxescraft',
+                'user' => $environment->string('FOXESCRAFT_DB_USER', 'foxescraft') ?? 'foxescraft',
+                'password' => $environment->string('FOXESCRAFT_DB_PASSWORD', '') ?? '',
+                'connect_timeout' => max(1, min(30, $environment->integer('FOXESCRAFT_DB_CONNECT_TIMEOUT', 5))),
             ],
         ];
     }

@@ -6,9 +6,11 @@ namespace FoxCMS\Api\Launcher;
 
 use FoxCMS\Api\Bootstrap\BootstrapConfig;
 use FoxCMS\Api\Bootstrap\RuntimeCatalog;
+use FoxCMS\Api\Bootstrap\Runtime\RuntimeRequest;
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\JsonResponse;
 use FoxCMS\Api\Core\Request;
+use FoxCMS\Shared\Environment\Environment;
 use Throwable;
 
 final class RuntimeCatalogController
@@ -23,33 +25,29 @@ final class RuntimeCatalogController
 
     public function run(): never
     {
+        $environment = Environment::boot($this->rootDirectory);
         $config = BootstrapConfig::load($this->rootDirectory);
         $this->applyHeaders();
 
         try {
             $this->request->requireMethod('POST');
-            (new BridgeAuthenticator())->authenticate($this->request);
+            (new BridgeAuthenticator($environment))->authenticate($this->request);
             $platform = trim((string)$this->request->post('platform'));
             $version = trim((string)$this->request->post('version'));
             if ($platform === '' || $version === '') {
                 throw new HttpException(422, 'runtime_request_incomplete', 'platform and version are required.');
             }
 
-            $previousQuery = $_GET;
-            $_GET = [
+            $runtimeRequest = RuntimeRequest::fromArray([
                 'platform' => $platform,
                 'version' => $version,
                 'distribution' => 'any',
                 'allow_prerelease' => 'false',
                 'client_version' => trim((string)($this->request->post('client_version') ?? 'KaylasLauncher')),
-            ];
-            try {
-                $locator = new RuntimeArchiveLocator();
-                $storageDirectory = $locator->storageDirectory($config['storage_directory'] ?? null);
-                $runtime = (new RuntimeCatalog())->resolve($storageDirectory);
-            } finally {
-                $_GET = $previousQuery;
-            }
+            ]);
+            $locator = new RuntimeArchiveLocator();
+            $storageDirectory = $locator->storageDirectory($config['storage_directory'] ?? null);
+            $runtime = (new RuntimeCatalog())->resolve($storageDirectory, $runtimeRequest);
 
             $artifacts = is_array($runtime['artifacts'] ?? null) ? $runtime['artifacts'] : [];
             $descriptor = $artifacts[$platform] ?? null;
@@ -93,14 +91,26 @@ final class RuntimeCatalogController
                 'X-FoxesCraft-Error-Code' => $error->errorCode(),
             ]);
         } catch (Throwable $error) {
+            $requestId = \FoxCMS\Api\Core\RequestId::create();
             error_log(sprintf(
-                '[FoxesCraft launcher runtime catalog] exception=%s message=%s source=%s:%d',
+                '[FoxesCraft launcher runtime catalog][%s] exception=%s message=%s source=%s:%d',
+                $requestId,
                 $error::class,
                 $error->getMessage(),
                 $error->getFile(),
                 $error->getLine(),
             ));
-            JsonResponse::error('runtime_catalog_internal_error', 'Runtime catalog request failed.', 500);
+            JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $error,
+                    $requestId,
+                    $this->rootDirectory,
+                    $environment->boolean('FOXESCRAFT_DEBUG', false),
+                    ['error' => 'runtime_catalog_internal_error'],
+                ),
+                500,
+                ['Cache-Control' => 'no-store', 'X-Request-ID' => $requestId],
+            );
         }
     }
 

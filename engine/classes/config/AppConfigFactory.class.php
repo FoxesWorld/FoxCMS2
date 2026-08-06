@@ -112,7 +112,7 @@ final class AppConfigFactory
                 'ServiceVersion' => foxEnv('FOXESCRAFT_SERVICE_VERSION', '3.0.0-dev') ?? '3.0.0-dev',
             ],
             'launcherSettings' => [
-                'gameFiles' => self::relativeDirectory(foxEnv('FOXESCRAFT_GAME_FILES_DIR', 'files/clients/') ?? 'files/clients/'),
+                'gameFiles' => self::relativeDirectory(foxEnv('FOXESCRAFT_GAME_FILES_DIR', 'game/') ?? 'game/'),
                 'serverPictures' => 'assets/img/servers/',
                 'jreDir' => self::relativeDirectory(foxEnv('FOXESCRAFT_JRE_DIR', 'files/runtime/') ?? 'files/runtime/'),
                 'sessionSeconds' => max(300, foxEnvInt('FOXESCRAFT_LAUNCHER_SESSION_SECONDS', 900)),

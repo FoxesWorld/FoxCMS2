@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FoxCMS\Api\Bootstrap;
 
 use FoxCMS\Api\Core\HttpException;
+use FoxCMS\Api\Core\Request;
 
 final class ArtifactCatalog
 {
@@ -20,9 +21,9 @@ final class ArtifactCatalog
         $this->locator = new VersionedArtifactLocator();
     }
 
-    public static function requestPlatform(string $default = 'windows-x86_64'): string
+    public static function requestPlatform(Request $request, string $default = 'windows-x86_64'): string
     {
-        $platform = trim((string)($_GET['platform'] ?? $default));
+        $platform = $request->query('platform') ?? $default;
         if (preg_match(self::PLATFORM_PATTERN, $platform) !== 1) {
             throw new HttpException(422, 'unsupported_platform', 'Unsupported bootstrapper platform.', [
                 'platform' => $platform,

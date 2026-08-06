@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 $rootDirectory = dirname(__DIR__);
 
+require_once $rootDirectory . '/autoload.php';
+
+$environment = FoxCMS\Shared\Environment\Environment::boot($rootDirectory);
 require_once __DIR__ . '/data/environment.php';
 require_once __DIR__ . '/autoload.php';
 
 RuntimeErrorHandler::register($rootDirectory, false);
-foxLoadEnv($rootDirectory . DIRECTORY_SEPARATOR . '.env');
-RuntimeErrorHandler::setDebug(foxEnvBool('FOXESCRAFT_DEBUG', false));
+RuntimeErrorHandler::setDebug($environment->boolean('FOXESCRAFT_DEBUG', false));
 
 if (class_exists('init', false) || defined('CURRENT_TEMPLATE') || defined('RT_DIR')) {
     http_response_code(503);
@@ -23,10 +25,7 @@ if (!defined('FOXXEY')) {
     define('FOXXEY', true);
 }
 
-$trustedProxies = array_values(array_filter(array_map(
-    'trim',
-    explode(',', foxEnv('FOXESCRAFT_TRUSTED_PROXIES', '') ?? ''),
-), static fn (string $value): bool => $value !== ''));
+$trustedProxies = $environment->csv('FOXESCRAFT_TRUSTED_PROXIES');
 $network = NetworkContext::fromGlobals($trustedProxies);
 $GLOBALS['foxNetworkContext'] = $network;
 

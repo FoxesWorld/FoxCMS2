@@ -1,121 +1,124 @@
 <?php
 
+declare(strict_types=1);
+
+use FoxCMS\Engine\Monitoring\MonitoringRecordStore;
+use PHPMinecraft\MinecraftQuery\MinecraftQueryResolver;
+
 if (!defined('FOXXEY')) {
-    exit("Not a FOXXEY");
-} else {
+    http_response_code(403);
+    exit('Forbidden');
+}
+if (!defined('foxesMon')) {
     define('foxesMon', true);
 }
 
+UtilityLoader::load('McQuery', '1.0.0');
 
-
-UtilityLoader::load('McQuery', "1.0.0");
-use PHPMinecraft\MinecraftQuery\MinecraftQueryResolver;
-class FoxesMon
+/** Minecraft server monitoring domain service. */
+final class FoxesMon
 {
-    private $logger;
-    private $servers;
-    private $time;
-    private $results = [];
-    private $record = [];
+    /** @var list<array{name:string,host:string,port:int}> */
+    private array $servers;
 
-    public function __construct($logger, $serversArray, $time)
-    {
-        global $config;
+    /** @var list<array<string, mixed>> */
+    private array $results = [];
 
-        $this->logger = $logger;
-        $this->servers = $this->parseServers($serversArray);
-        $this->time = $time;
+    /** @var array{all:int,day:int} */
+    private array $record;
 
-        $this->initializeRecords($config['monitor']);
+    private MonitoringRecordStore $records;
+
+    /** @param array<string, mixed> $monitorConfig */
+    public function __construct(
+        private Logger $logger,
+        string $serversJson,
+        array $monitorConfig,
+    ) {
+        $this->servers = $this->parseServers($serversJson);
+        $this->records = new MonitoringRecordStore($monitorConfig);
+        $this->record = $this->records->load();
         $this->fetchServersData();
     }
 
-    public function outputMonitoringData()
+    /** @return array<string, mixed> */
+    public function outputMonitoringData(): array
     {
-        $response = [
+        return [
             'servers' => $this->results,
             'totalPlayersOnline' => array_sum(array_column($this->results, 'playersOnline')),
             'totalPlayersMax' => array_sum(array_column($this->results, 'playersMax')),
-            'absoluteRecord' => $this->record['all'] ?? 0,
-            'todaysRecord' => $this->record['day'] ?? 0,
+            'absoluteRecord' => $this->record['all'],
+            'todaysRecord' => $this->record['day'],
         ];
-
-        header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        exit;
     }
 
-private function fetchServersData()
-{
-	global $config;
-    foreach ($this->servers as $server) {
-        try {
-            $resolver = new MinecraftQueryResolver($server['host'], $server['port']);
-            $result = $resolver->getResult($tryOldQueryProtocolPre17 = true);
-
-            $playersOnline = $result->getOnlinePlayers() ?? 0;
-            $this->results[] = [
-                'serverName' => $server['name'],
-                'status' => $result->isOnline() ? 'online' : 'offline',
-                'version' => $result->getVersion() ?? null,
-                'playersOnline' => $playersOnline,
-                'playersMax' => $result->getMaxPlayers() ?? 0,
-                'playersOnServer' => $result->getPlayersSample(),
-                'favicon' => $result->getFavicon() ?? null,
-            ];
-
-            // Обновление абсолютного рекорда
-            if ($playersOnline > $this->record['all']) {
-                $this->record['all'] = $playersOnline;
-                file_put_contents($config['monitor']['absoluteRecordPath'], $playersOnline);
+    private function fetchServersData(): void
+    {
+        foreach ($this->servers as $server) {
+            try {
+                $resolver = new MinecraftQueryResolver($server['host'], $server['port']);
+                $result = $resolver->getResult(true);
+                $playersOnline = max(0, (int)($result->getOnlinePlayers() ?? 0));
+                $this->results[] = [
+                    'serverName' => $server['name'],
+                    'status' => $result->isOnline() ? 'online' : 'offline',
+                    'version' => $result->getVersion() ?? null,
+                    'playersOnline' => $playersOnline,
+                    'playersMax' => max(0, (int)($result->getMaxPlayers() ?? 0)),
+                    'playersOnServer' => $result->getPlayersSample(),
+                    'favicon' => $result->getFavicon() ?? null,
+                ];
+                $this->record['all'] = $this->records->updateAbsolute($playersOnline);
+                $this->record['day'] = $this->records->updateDay($playersOnline);
+            } catch (Throwable $error) {
+                $this->results[] = [
+                    'serverName' => $server['name'],
+                    'status' => 'offline',
+                    'version' => null,
+                    'playersOnline' => 0,
+                    'playersMax' => 0,
+                    'playersOnServer' => [],
+                    'favicon' => null,
+                ];
+                $this->logger->exception(
+                    'monitoring.server.query_failed',
+                    $error,
+                    'Minecraft server monitoring query failed.',
+                    [
+                        'component' => 'monitoring',
+                        'operation' => 'query_server',
+                        'serverName' => $server['name'],
+                    ],
+                );
             }
-
-            // Обновление дневного рекорда
-            if ($playersOnline > $this->record['day']) {
-                $this->record['day'] = $playersOnline;
-                file_put_contents($config['monitor']['dayRecordPath'], $playersOnline);
-            }
-        } catch (Exception $e) {
-            $this->results[] = [
-                'serverName' => $server['name'],
-                'status' => 'offline',
-                'version' => null,
-                'playersOnline' => 0,
-                'playersMax' => 0,
-                'favicon' => null,
-            ];
         }
     }
-}
 
-
-
-    private function initializeRecords($config)
+    /** @return list<array{name:string,host:string,port:int}> */
+    private function parseServers(string $serversJson): array
     {
-		global $config;
-        $this->record['all'] = @file_get_contents($config['monitor']['absoluteRecordPath']) ?: 0;
-        $this->record['day'] = @file_get_contents($config['monitor']['dayRecordPath']) ?: 0;
-    }
-
-    private function parseServers($serversArray)
-    {
-        $decoded = json_decode((string)$serversArray, true);
+        $decoded = json_decode($serversJson, true);
         if (!is_array($decoded) || !array_is_list($decoded)) {
             return [];
         }
         $servers = [];
         foreach ($decoded as $server) {
-            if (!is_array($server)) continue;
+            if (!is_array($server)) {
+                continue;
+            }
             $name = trim((string)($server['serverName'] ?? ''));
             $host = trim((string)($server['host'] ?? ''));
             $port = filter_var($server['port'] ?? null, FILTER_VALIDATE_INT);
-            if ($name === '' || $host === '' || $port === false || $port < 1 || $port > 65535) {
+            if ($name === '' || strlen($name) > 128
+                || $host === '' || strlen($host) > 253
+                || $port === false || $port < 1 || $port > 65535) {
                 continue;
             }
             $servers[] = [
                 'name' => $name,
                 'host' => $host,
-                'port' => $port,
+                'port' => (int)$port,
             ];
         }
         return $servers;

@@ -1,0 +1,2 @@
+import{Bt as e,K as t,Sn as n,Yt as r,tt as i}from"./runtime-dom.esm-bundler-CcRVt9LH.js";var a=[`innerHTML`],o=i({__name:`StaticPage`,props:{page:{}},setup(i){return(o,s)=>{let c=r(`emoticons`);return n((e(),t(`div`,{class:`static-page-html`,innerHTML:i.page.html},null,8,a)),[[c]])}}});export{o as t};
+//# sourceMappingURL=StaticPage-C7cc9QZR.js.map

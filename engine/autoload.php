@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/autoload.php';
+
 /**
  * Engine autoloader.
  *
@@ -10,19 +12,6 @@ declare(strict_types=1);
  * incrementally instead of through a high-risk flag-day rewrite.
  */
 spl_autoload_register(static function (string $class): void {
-    $prefix = 'FoxCMS\\Engine\\';
-    if (str_starts_with($class, $prefix)) {
-        $relative = substr($class, strlen($prefix));
-        if ($relative === false || $relative === '') {
-            return;
-        }
-        $file = __DIR__ . '/src/FoxCMS/Engine/' . str_replace('\\', '/', $relative) . '.php';
-        if (is_file($file)) {
-            require_once $file;
-        }
-        return;
-    }
-
     if (str_contains($class, '\\')) {
         return;
     }

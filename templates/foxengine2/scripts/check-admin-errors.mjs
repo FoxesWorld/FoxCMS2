@@ -10,7 +10,7 @@ const [presenter, options, rewardController, badgeSchema, panel, ui] = await Pro
   read('engine/classes/modules/AdminPanel/AdminRewardController.class.php'),
   read('engine/classes/modules/AdminPanel/AdminBadgeCatalogSchema.class.php'),
   read('engine/classes/modules/AdminPanel/AdminPanel.class.php'),
-  read('templates/foxengine2/src/userOptions/userOptions/AdminPanel.vue'),
+  read('templates/foxengine2/userOptions/AdminPanel.tpl'),
 ])
 const failures = []
 const requireToken = (label, source, token) => {

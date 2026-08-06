@@ -12,6 +12,8 @@ const scanRoots = [
   resolve(themeRoot, 'src'),
   resolve(repositoryRoot, 'engine', 'client'),
   resolve(repositoryRoot, 'engine', 'classes', 'modules'),
+  resolve(themeRoot, 'userOptions'),
+  resolve(themeRoot, 'pages'),
 ]
 const ignoredDirectories = new Set(['node_modules', '.git', '.vite', 'assets', '_migration_backups', 'i18n'])
 const userFacingAttributes = new Set([
@@ -187,7 +189,7 @@ async function listFiles(directory) {
     if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue
     const path = resolve(directory, entry.name)
     if (entry.isDirectory()) output.push(...await listFiles(path))
-    else if (entry.isFile() && ['.vue', '.ts'].includes(extname(entry.name))) output.push(path)
+    else if (entry.isFile() && ['.vue', '.ts', '.tpl'].includes(extname(entry.name))) output.push(path)
   }
   return output
 }
@@ -201,7 +203,8 @@ for (const path of files) {
   const source = bytes.toString('utf8')
   if (source.includes('\uFFFD')) failures.push(`${relative(repositoryRoot, path)} contains Unicode replacement characters`)
 
-  if (extname(path) === '.vue') {
+  const extension = extname(path)
+  if (extension === '.vue') {
     const parsed = parseSfc(source, { filename: path })
     if (parsed.errors.length) {
       failures.push(`${relative(repositoryRoot, path)} cannot be parsed as Vue SFC`)
@@ -215,11 +218,21 @@ for (const path of files) {
     if (descriptor.scriptSetup) {
       inspectTypeScript(descriptor.scriptSetup.content, path, source, descriptor.scriptSetup.loc.start.offset, 'script')
     }
+  } else if (extension === '.tpl') {
+    const match = source.match(/<fox-template-body\b[^>]*>([\s\S]*?)<\/fox-template-body>/u)
+    if (!match || typeof match.index !== 'number') {
+      failures.push(`${relative(repositoryRoot, path)} lacks fox-template-body`)
+      continue
+    }
+    const body = match[1]
+    const bodyOffset = match.index + match[0].indexOf(body)
+    const ast = baseParse(body, { ...parserOptions, comments: false })
+    walkTemplate(ast, path, source, bodyOffset)
   } else {
     inspectTypeScript(source, path, source, 0, 'script')
   }
 
-  if (/\bt\s*\(/u.test(source) && !source.includes("from '@/i18n'")) {
+  if (extension !== '.tpl' && /\bt\s*\(/u.test(source) && !source.includes("from '@/i18n'")) {
     failures.push(`${relative(repositoryRoot, path)} uses t() without importing @/i18n`)
   }
 }

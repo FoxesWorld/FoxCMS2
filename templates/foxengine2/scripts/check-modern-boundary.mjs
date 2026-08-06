@@ -1,8 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { extname, relative } from 'node:path'
-import { clientSourceRoots, repositoryRoot } from './theme-paths.mjs'
+import { clientSourceRoots, repositoryRoot, themeRoot } from './theme-paths.mjs'
 
-const extensions = new Set(['.ts', '.vue', '.css'])
+const extensions = new Set(['.ts', '.vue', '.css', '.tpl'])
 const violations = []
 async function walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -20,7 +20,7 @@ async function walk(directory) {
     if (text.includes('/plugins/')) violations.push(`${rel}: direct /plugins/ access`)
   }
 }
-for (const root of clientSourceRoots) await walk(root)
+for (const root of [...clientSourceRoots, `${themeRoot}/userOptions`]) await walk(root)
 if (violations.length) {
   console.error('Modern client boundary violations:')
   for (const violation of violations) console.error(`- ${violation}`)

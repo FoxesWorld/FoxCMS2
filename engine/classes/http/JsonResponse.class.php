@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use FoxCMS\Shared\Http\ResponseHeaders;
+
 final class JsonResponse
 {
     /**
@@ -74,27 +76,7 @@ final class JsonResponse
     /** @param array<string, scalar> $headers */
     private static function begin(int $status, string $contentType, array $headers): void
     {
-        if ($status < 100 || $status > 599) {
-            throw new InvalidArgumentException('Invalid HTTP response status.');
-        }
-        if (str_contains($contentType, "\r") || str_contains($contentType, "\n")) {
-            throw new InvalidArgumentException('Invalid response content type.');
-        }
-        foreach ($headers as $name => $value) {
-            if (is_string($name) && is_scalar($value)) {
-                self::validateHeader($name, (string)$value);
-            }
-        }
-
-        http_response_code($status);
-        self::emitHeader('Content-Type', $contentType);
-        self::emitHeader('Cache-Control', 'no-store');
-        self::emitHeader('X-Content-Type-Options', 'nosniff');
-        foreach ($headers as $name => $value) {
-            if (is_string($name) && is_scalar($value)) {
-                self::emitHeader($name, (string)$value);
-            }
-        }
+        ResponseHeaders::begin($status, $contentType, $headers);
         self::emitTraceHeaders();
 
         if (class_exists(RequestTelemetry::class, false)) {
@@ -112,25 +94,10 @@ final class JsonResponse
         $requestId = RequestTelemetry::requestId();
         $correlationId = RequestTelemetry::correlationId();
         if ($requestId !== '') {
-            self::emitHeader('X-Request-ID', $requestId);
+            ResponseHeaders::emit('X-Request-ID', $requestId);
         }
         if ($correlationId !== '') {
-            self::emitHeader('X-Correlation-ID', $correlationId);
-        }
-    }
-
-    private static function emitHeader(string $name, string $value): void
-    {
-        self::validateHeader($name, $value);
-        header($name . ': ' . $value);
-    }
-
-    private static function validateHeader(string $name, string $value): void
-    {
-        if (preg_match('/^[A-Za-z0-9-]{1,64}$/D', $name) !== 1
-            || str_contains($value, "\r")
-            || str_contains($value, "\n")) {
-            throw new InvalidArgumentException('Invalid HTTP response header.');
+            ResponseHeaders::emit('X-Correlation-ID', $correlationId);
         }
     }
 }

@@ -3,6 +3,7 @@ import { t } from '@/i18n'
 
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { BadgeDefinition, StaticPageDefinition } from '@engine/content/contentData'
+import type { RuntimePageTemplatesDocument } from '@engine/runtime/pageTemplates'
 import type {
   BadgeCatalogRow, BadgePageDraft, ProjectPageDraft, SystemPageDraft,
 } from '@modules/AdminPanel/client/useAdminPanel'
@@ -13,6 +14,8 @@ const CodeEditor = defineAsyncComponent(() => import('@theme/foxEngine/editor/Co
 
 const props = defineProps<{
   projectPages: ProjectPageDraft[]
+  pageTemplates: RuntimePageTemplatesDocument | null
+  pageTemplatesStorageReady: boolean
   systemPages: SystemPageDraft[]
   badgePages: BadgePageDraft[]
   badges: BadgeCatalogRow[]
@@ -21,18 +24,26 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   saveProjectPages: []
+  savePageTemplate: [templateId: string, source: string]
+  reloadPageTemplates: []
   saveBadgePage: [page: BadgePageDraft]
   deleteBadgePage: [page: BadgePageDraft]
 }>()
 
-const mode = ref<'project' | 'system' | 'badges'>('project')
+const mode = ref<'project' | 'templates' | 'system' | 'badges'>('project')
 const projectWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const badgeWorkspaceTab = ref<'editor' | 'preview'>('editor')
 const selectedProjectId = ref('')
+const selectedPageTemplateId = ref('')
 const selectedSystemPageId = ref('')
 const selectedBadgeName = ref('')
 
 const selectedProject = computed(() => props.projectPages.find((page) => page.id === selectedProjectId.value) ?? null)
+const selectedPageTemplate = computed(() => props.pageTemplates?.templates.find((entry) => entry.id === selectedPageTemplateId.value) ?? null)
+const pageTemplateSource = computed({
+  get: () => selectedPageTemplate.value?.source ?? '',
+  set: (value: string) => { if (selectedPageTemplate.value) selectedPageTemplate.value.source = value },
+})
 const selectedSystemPage = computed(() => props.systemPages.find((page) => page.id === selectedSystemPageId.value) ?? null)
 const selectedBadge = computed(() => props.badges.find((badge) => badge.badgeName === selectedBadgeName.value) ?? null)
 const selectedBadgePage = computed(() => {
@@ -110,6 +121,10 @@ watch(() => props.projectPages, (pages) => {
   if (!pages.some((page) => page.id === selectedProjectId.value)) selectedProjectId.value = pages[0]?.id ?? ''
 }, { immediate: true, deep: true })
 
+watch(() => props.pageTemplates?.templates ?? [], (templates) => {
+  if (!templates.some((entry) => entry.id === selectedPageTemplateId.value)) selectedPageTemplateId.value = templates[0]?.id ?? ''
+}, { immediate: true, deep: true })
+
 watch(() => props.systemPages, (pages) => {
   if (!pages.some((page) => page.id === selectedSystemPageId.value)) selectedSystemPageId.value = pages[0]?.id ?? ''
 }, { immediate: true, deep: true })
@@ -121,6 +136,7 @@ watch(() => props.badges, (badges) => {
 
 
 watch(selectedProjectId, () => { projectWorkspaceTab.value = 'editor' })
+watch(selectedPageTemplateId, () => { pageTemplateSource.value = selectedPageTemplate.value?.source ?? '' })
 watch(selectedBadgeName, () => { badgeWorkspaceTab.value = 'editor' })
 
 function escapeHtml(value: string): string {
@@ -153,6 +169,12 @@ function deleteBadgePage(): void {
   emit('deleteBadgePage', page)
 }
 
+function saveSelectedPageTemplate(): void {
+  const template = selectedPageTemplate.value
+  if (!template?.source?.trim()) return
+  emit('savePageTemplate', template.id, template.source)
+}
+
 </script>
 
 <template>
@@ -160,14 +182,18 @@ function deleteBadgePage(): void {
     <header class="admin-content-editor__header">
       <div>
         <span class="eyebrow">{{ t('theme.foxengine.admin.content.001') }}</span>
-        <h2>{{ mode === 'project' ? t('theme.foxengine.admin.content.002') : mode === 'system' ? t('theme.foxengine.admin.content.047') : t('theme.foxengine.admin.content.003') }}</h2>
+        <h2>{{ mode === 'project' ? t('theme.foxengine.admin.content.002') : mode === 'templates' ? t('theme.foxengine.admin.runtimeoptions.002') : mode === 'system' ? t('theme.foxengine.admin.content.047') : t('theme.foxengine.admin.content.003') }}</h2>
         <p v-if="mode === 'project'">{{ t('theme.foxengine.admin.content.004') }}</p>
+        <p v-else-if="mode === 'templates'">{{ t('theme.foxengine.admin.runtimeoptions.003') }}</p>
         <p v-else-if="mode === 'system'">{{ t('theme.foxengine.admin.content.048') }}</p>
         <p v-else>{{ t('theme.foxengine.admin.content.005') }}</p>
       </div>
       <div class="admin-content-editor__modes">
         <button type="button" :class="{ active: mode === 'project' }" @click="mode = 'project'">
           <i class="fa-solid fa-newspaper" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.002') }}</span>
+        </button>
+        <button type="button" :class="{ active: mode === 'templates' }" @click="mode = 'templates'">
+          <i class="fa-solid fa-file-code" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.runtimeoptions.002') }}</span>
         </button>
         <button type="button" :class="{ active: mode === 'system' }" @click="mode = 'system'">
           <i class="fa-solid fa-window-maximize" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.047') }}</span>
@@ -194,13 +220,13 @@ function deleteBadgePage(): void {
 
       <form v-if="selectedProject" class="admin-badge-html-editor admin-project-html-editor" @submit.prevent="emit('saveProjectPages')">
         <header class="admin-content-form__title">
-          <div><span class="eyebrow">{{ t('theme.foxengine.admin.content.006') }}</span><h3>{{ selectedProject.title }}</h3><p><code>data/pages/{{ selectedProject.id }}.html</code></p></div>
+          <div><span class="eyebrow">{{ t('theme.foxengine.admin.content.006') }}</span><h3>{{ selectedProject.title }}</h3><p><code>pages/content/{{ selectedProject.id }}.html</code></p></div>
           <a class="button button--ghost" :href="`/#/${selectedProject.id}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
         </header>
 
         <div class="admin-content-form__grid">
           <label><span>{{ t('theme.foxengine.admin.content.009') }}</span><input :value="selectedProject.id" type="text" readonly></label>
-          <label><span>{{ t('theme.foxengine.admin.content.010') }}</span><input :value="`data/pages/${selectedProject.id}.html`" type="text" readonly></label>
+          <label><span>{{ t('theme.foxengine.admin.content.010') }}</span><input :value="`pages/content/${selectedProject.id}.html`" type="text" readonly></label>
         </div>
 
         <div class="admin-html-workbench__tabs" role="tablist" :aria-label="t('theme.foxengine.admin.content.012')">
@@ -236,6 +262,63 @@ function deleteBadgePage(): void {
 
         <footer class="admin-content-form__footer">
           <button class="button button--primary" type="submit" :disabled="loading"><i class="fa-solid fa-floppy-disk" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.025') }} {{ selectedProject.id }}.html</span></button>
+        </footer>
+      </form>
+    </div>
+
+
+    <div v-else-if="mode === 'templates'" class="admin-content-editor__workspace">
+      <aside class="admin-content-editor__list">
+        <button
+          v-for="entry in pageTemplates?.templates ?? []"
+          :key="entry.id"
+          type="button"
+          :class="{ active: selectedPageTemplateId === entry.id }"
+          @click="selectedPageTemplateId = entry.id"
+        >
+          <i class="fa-solid fa-file-code" aria-hidden="true" />
+          <span><strong>{{ entry.file }}</strong><small>{{ entry.id }} · {{ t('theme.foxengine.admin.runtimeoptions.012') }} {{ entry.revision }}</small></span>
+        </button>
+      </aside>
+
+      <form v-if="selectedPageTemplate" class="admin-badge-html-editor admin-project-html-editor" @submit.prevent="saveSelectedPageTemplate">
+        <header class="admin-content-form__title">
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.runtimeoptions.007') }}</span>
+            <h3>{{ selectedPageTemplate.file }}</h3>
+            <p><code>pages/templates/{{ selectedPageTemplate.file }}</code> · {{ t('theme.foxengine.admin.runtimeoptions.012') }} {{ selectedPageTemplate.revision }}</p>
+          </div>
+          <span class="admin-html-preview__status" :class="{ ready: pageTemplatesStorageReady }">
+            <i class="fa-solid" :class="pageTemplatesStorageReady ? 'fa-circle-check' : 'fa-triangle-exclamation'" aria-hidden="true" />
+            {{ pageTemplatesStorageReady ? t('theme.foxengine.admin.runtimeoptions.004') : t('theme.foxengine.admin.runtimeoptions.005') }}
+          </span>
+        </header>
+
+        <div class="admin-content-form__grid">
+          <label><span>{{ t('theme.foxengine.admin.content.009') }}</span><input :value="selectedPageTemplate.id" type="text" readonly></label>
+          <label><span>{{ t('theme.foxengine.admin.content.010') }}</span><input :value="`pages/templates/${selectedPageTemplate.file}`" type="text" readonly></label>
+        </div>
+
+        <div class="admin-badge-html-editor__source">
+          <span>{{ t('theme.foxengine.admin.content.015') }}</span>
+          <CodeEditor
+            :key="`page-template-${selectedPageTemplate.id}-${selectedPageTemplate.revision}`"
+            v-model="pageTemplateSource"
+            language="html"
+            :aria-label="selectedPageTemplate.file"
+            min-height="680px"
+          />
+          <small>{{ t('theme.foxengine.admin.runtimeoptions.035') }}</small>
+        </div>
+
+        <footer class="admin-content-form__footer">
+          <button class="button button--ghost" type="button" :disabled="loading" @click="emit('reloadPageTemplates')">
+            <i class="fa-solid fa-rotate" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.runtimeoptions.036') }}</span>
+          </button>
+          <button class="button button--primary" type="submit" :disabled="loading || !pageTemplateSource.trim()">
+            <i class="fa-solid" :class="loading ? 'fa-spinner' : 'fa-floppy-disk'" aria-hidden="true" />
+            <span>{{ loading ? t('theme.foxengine.admin.runtimeoptions.037') : t('theme.foxengine.admin.runtimeoptions.038') }}</span>
+          </button>
         </footer>
       </form>
     </div>

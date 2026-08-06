@@ -7,7 +7,7 @@ const ignoredDirectories = new Set(['.git', 'node_modules', '.vite'])
 const textExtensions = new Set([
   '.php', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.vue', '.css', '.scss', '.less',
   '.html', '.htm', '.sql', '.json', '.xml', '.yml', '.yaml', '.md', '.txt', '.ini',
-  '.conf', '.env', '.properties', '.toml', '.sh', '.bat', '.cmd', '.ps1', '.csv',
+  '.conf', '.env', '.properties', '.toml', '.sh', '.bat', '.cmd', '.ps1', '.csv', '.tpl', '.ftpl',
 ])
 const textNames = new Set(['.editorconfig', '.gitattributes', '.gitignore'])
 const utf8 = new TextDecoder('utf-8', { fatal: true })

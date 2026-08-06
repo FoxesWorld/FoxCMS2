@@ -284,6 +284,8 @@ final class HealthCheckService
             'index.html',
             'assets/runtime/theme.css',
             'assets/runtime/theme.js',
+            'userOptions/ProfileSettings.tpl',
+            'userOptions/AdminPanel.tpl',
         ];
         $missing = [];
         foreach ($required as $file) {

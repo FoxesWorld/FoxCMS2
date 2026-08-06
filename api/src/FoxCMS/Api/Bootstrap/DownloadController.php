@@ -34,11 +34,18 @@ final class DownloadController
         } catch (HttpException $error) {
             JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
         } catch (Throwable $error) {
-            error_log('[FoxesCraft bootstrap download] ' . (string)$error);
-            JsonResponse::error(
-                'bootstrap_download_internal_error',
-                'Bootstrapper download cannot be resolved.',
+            $requestId = \FoxCMS\Api\Core\RequestId::create();
+            error_log('[FoxesCraft bootstrap download][' . $requestId . '] ' . (string)$error);
+            JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $error,
+                    $requestId,
+                    (string)($this->config['root_directory'] ?? ''),
+                    ($this->config['debug'] ?? false) === true,
+                    ['error' => 'bootstrap_download_internal_error'],
+                ),
                 500,
+                ['Cache-Control' => 'no-store', 'X-Request-ID' => $requestId],
             );
         }
     }

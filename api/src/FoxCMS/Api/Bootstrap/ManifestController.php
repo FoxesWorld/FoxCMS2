@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Bootstrap;
 
+use FoxCMS\Api\Bootstrap\Runtime\RuntimeRequest;
+
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\JsonResponse;
 use FoxCMS\Api\Core\Request;
@@ -28,24 +30,25 @@ final class ManifestController
     {
         $requestId = RequestId::create();
         $this->applyHeaders($requestId);
-
-        if ($this->request->method() === 'OPTIONS') {
-            header('Cache-Control: no-store');
-            http_response_code(204);
-            exit;
-        }
+        $cors = new BootstrapCorsPolicy($this->settings->corsAllowedOrigins());
 
         try {
+            if ($this->request->method() === 'OPTIONS') {
+                $cors->handlePreflight($this->request);
+            }
+            $cors->apply($this->request);
             $this->request->requireMethod('GET', 'POST');
             if ($this->request->method() === 'POST') {
-                (new HardwareInventoryRegistrar($this->settings))->register($requestId);
+                (new HardwareInventoryRegistrar($this->settings, $this->request))->register($requestId);
             } else {
                 header('X-FoxesCraft-Hardware-Inventory: not-provided');
             }
 
             $isGet = $this->request->method() === 'GET';
+            $platform = ArtifactCatalog::requestPlatform($this->request);
+            $runtimeRequest = RuntimeRequest::fromRequest($this->request, ['platform' => $platform]);
             JsonResponse::send(
-                (new ManifestBuilder($this->settings))->build(ArtifactCatalog::requestPlatform()),
+                (new ManifestBuilder($this->settings))->build($platform, $runtimeRequest),
                 headers: [
                     'Cache-Control' => $isGet
                         ? sprintf('public, max-age=%d, stale-while-revalidate=300', $this->settings->cacheMaxAge())
@@ -64,11 +67,22 @@ final class ManifestController
                 $error->getFile(),
                 $error->getLine(),
             ));
-            $this->respondError($requestId, new HttpException(
+            JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $error,
+                    $requestId,
+                    $this->settings->rootDirectory(),
+                    $this->settings->debug(),
+                    ['error' => 'bootstrap_manifest_internal_error'],
+                ),
                 500,
-                'bootstrap_manifest_internal_error',
-                'Bootstrap manifest cannot be generated because an unexpected server error occurred.',
-            ));
+                [
+                    'Cache-Control' => 'no-store',
+                    'Retry-After' => '30',
+                    'X-FoxesCraft-Error-Code' => 'bootstrap_manifest_internal_error',
+                    'X-FoxesCraft-Request-Id' => $requestId,
+                ],
+            );
         }
     }
 
@@ -76,9 +90,6 @@ final class ManifestController
     {
         header('X-Content-Type-Options: nosniff');
         header('Referrer-Policy: no-referrer');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, If-None-Match');
         header('X-FoxesCraft-Request-Id: ' . $requestId);
         header('X-FoxesCraft-Manifest-Schema: ' . self::SCHEMA_VERSION);
     }

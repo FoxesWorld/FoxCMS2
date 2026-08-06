@@ -1,22 +1,32 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
+import { markRaw, toRefs } from 'vue'
+import RuntimeTpl from '@engine/runtime/RuntimeTpl.vue'
+import { loadRuntimePageTemplates, runtimePageTemplate, runtimePageTemplatesState } from '@engine/runtime/pageTemplates'
 
 import type { BadgeDefinition } from '@engine/content/contentData'
 
-defineProps<{ loading: boolean; error: boolean; badge: BadgeDefinition | null }>()
+const props = defineProps<{ loading: boolean; error: boolean; badge: BadgeDefinition | null }>()
+const pageTemplate = runtimePageTemplate('badge')
+const runtimeTemplateComponents = markRaw({})
+const runtimeTemplateContext: Record<string, unknown> = { t, ...toRefs(props) }
+void loadRuntimePageTemplates().catch((reason: unknown) => {
+  console.error('[FoxesCraft] Badge.tpl failed to load', reason)
+})
 </script>
 
 <template>
-  <div v-if="loading" class="content-skeleton"><span /><span /><span /></div>
-  <div
-    v-else-if="badge"
-    class="badge-runtime-page"
-    :data-badge-route="badge.id"
-    v-emoticons
-    v-html="badge.html"
-  />
-  <div v-else-if="error" class="system-message system-message--error">
-    <strong>{{ t('theme.useroptions.pages.badges.badge.001') }}</strong>
-    <p>{{ t('theme.useroptions.pages.badges.badge.002') }}</p>
+  <div v-if="runtimePageTemplatesState.error" class="system-message system-message--error" role="alert">
+    <strong>{{ t('engine.runtime.pagetemplates.003') }}</strong>
+    <p>{{ runtimePageTemplatesState.error }}</p>
   </div>
+  <RuntimeTpl
+    v-else-if="pageTemplate"
+    :template-id="pageTemplate.id"
+    :module-url="pageTemplate.moduleUrl"
+    :revision="pageTemplate.revision"
+    :context="runtimeTemplateContext"
+    :components="runtimeTemplateComponents"
+  />
+  <div v-else class="runtime-panel-skeleton" aria-hidden="true"><span /><span /><span /></div>
 </template>

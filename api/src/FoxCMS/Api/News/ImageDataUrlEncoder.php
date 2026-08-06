@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\News;
 
+use FoxCMS\Shared\Environment\Environment;
 use finfo;
 
 final class ImageDataUrlEncoder
@@ -79,17 +80,17 @@ final class ImageDataUrlEncoder
     }
 
     /** @return list<string> */
-    public static function hostsFromRequest(): array
+    public static function allowedHosts(\NetworkContext $network, Environment $environment): array
     {
-        $host = strtolower(preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')) ?? '');
+        $originHost = parse_url($network->origin(), PHP_URL_HOST);
+        $host = is_string($originHost) ? strtolower($originHost) : '';
         $hosts = array_filter([$host, 'localhost', '127.0.0.1']);
         if ($host !== '') {
             $hosts[] = str_starts_with($host, 'www.') ? substr($host, 4) : 'www.' . $host;
         }
-        $configured = explode(',', (string)(\foxEnv('FOXESCRAFT_PUBLIC_HOSTS', '') ?? ''));
-        foreach ($configured as $configuredHost) {
-            $configuredHost = strtolower(trim($configuredHost));
-            if ($configuredHost !== '') {
+        foreach ($environment->csv('FOXESCRAFT_PUBLIC_HOSTS') as $configuredHost) {
+            $configuredHost = strtolower($configuredHost);
+            if (preg_match('/^(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|localhost)$/D', $configuredHost) === 1) {
                 $hosts[] = $configuredHost;
             }
         }

@@ -8,6 +8,7 @@ import { appBootstrap } from '@/app/context'
 import { foxesApi } from '@/api'
 import { bootstrapString } from '@/domain/bootstrap'
 import type { FeedbackMessage, ProfileRecord, ProfileSettingsFormModel, SettingsTab, SkinResource } from '@/contracts/user-pages'
+import { loadRuntimeUserOptions, runtimeProfileOptions } from '@/runtime/userOptions'
 
 interface SettingsRecord extends ProfileRecord { email?: string; message?: string }
 type Response = FeedbackMessage & { url?: string }
@@ -209,19 +210,34 @@ function navigate(route: string): void {
   void router.push(route === 'profile' ? { name: route, params: { value: form.login } } : { name: route })
 }
 
+function normalizeTab(value: unknown): SettingsTab {
+  const requested = typeof value === 'string' ? value : ''
+  return runtimeProfileOptions.value.find((option) => option.id === requested)?.id
+    ?? runtimeProfileOptions.value[0]?.id
+    ?? 'profile'
+}
+
 function selectTab(tab: SettingsTab): void {
-  activeTab.value = tab
-  if (route.value.query.tab === tab) return
+  const normalized = normalizeTab(tab)
+  activeTab.value = normalized
+  if (route.value.query.tab === normalized) return
   void router.replace({
-    query: { ...route.value.query, tab },
+    query: { ...route.value.query, tab: normalized },
     hash: route.value.hash,
   })
 }
 
-watch(() => route.value.query.tab, (value) => {
-  if (value === 'profile' || value === 'appearance' || value === 'security') activeTab.value = value
+watch([() => route.value.query.tab, runtimeProfileOptions], ([value]) => {
+  const normalized = normalizeTab(value)
+  activeTab.value = normalized
+  if (runtimeProfileOptions.value.length > 0 && value !== normalized) {
+    void router.replace({ query: { ...route.value.query, tab: normalized }, hash: route.value.hash })
+  }
 }, { immediate: true })
 watch(() => route.value.params.value as string | undefined, load, { immediate: true })
+void loadRuntimeUserOptions().catch((runtimeError: unknown) => {
+  console.error('[FoxesCraft] Runtime profile options failed to load', runtimeError)
+})
 watch(activeTab, (tab) => {
   if (tab === 'appearance' && showSkinSettings.value) void refreshMinecraftPreview()
 })

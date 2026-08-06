@@ -13,6 +13,7 @@ const files = {
   catalogService: join(repositoryRoot, 'engine', 'classes', 'game', 'GameAchievementCatalogService.class.php'),
   eventService: join(repositoryRoot, 'engine', 'classes', 'game', 'GameAchievementEventService.class.php'),
   apiIndex: join(repositoryRoot, 'api', 'index.php'),
+  gameApiApplication: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Game', 'GameApiApplication.php'),
   catalogEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'catalog', 'index.php'),
   eventEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'event', 'index.php'),
   playerEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'player', 'index.php'),
@@ -34,7 +35,12 @@ const files = {
   achievementsView: join(repositoryRoot, 'engine', 'client', 'views', 'AchievementsView.vue'),
   statisticsTree: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementStatisticsTree.vue'),
   statisticsTreeNode: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementTreeNode.vue'),
+  achievementsTpl: join(themeRoot, 'pages', 'templates', 'Achievements.tpl'),
+  statisticsTreeTpl: join(themeRoot, 'pages', 'templates', 'achievements', 'StatisticsTree.tpl'),
+  statisticsTreeNodeTpl: join(themeRoot, 'pages', 'templates', 'achievements', 'TreeNode.tpl'),
+  pageTemplateStore: join(repositoryRoot, 'engine', 'client', 'runtime', 'pageTemplates.ts'),
   frontendPanel: join(themeRoot, 'src', 'userOptions', 'userOptions', 'profile', 'ProfileAchievements.vue'),
+  frontendPanelTpl: join(themeRoot, 'pages', 'templates', 'achievements', 'ProfilePanel.tpl'),
   frontendProfile: join(themeRoot, 'src', 'userOptions', 'userOptions', 'Profile.vue'),
   frontendStyles: join(themeRoot, 'src', 'styles', 'profile.css'),
 }
@@ -139,20 +145,23 @@ rejectText('Public achievement response', source.eventService.slice(source.event
 ])
 
 requireText('Game API front controller', source.apiIndex, [
+  'GameApiApplication',
+  'Request::fromGlobals()',
+  '->run()',
+])
+requireText('Game API application', source.gameApiApplication, [
+  'final class GameApiApplication',
+  "private const PROTOCOL = 'fox-achievements-v1'",
+  "'/game/achievements/catalog' => $this->catalog()",
+  "'/game/achievements/event' => $this->event()",
+  "'/game/achievements/player' => $this->player()",
+  "'/game/achievements/statistics' => $this->statistics()",
   'GameServerAuthenticator::fromEnvironment()->authenticate(',
-  'foxApiJsonBody(',
-  'foxApiAchievementCatalog(',
-  'foxApiAchievementEvent(',
-  'foxApiPlayerAchievements(',
-  "'/game/achievements/catalog'",
-  "'/game/achievements/event'",
-  "'/game/achievements/player'",
-  "str_contains(strtolower($path), '.php')",
-  "'X-Content-Type-Options: nosniff'",
-  "'Cache-Control: no-store, max-age=0'",
-  "'protocol' => 'fox-achievements-v1'",
+  '$this->request->jsonObject($maximumBytes)',
+  "'Cache-Control' => 'no-store, max-age=0'",
   "'operation' => 'catalog'",
   "'operation' => 'event'",
+  'PlayerIdentityResolver',
 ])
 requireText('Catalog directory index', source.catalogEndpoint, [
   "$_SERVER['FOX_API_ROUTE'] = '/game/achievements/catalog'",
@@ -171,119 +180,104 @@ requireText('Statistics directory index', source.statisticsEndpoint, [
   "require dirname(__DIR__, 3) . '/index.php'",
 ])
 
-requireText('Forge target', source.forgeProperties, [
-  'minecraft_version=1.7.10',
-  'forge_version=1.7.10-10.13.4.1614-1.7.10',
+requireText('NeoForge target', source.forgeProperties, [
+  'minecraft_version=1.21.1',
+  'neo_version=21.1.244',
+  'parchment_minecraft_version=1.21.1',
+  'mod_version=0.2.0',
+  'archives_base_name=fox-achievements-neoforge-1.21.1',
 ])
-requireText('Forge build', source.forgeBuild, [
-  "apply plugin: 'forge'",
-  'sourceCompatibility = JavaVersion.VERSION_1_8',
-  'targetCompatibility = JavaVersion.VERSION_1_8',
+requireText('NeoForge build', source.forgeBuild, [
+  "id 'net.neoforged.moddev' version '2.0.143'",
+  'JavaLanguageVersion.of(21)',
+  'options.release = 21',
   'prepareBundledMinecraftAssets',
-  'assets/minecraft/textures/items/**',
-  'assets/minecraft/textures/blocks/**',
-  "['ru_RU']",
-  'assets/minecraft/lang/en_US.lang',
-  'verifyReleaseBytecode',
-  'net/minecraft/command/CommandBase',
-  'java/lang/reflect/Proxy',
-  'newProxyInstance',
-  'java/lang/LinkageError',
-  'check.dependsOn verifyReleaseBytecode',
+  "assets/minecraft/textures/item/**",
+  "assets/minecraft/textures/block/**",
+  "assets/minecraft/models/item/**",
+  "assets/minecraft/models/block/**",
+  "assets/minecraft/lang/en_us.json",
+  "minecraft/lang/ru_ru.json",
+  'sourceSets.main.resources.srcDir generatedMinecraftAssets',
 ])
-rejectText('Forge integration', Object.values(source).filter((value, index) => Object.keys(source)[index].startsWith('forge')).join('\n'), [
-  'fabric-loader',
+rejectText('NeoForge integration', Object.values(source).filter((value, index) => Object.keys(source)[index].startsWith('forge')).join('\n'), [
   'net.fabricmc',
   'FabricLoader',
+  "apply plugin: 'forge'",
 ])
-requireText('Forge mod lifecycle', source.forgeMain, [
+requireText('NeoForge mod lifecycle', source.forgeMain, [
   '@Mod(',
-  'FMLServerStartingEvent',
-  'FMLServerStartedEvent',
-  'FMLServerStoppingEvent',
-  'MinecraftForge.EVENT_BUS.register(events)',
-  'FMLCommonHandler.instance().bus().register(events)',
+  'ModConfig.Type.COMMON',
+  'NeoForge.EVENT_BUS.addListener(events::onAdvancementEarned)',
+  'NeoForge.EVENT_BUS.addListener(events::onPlayerLogin)',
+  'NeoForge.EVENT_BUS.addListener(events::onRegisterCommands)',
+  'ServerStartedEvent',
+  'ServerStoppingEvent',
 ])
-requireText('Complete Forge achievement discovery', source.forgeCatalog, [
-  'AchievementList.achievementList',
-  'StatList.allStats',
-  'AchievementPage.getAchievementPages()',
-  'page.getAchievements()',
+requireText('Complete NeoForge advancement discovery', source.forgeCatalog, [
+  'AdvancementHolder',
+  'server.getAdvancements().getAllAdvancements()',
+  'AdvancementRequirements',
+  'AdvancementType',
   'iconBase64',
   'iconComponents',
   'requirements',
   'root.addProperty("locale", metadata.locale())',
   'titleKey',
   'descriptionKey',
+  'id.getNamespace() + ":advancement/" + id.getPath()',
 ])
-requireText('Forge configurable achievement language', source.forgeLanguage, [
+requireText('NeoForge configurable advancement language', source.forgeLanguage, [
   'AchievementLanguageResolver',
-  'loadLocale("en_US")',
-  'readFromSource(ownSource(), vanillaResource)',
+  'loadLocale("en_us")',
+  'assets/minecraft/lang/',
+  'readClasspath(',
+  'readModFile(',
   'StandardCharsets.UTF_8',
 ])
-requireText('Forge locale configuration', source.forgeConfig, [
-  'public final String locale',
-  '"locale", "ru_RU"',
+requireText('NeoForge locale configuration', source.forgeConfig, [
+  'ConfigValue<String> LOCALE',
+  '.define("locale", "ru_RU")',
   'FOX_ACHIEVEMENTS_LOCALE',
+  'resourceLocale()',
 ])
-
-requireText('Forge runtime-compatible achievement metadata', source.forgeMetadata, [
-  'StatCollector.translateToLocal',
-  'field_75996_k',
-  'field_75995_m',
-  'func_75989_e',
-  'func_75984_f',
-  'invokeNoArg(',
+requireText('NeoForge component metadata', source.forgeMetadata, [
+  'DisplayInfo::getTitle',
+  'DisplayInfo::getDescription',
+  'ComponentContents',
+  'TranslatableContents',
+  'component.getString()',
 ])
-rejectText('Forge direct achievement metadata linkage', source.forgeCatalog, [
-  'achievement.getDescription()',
-  'achievement.getSpecial()',
-  'achievement.func_150951_e()',
+requireText('NeoForge Brigadier command', source.forgeCommand, [
+  'CommandDispatcher<CommandSourceStack>',
+  'Commands.literal("foxachievements")',
+  'Commands.literal("status")',
+  'Commands.literal("sync")',
+  'service.synchronizeCatalog()',
 ])
-requireText('Forge mapping-independent command', source.forgeCommand, [
-  'Proxy.newProxyInstance',
-  'new Class<?>[] {ICommand.class}',
-  'implements InvocationHandler',
-  'method.getParameterTypes()',
-  'process((ICommandSender) arguments[0], (String[]) arguments[1])',
-])
-rejectText('Forge mapping-independent command', source.forgeCommand, [
-  'extends CommandBase',
-  'new FoxAchievementsCommand(service)',
-])
-requireText('Forge command lifecycle isolation', source.forgeMain, [
-  'FoxAchievementsCommand.create(service)',
-  'catch (LinkageError error)',
-  'command registration failed, but server startup will continue',
-])
-
-requireText('Forge startup failure isolation', source.forgeService, [
-  'catch (LinkageError error)',
+requireText('NeoForge startup failure isolation', source.forgeService, [
+  'catch (RuntimeException | LinkageError error)',
   'server startup will continue',
   'return -1',
 ])
-
-requireText('Forge achievement events', source.forgeEvents, [
-  'AchievementEvent',
-  'PlayerLoggedInEvent',
+requireText('NeoForge advancement events', source.forgeEvents, [
+  'AdvancementEvent.AdvancementEarnEvent',
+  'PlayerEvent.PlayerLoggedInEvent',
+  'RegisterCommandsEvent',
   'service.record(',
   'service.reconcile(',
 ])
-requireText('Forge Base64 icon resolution', source.forgeIcons, [
+requireText('NeoForge Base64 icon resolution', source.forgeIcons, [
   'readOverride(',
   'readItemTexture(',
-  'readFromSource(',
+  'resolveModelTextures(',
+  'readClasspath(',
+  'readFromMod(',
   'fallbackPng(',
-  'readKnownVanillaTexture(',
-  'readFromSource(ownSource(), resource)',
-  'furnace_front_off.png',
-  'crafting_table_front.png',
-  'fish_cod_cooked.png',
   'Base64.getEncoder().encodeToString(bytes)',
   'image/png',
 ])
-requireText('Forge durable queue', source.forgeQueue, [
+requireText('NeoForge durable queue', source.forgeQueue, [
   'queueRoot.resolve("catalog.json")',
   'queueRoot.resolve("events")',
   'Files.move(',
@@ -297,7 +291,7 @@ requireText('Forge durable queue', source.forgeQueue, [
   'databaseName',
   'requireString(response, "locale", expectedLocale)',
 ])
-requireText('Forge clean API routes', source.forgeConfig, [
+requireText('NeoForge clean API routes', source.forgeConfig, [
   '/api/game/achievements/catalog/',
   '/api/game/achievements/event/',
 ])
@@ -306,48 +300,84 @@ rejectText('Achievement public routes', source.forgeConfig + source.frontendClie
   '/api/game/achievements/event.php',
   '/api/game/achievements/player.php',
 ])
-
-requireText('Forge HMAC client', source.forgeHttp, [
+requireText('NeoForge HMAC client', source.forgeHttp, [
   'X-Fox-Server',
   'X-Fox-Timestamp',
   'X-Fox-Signature',
   'HmacSHA256',
-  'sha256(bytes)',
   'setInstanceFollowRedirects(false)',
   'unexpected Content-Type',
 ])
-requireText('Forge reconciliation and idempotency', source.forgeService, [
-  'hasAchievementUnlocked(achievement)',
+requireText('NeoForge reconciliation and idempotency', source.forgeService, [
+  'player.getAdvancements().getOrStartProgress(advancement)',
+  'progress.isDone()',
   'UUID.nameUUIDFromBytes(eventSeed.getBytes(StandardCharsets.UTF_8))',
   'queue.enqueueCatalog(payload)',
-  'queue.enqueueEvent(event(player, achievement))',
+  'queue.enqueueEvent(event(player, advancement))',
 ])
 
-requireText('Achievements page', source.achievementsView, [
+requireText('Achievements controller host', source.achievementsView, [
   'loadPlayerAchievementsByIdentity',
   'defineAsyncComponent',
   "() => import('@/achievements/AchievementStatisticsTree.vue')",
   'requestedIdentity.value || currentUuid.value || currentLogin.value',
   "requestedView === 'statistics'",
   "query: { view: 'statistics' }",
+  'recentAchievements',
+  "runtimePageTemplate('achievements')",
+  '<RuntimeTpl',
+])
+rejectText('Achievements controller host', source.achievementsView, [
+  'achievements-player-search', 'achievements-metrics', 'achievements-status-tabs', 'achievements-grid',
+])
+requireText('Achievements page TPL', source.achievementsTpl, [
+  '<fox-page-template id="achievements"',
   'achievements-player-search',
   'achievements-metrics',
   'achievements-status-tabs',
   'achievements-grid',
-  'recentAchievements',
   'item.iconDataUrl',
+  '<AchievementStatisticsTree',
 ])
-requireText('Achievement statistics tree', source.statisticsTree, [
+requireText('Achievement statistics controller host', source.statisticsTree, [
   'loadAchievementStatistics',
   'buildAchievementTrees',
   'AchievementTreeNode',
+  "runtimePageTemplate('achievement-statistics')",
+  '<RuntimeTpl',
+])
+rejectText('Achievement statistics controller host', source.statisticsTree, [
+  'achievement-statistics__metrics', 'achievement-statistics__tree',
+])
+requireText('Achievement statistics tree TPL', source.statisticsTreeTpl, [
+  '<fox-page-template id="achievement-statistics"',
   'summary.playerCount',
   'summary.unlockCount',
+  'achievement-statistics__metrics',
+  '<AchievementTreeNode',
 ])
-requireText('Achievement statistics player nodes', source.statisticsTreeNode, [
+requireText('Achievement tree-node controller host', source.statisticsTreeNode, [
   'node.earnedCount',
-  'node.players',
   "name: 'achievements'",
+  "runtimePageTemplate('achievement-tree-node')",
+  'getCurrentInstance()?.type',
+  '<RuntimeTpl',
+])
+rejectText('Achievement tree-node controller host', source.statisticsTreeNode, [
+  'achievement-tree-node__players', 'achievement-tree-node__children',
+])
+requireText('Achievement tree-node TPL', source.statisticsTreeNodeTpl, [
+  '<fox-page-template id="achievement-tree-node"',
+  'achievement-tree-node__players',
+  'achievement-tree-node__children',
+  '<RouterLink',
+  '<AchievementTreeNode',
+])
+requireText('Achievement page template runtime', source.pageTemplateStore, [
+  "'achievements'",
+  "'achievement-statistics'",
+  "'achievement-tree-node'",
+  "loadContentRegistry<unknown>('page-templates')",
 ])
 requireText('Achievements route manifest', await readFile(join(themeRoot, 'frontend.json'), 'utf8'), [
   '"path": "/achievements/:value?"',
@@ -362,13 +392,23 @@ requireText('Achievement frontend client', source.frontendClient, [
   'iconDataUrl: string',
   'export async function loadPlayerAchievements(',
 ])
-requireText('Achievement profile panel', source.frontendPanel, [
+requireText('Achievement profile panel controller', source.frontendPanel, [
   'loadPlayerAchievements',
+  'summary.value.completedCount',
+  'summary.value.trackedCount',
+  'controller === request',
+  "runtimePageTemplate('achievement-profile-panel')",
+  '<RuntimeTpl',
+])
+rejectText('Achievement profile panel controller', source.frontendPanel, [
+  'profile-achievements__summary', 'profile-achievement-card__progress',
+])
+requireText('Achievement profile panel TPL', source.frontendPanelTpl, [
+  '<fox-page-template id="achievement-profile-panel"',
   'item.iconDataUrl',
   'summary.completedCount',
   'summary.points',
   'profile-achievement-card__progress',
-  'controller === request',
 ])
 requireText('Achievement profile integration', source.frontendProfile, [
   "import ProfileAchievements from './profile/ProfileAchievements.vue'",
@@ -385,4 +425,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
-console.log('Game achievements contract passed: Forge 1.7.10 discovers vanilla and modded achievements, persists a complete Base64-icon catalog, delivers idempotent player unlock events through HMAC-authenticated FoxCMS APIs, and renders results in player profiles.')
+console.log('Game achievements contract passed: NeoForge 1.21.1 discovers vanilla and modded advancements, persists a complete Base64-icon catalog, delivers idempotent player unlock events through HMAC-authenticated FoxCMS APIs, and renders runtime-TPL views and profile panels.')

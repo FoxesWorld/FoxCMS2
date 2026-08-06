@@ -6,21 +6,21 @@ import { includesLocalized } from './i18n-test-utils.mjs'
 const failures = []
 async function exists(path) { try { await access(path); return true } catch { return false } }
 
-const pagesDirectory = join(themeRoot, 'data', 'pages')
+const pagesDirectory = join(themeRoot, 'pages', 'content')
 const badgesDirectory = join(themeRoot, 'data', 'badges')
 const frontendPath = join(themeRoot, 'frontend.json')
 
-if (!(await exists(pagesDirectory))) failures.push('standalone project HTML directory is missing: data/pages')
+if (!(await exists(pagesDirectory))) failures.push('standalone project HTML directory is missing: pages/content')
 if (!(await exists(badgesDirectory))) failures.push('standalone badge HTML directory is missing: data/badges')
 
 const frontend = JSON.parse(await readFile(frontendPath, 'utf8'))
 const pageEntries = (await readdir(pagesDirectory, { withFileTypes: true }))
 const projectFiles = pageEntries.filter((entry) => entry.isFile() && extname(entry.name).toLowerCase() === '.html').map((entry) => entry.name)
 for (const entry of pageEntries.filter((candidate) => candidate.isFile() && extname(candidate.name).toLowerCase() === '.json')) {
-  failures.push(`project page must be HTML, not JSON: data/pages/${entry.name}`)
+  failures.push(`project page must be HTML, not JSON: pages/content/${entry.name}`)
 }
-if (projectFiles.length === 0) failures.push('data/pages must contain standalone .html pages')
-if (!projectFiles.includes('start.html')) failures.push('/start runtime page is missing: data/pages/start.html')
+if (projectFiles.length === 0) failures.push('pages/content must contain standalone .html pages')
+if (!projectFiles.includes('start.html')) failures.push('/start runtime page is missing: pages/content/start.html')
 
 const pageIds = new Set()
 for (const name of projectFiles) {
@@ -114,11 +114,15 @@ for (const token of ['loadStaticPages', "pageId: 'start'", 'StartGamePage', 'dow
   if (!includesLocalized(startController, token)) failures.push(`StartGameView is missing runtime page contract ${token}`)
 }
 const startTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'StartGame.vue'), 'utf8')
-for (const token of ['StaticPageDefinition', 'hydratedHtml', 'DOMParser', 'data-start-action', 'v-html="hydratedHtml"']) {
-  if (!includesLocalized(startTemplate, token)) failures.push(`StartGame.vue is missing runtime hydration contract ${token}`)
+const startRuntimeTpl = await readFile(join(themeRoot, 'pages', 'templates', 'StartGame.tpl'), 'utf8')
+for (const token of ['StaticPageDefinition', 'hydratedHtml', 'DOMParser', 'data-start-action', "runtimePageTemplate('start-game')", '<RuntimeTpl']) {
+  if (!includesLocalized(startTemplate, token)) failures.push(`StartGame.vue is missing runtime hydration/controller contract ${token}`)
 }
-for (const forbidden of ['<h1>Начать игру</h1>', '<ol class="journey-steps">']) {
-  if (startTemplate.includes(forbidden)) failures.push(`StartGame.vue still hardcodes page content: ${forbidden}`)
+for (const token of ['start-page-runtime', 'v-html="hydratedHtml"', '@click.capture="handleAction"']) {
+  if (!includesLocalized(startRuntimeTpl, token)) failures.push(`StartGame.tpl is missing presentation contract ${token}`)
+}
+for (const forbidden of ['start-page-runtime', 'v-html="hydratedHtml"']) {
+  if (startTemplate.includes(forbidden)) failures.push(`StartGame.vue still compiles page presentation: ${forbidden}`)
 }
 
 for (const route of frontend.routes ?? []) {
@@ -127,11 +131,12 @@ for (const route of frontend.routes ?? []) {
   if (typeof pageId !== 'string' || !pageIds.has(pageId)) failures.push(`StaticContentView route ${route?.name} references missing runtime page ${String(pageId)}`)
 }
 
+const contentApiPath = join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Content', 'ContentApiApplication.php')
+const contentApi = await readFile(contentApiPath, 'utf8')
 const api = (await Promise.all([
   join(repositoryRoot, 'api', 'content.php'),
-  join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Content', 'ContentApiApplication.php'),
   join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Content', 'BadgeCatalogService.php'),
-].map((path) => readFile(path, 'utf8')))).join('\n')
+].map((path) => readFile(path, 'utf8')))).join('\n') + '\n' + contentApi
 for (const token of ['BadgeSlug::assign', 'ThemeBadgePageRepository', 'FROM `badgesList`', 'BadgeCatalogService', "'badges' => $this->badges", "'badge' => $this->badge", '$this->repository->exists', "$item['pageConfigured']"]) {
   if (!includesLocalized(api, token)) failures.push(`content API is missing contract ${token}`)
 }
@@ -140,6 +145,16 @@ for (const forbidden of ['imageKey', 'pageNameKey', 'badgeNameKey === $slugKey',
 }
 for (const forbidden of ['badge-pages.json', 'engine/data/content', 'readBadgePages']) {
   if (api.includes(forbidden)) failures.push(`content API still references obsolete badge registry ${forbidden}`)
+}
+for (const token of ['private function requireRegistryDependencies(', "'page-templates' => [", "'classes/themes/ThemePageStorage.class.php'", '$this->context->requireEngine(...$files)']) {
+  if (!contentApi.includes(token)) failures.push(`content API lazy registry boundary is missing ${token}`)
+}
+const registryReadIndex = contentApi.indexOf("$registry = trim((string)$this->request->query('registry'))")
+const dependencyLoadIndex = contentApi.indexOf('$this->requireRegistryDependencies($registry)')
+const projectRepositoryIndex = contentApi.indexOf('new \\ThemeContentRepository')
+if (registryReadIndex < 0 || dependencyLoadIndex < 0 || projectRepositoryIndex < 0
+  || registryReadIndex > dependencyLoadIndex || dependencyLoadIndex > projectRepositoryIndex) {
+  failures.push('content API must resolve the requested registry before loading or constructing registry-specific repositories')
 }
 
 const badgeSlug = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'BadgeSlug.class.php'), 'utf8')
@@ -167,8 +182,12 @@ for (const [name, expected] of [
   if (actual !== expected) failures.push(`BadgeSlug transliteration mismatch: ${name} -> ${actual}, expected ${expected}`)
 }
 
+const pageStorage = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemePageStorage.class.php'), 'utf8')
 const projectRepository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeContentRepository.class.php'), 'utf8')
-for (const token of ['readProjectPages', 'saveProjectPages', "DIRECTORY_SEPARATOR . 'data'", "DIRECTORY_SEPARATOR . 'pages'", "'.html'", 'private function sanitize(', 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
+for (const token of ['final class ThemePageStorage', "DIRECTORY_SEPARATOR . 'pages'", "DIRECTORY_SEPARATOR . 'content'", "DIRECTORY_SEPARATOR . 'templates'"]) {
+  if (!pageStorage.includes(token)) failures.push(`ThemePageStorage is missing ${token}`)
+}
+for (const token of ["require_once __DIR__ . '/ThemePageStorage.class.php';", 'readProjectPages', 'saveProjectPages', 'new ThemePageStorage(', 'contentDirectory()', "'.html'", 'private function sanitize(', 'DOMDocument', 'LIBXML_NONET', 'rename($temporary, $path)']) {
   if (!includesLocalized(projectRepository, token)) failures.push(`ThemeContentRepository is missing ${token}`)
 }
 for (const forbidden of ['readBadgePage', 'saveBadgePage', 'badgePagesDirectory']) {
@@ -216,7 +235,7 @@ for (const token of ["'content'", "admPanel: 'content'", "admPanel: 'saveProject
   if (!includesLocalized(adminClient, token)) failures.push(`Admin content client is missing ${token}`)
 }
 const editor = await readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'Content.vue'), 'utf8')
-for (const token of ['HTML-страницы бейджей', 'Полная HTML-разметка страницы проекта', 'data/pages/', 'CodeEditor', 'projectWorkspaceTab', 'badgeWorkspaceTab', 'StaticPage', 'BadgePage', 'Прямое превью', 'sanitizePreviewHtml', 'data-badge-history']) {
+for (const token of ['HTML-страницы бейджей', 'Полная HTML-разметка страницы проекта', 'pages/content/', 'CodeEditor', 'projectWorkspaceTab', 'badgeWorkspaceTab', 'StaticPage', 'BadgePage', 'Прямое превью', 'sanitizePreviewHtml', 'data-badge-history']) {
   if (!includesLocalized(editor, token)) failures.push(`Admin HTML editor is missing ${token}`)
 }
 for (const forbidden of ['projectPreviewDocument', 'badgePreviewDocument', 'srcdoc=', 'sandbox=""', '<iframe']) {
@@ -228,17 +247,35 @@ for (const token of ['loadBadges', 'Бейджи — {0}', '@theme/userOptions/p
   if (!includesLocalized(catalogView, token)) failures.push(`BadgesView is missing ${token}`)
 }
 const catalogTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badges.vue'), 'utf8')
-for (const token of ['badges-table', 'badge.image', 'badge.title', 'badge.description', "name: 'badge'", 'badge.pageConfigured']) {
-  if (!includesLocalized(catalogTemplate, token)) failures.push(`Badge catalog presentation is missing ${token}`)
+const catalogRuntimeTpl = await readFile(join(themeRoot, 'pages', 'templates', 'Badges.tpl'), 'utf8')
+for (const token of ['filteredBadges', 'openBadge', "runtimePageTemplate('badges')", '<RuntimeTpl']) {
+  if (!includesLocalized(catalogTemplate, token)) failures.push(`Badges.vue controller host is missing ${token}`)
+}
+for (const token of ['badges-table', 'badge.image', 'badge.title', 'badge.description', 'badge.pageConfigured']) {
+  if (!includesLocalized(catalogRuntimeTpl, token)) failures.push(`Badges.tpl presentation is missing ${token}`)
 }
 const badgeTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'pages', 'badges', 'Badge.vue'), 'utf8')
-if (!badgeTemplate.includes('v-html="badge.html"')) failures.push('Badge.vue must render the server-sanitized standalone HTML page')
-const staticTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'content', 'StaticPage.vue'), 'utf8')
-if (!staticTemplate.includes('v-html="page.html"')) failures.push('StaticPage.vue must render the server-sanitized standalone project HTML page')
+const badgeRuntimeTpl = await readFile(join(themeRoot, 'pages', 'templates', 'Badge.tpl'), 'utf8')
+if (!badgeTemplate.includes("runtimePageTemplate('badge')") || !badgeTemplate.includes('<RuntimeTpl')) failures.push('Badge.vue must be a thin runtime TPL host')
+if (!badgeRuntimeTpl.includes('v-html="badge.html"')) failures.push('Badge.tpl must render the server-sanitized standalone HTML page')
+if (badgeTemplate.includes('badge-runtime-page')) failures.push('Badge.vue still compiles badge page HTML')
+const staticPage = await readFile(join(themeRoot, 'src', 'userOptions', 'content', 'StaticPage.vue'), 'utf8')
+const staticHost = await readFile(join(themeRoot, 'src', 'userOptions', 'content', 'StaticContent.vue'), 'utf8')
+const staticRuntimeTpl = await readFile(join(themeRoot, 'pages', 'templates', 'StaticContent.tpl'), 'utf8')
+if (!staticPage.includes('v-html="page.html"')) failures.push('StaticPage.vue must render the server-sanitized standalone project HTML page')
+for (const token of ["runtimePageTemplate('static-content')", '<RuntimeTpl', ':module-url=']) {
+  if (!staticHost.includes(token)) failures.push(`StaticContent.vue controller host is missing ${token}`)
+}
+for (const token of ['<StaticPage :page="page" />', 'rules-badge-claim', "pageId === 'rules'"]) {
+  if (!staticRuntimeTpl.includes(token)) failures.push(`StaticContent.tpl presentation is missing ${token}`)
+}
+for (const forbidden of ['rules-badge-claim', '<StaticPage :page="page" />']) {
+  if (staticHost.includes(forbidden)) failures.push(`StaticContent.vue still compiles static page presentation: ${forbidden}`)
+}
 
 const obsoletePaths = [
   'templates/foxengine2/datas',
-  'templates/foxengine2/data/pages.json',
+  'templates/foxengine2/pages/content.json',
   'templates/foxengine2/data/badge-pages.json',
   'engine/data/content/badges.json',
   'engine/data/content/static-pages.json',

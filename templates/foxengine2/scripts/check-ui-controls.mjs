@@ -5,6 +5,7 @@ import { repositoryRoot, themeRoot } from './theme-paths.mjs'
 const failures = []
 const roots = [
   join(themeRoot, 'src'),
+  join(themeRoot, 'userOptions'),
   join(repositoryRoot, 'engine', 'client'),
   join(repositoryRoot, 'engine', 'classes', 'modules'),
 ]
@@ -16,7 +17,7 @@ async function walk(directory) {
   for (const entry of entries) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) files.push(...await walk(path))
-    else if (entry.isFile() && extname(entry.name) === '.vue') files.push(path)
+    else if (entry.isFile() && ['.vue', '.tpl'].includes(extname(entry.name))) files.push(path)
   }
   return files
 }
@@ -44,6 +45,17 @@ for (const token of ['.ui-checkbox--checkbox', '.ui-checkbox--switch', '.is-chec
 const appCss = await readFile(join(themeRoot, 'src', 'styles', 'app.css'), 'utf8')
 for (const token of ['.button--glass::before', '.button--glass:hover::before', 'backdrop-filter:blur(18px)', '.button--glass.button--large', '.button:focus-visible']) {
   if (!appCss.includes(token)) failures.push(`glass button CSS missing ${token}`)
+}
+
+const header = await readFile(join(themeRoot, 'src', 'Header.vue'), 'utf8')
+for (const token of [':aria-hidden="isMobile && !mobileOpen', ':inert="isMobile && !mobileOpen"', 'mobileNavigation.value?.contains(active)', 'focus({ preventScroll: true })', 'active.blur()']) {
+  if (!header.includes(token)) failures.push(`mobile navigation accessibility boundary missing ${token}`)
+}
+const closeMenuIndex = header.indexOf('function closeMenu(')
+const focusReleaseIndex = header.indexOf('mobileNavigation.value?.contains(active)', closeMenuIndex)
+const hideNavigationIndex = header.indexOf('mobileOpen.value = false', closeMenuIndex)
+if (closeMenuIndex < 0 || focusReleaseIndex < 0 || hideNavigationIndex < 0 || focusReleaseIndex > hideNavigationIndex) {
+  failures.push('mobile navigation must release descendant focus before applying inert/aria-hidden')
 }
 
 const codeEditorPath = join(themeRoot, 'src', 'foxEngine', 'editor', 'CodeEditor.vue')
@@ -96,4 +108,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('UI controls contract passed: shared controls, JSON color pickers and the CodeMirror 5 editor are enforced.')
+console.log('UI controls contract passed: shared controls, mobile navigation focus safety, JSON color pickers and the CodeMirror 5 editor are enforced.')

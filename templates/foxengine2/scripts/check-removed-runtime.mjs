@@ -8,7 +8,7 @@ const forbiddenPaths = [
   'frontend',
   'plugins',
   `templates/${themeName}/app`,
-  `templates/${themeName}/userOptions`,
+  `templates/${themeName}/data/pages`,
   `templates/${themeName}/foxEngine`,
   'engine/classes/modules/tmp',
   'engine/TODO',
@@ -23,6 +23,18 @@ const forbiddenPaths = [
 const forbiddenDirectoryNames = new Set(['todo', 'tmp', 'old', 'backup', 'unused', 'deprecated', 'templates_c'])
 const backupPattern = /(?:\.bak-|\.(?:old|bak|backup|php1|php-old|js--|png--)$)/i
 const textExtensions = new Set(['.php', '.js', '.mjs', '.ts', '.vue', '.html', '.json', '.css', '.tpl', '.ftpl'])
+const approvedRuntimeTemplates = new Set([
+  `templates/${themeName}/userOptions/ProfileSettings.tpl`,
+  `templates/${themeName}/userOptions/AdminPanel.tpl`,
+  `templates/${themeName}/pages/templates/StaticContent.tpl`,
+  `templates/${themeName}/pages/templates/StartGame.tpl`,
+  `templates/${themeName}/pages/templates/Badges.tpl`,
+  `templates/${themeName}/pages/templates/Badge.tpl`,
+  `templates/${themeName}/pages/templates/Achievements.tpl`,
+  `templates/${themeName}/pages/templates/achievements/StatisticsTree.tpl`,
+  `templates/${themeName}/pages/templates/achievements/TreeNode.tpl`,
+  `templates/${themeName}/pages/templates/achievements/ProfilePanel.tpl`,
+])
 const forbiddenSignatures = [
   'init::$usrArray',
   'init::$usrFiles',
@@ -53,7 +65,9 @@ async function walk(directory) {
     }
 
     if (backupPattern.test(entry.name)) failures.push(`backup artifact exists: ${rel}`)
-    if (['.tpl', '.ftpl'].includes(extname(entry.name).toLowerCase())) failures.push(`legacy template exists: ${rel}`)
+    if (['.tpl', '.ftpl'].includes(extname(entry.name).toLowerCase()) && !approvedRuntimeTemplates.has(rel)) {
+      failures.push(`unapproved legacy template exists: ${rel}`)
+    }
     if (!textExtensions.has(extname(entry.name).toLowerCase())) continue
     if (rel.startsWith(`templates/${themeName}/scripts/`)) continue
 
@@ -72,4 +86,4 @@ if (failures.length) {
   for (const failure of [...new Set(failures)]) console.error(`- ${failure}`)
   process.exit(1)
 }
-console.log('Removed-runtime gate passed: deleted runtimes, static globals, legacy templates and archive artifacts remain absent.')
+console.log('Removed-runtime gate passed: only approved runtime userOptions/page TPL files exist; legacy runtimes and archive artifacts remain absent.')

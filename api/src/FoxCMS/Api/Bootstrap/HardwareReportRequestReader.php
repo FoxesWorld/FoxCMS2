@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace FoxCMS\Api\Bootstrap;
 
 use FoxCMS\Api\Core\HttpException;
+use FoxCMS\Api\Core\Request;
 use JsonException;
 
 final class HardwareReportRequestReader
 {
+    public function __construct(private readonly Request $request)
+    {
+    }
+
     /** @return array<string, mixed> */
     public function read(int $maxBytes): array
     {
-        $contentType = strtolower(trim((string)($_SERVER['CONTENT_TYPE'] ?? '')));
+        $contentType = $this->request->contentType();
         if ($contentType !== '' && !str_starts_with($contentType, 'application/json')) {
             throw new HttpException(
                 415,
@@ -21,8 +26,8 @@ final class HardwareReportRequestReader
             );
         }
 
-        $declaredLength = filter_var($_SERVER['CONTENT_LENGTH'] ?? null, FILTER_VALIDATE_INT);
-        if (is_int($declaredLength) && $declaredLength > $maxBytes) {
+        $declaredLength = $this->request->contentLength();
+        if ($declaredLength !== null && $declaredLength > $maxBytes) {
             throw new HttpException(413, 'hardware_report_too_large', 'Hardware report exceeds the permitted request size.');
         }
 

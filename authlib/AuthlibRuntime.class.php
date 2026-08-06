@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use FoxCMS\Shared\Environment\Environment;
+use FoxCMS\Shared\Http\ResponseHeaders;
+
 final class AuthlibRuntime
 {
     private function __construct(
@@ -18,21 +21,18 @@ final class AuthlibRuntime
     {
         $rootDirectory = dirname(__DIR__);
 
+        require_once $rootDirectory . '/autoload.php';
+        require_once $rootDirectory . '/engine/autoload.php';
+        $environment = Environment::boot($rootDirectory);
         require_once $rootDirectory . '/engine/data/environment.php';
-        require_once $rootDirectory . '/engine/classes/support/RuntimeErrorHandler.class.php';
         RuntimeErrorHandler::register($rootDirectory, false);
-        foxLoadEnv($rootDirectory . '/.env');
-        RuntimeErrorHandler::setDebug(foxEnvBool('FOXESCRAFT_DEBUG', false));
+        RuntimeErrorHandler::setDebug($environment->boolean('FOXESCRAFT_DEBUG', false));
 
         if (!defined('FOXXEY')) {
             define('FOXXEY', true);
         }
 
-        require_once $rootDirectory . '/engine/classes/http/NetworkContext.class.php';
-        $trustedProxies = array_values(array_filter(array_map(
-            'trim',
-            explode(',', foxEnv('FOXESCRAFT_TRUSTED_PROXIES', '') ?? ''),
-        ), static fn (string $value): bool => $value !== ''));
+        $trustedProxies = $environment->csv('FOXESCRAFT_TRUSTED_PROXIES');
         $network = NetworkContext::fromGlobals($trustedProxies);
         $GLOBALS['foxNetworkContext'] = $network;
 
@@ -43,10 +43,7 @@ final class AuthlibRuntime
         }
         date_default_timezone_set((string)($config['other']['timezone'] ?? 'Europe/Amsterdam'));
 
-        require_once $rootDirectory . '/engine/classes/http/SecurityHeaders.class.php';
         SecurityHeaders::apply($network, false);
-        require_once $rootDirectory . '/engine/classes/http/HttpRequest.class.php';
-        require_once $rootDirectory . '/engine/classes/identity/Uuid.class.php';
         require_once $rootDirectory . '/engine/classes/syslib/database.php';
         require_once $rootDirectory . '/engine/classes/syslib/syslog';
 
@@ -183,29 +180,31 @@ final class AuthlibRuntime
 
     public function json(array $payload, int $status = 200, array $headers = []): never
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store, max-age=0');
-        foreach ($headers as $name => $value) {
-            if (is_string($name) && is_scalar($value)) {
-                header($name . ': ' . (string)$value);
-            }
+        try {
+            $encoded = json_encode(
+                $payload,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+            );
+        } catch (JsonException $error) {
+            throw new RuntimeException('Unable to encode authlib response.', 0, $error);
         }
 
-        $encoded = json_encode(
-            $payload,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
+        ResponseHeaders::begin(
+            $status,
+            'application/json; charset=UTF-8',
+            array_merge(['Cache-Control' => 'no-store, max-age=0'], $headers),
         );
-        if (!is_string($encoded)) {
-            throw new RuntimeException('Unable to encode authlib response.');
-        }
-        exit($encoded);
+        echo $encoded;
+        exit;
     }
 
     public function noContent(int $status = 204): never
     {
-        http_response_code($status);
-        header('Cache-Control: no-store, max-age=0');
+        ResponseHeaders::begin(
+            $status,
+            'application/json; charset=UTF-8',
+            ['Cache-Control' => 'no-store, max-age=0'],
+        );
         exit;
     }
 

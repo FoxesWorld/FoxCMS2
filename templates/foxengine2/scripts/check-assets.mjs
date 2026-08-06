@@ -30,12 +30,44 @@ for (const kind of ['styles', 'scripts']) {
   }
 }
 for (const required of [
-  'data/pages/about.html',
+  'pages/content/about.html',
   'data/badges/earlyuser.html',
   'data/slides.json',
+  'userOptions/ProfileSettings.tpl',
+  'userOptions/AdminPanel.tpl',
+  'pages/templates/StaticContent.tpl',
+  'pages/templates/StartGame.tpl',
+  'pages/templates/Badges.tpl',
+  'pages/templates/Badge.tpl',
+  'pages/templates/Achievements.tpl',
+  'pages/templates/achievements/StatisticsTree.tpl',
+  'pages/templates/achievements/TreeNode.tpl',
+  'pages/templates/achievements/ProfilePanel.tpl',
 ]) {
   if (!(await exists(join(themeRoot, required)))) failures.push(`theme runtime data is missing: ${required}`)
 }
+
+const themeResolver = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeResolver.class.php'), 'utf8')
+for (const token of ["hash_file('sha256', $path)", "'?v=' . substr($hash, 0, 16)"]) {
+  if (!themeResolver.includes(token)) failures.push(`theme asset versioning is missing ${token}`)
+}
+
+const deploymentVerifier = await readFile(join(repositoryRoot, 'scripts', 'verify-deployment.py'), 'utf8')
+for (const token of ['ThemePageStorage.class.php', 'ThemePageTemplateRepository.class.php', 'theme_root / "pages" / "content"', 'theme_root / "pages" / "templates"', 'obsolete split page storage exists']) {
+  if (!deploymentVerifier.includes(token)) failures.push(`deployment verifier is missing unified page requirement ${token}`)
+}
+const deploymentScript = await readFile(join(repositoryRoot, 'scripts', 'deploy-production.sh'), 'utf8')
+for (const token of ['DEPLOY_THEME=', 'verify-deployment.py', 'Source deployment preflight passed']) {
+  if (!deploymentScript.includes(token)) failures.push(`production deployment preflight is missing ${token}`)
+}
+
+for (const directory of ['pages/content', 'pages/templates']) {
+  if (!(await exists(join(themeRoot, directory)))) failures.push(`unified page directory is missing: ${directory}`)
+}
+for (const obsolete of ['data/pages', 'pages/achievements']) {
+  if (await exists(join(themeRoot, obsolete))) failures.push(`obsolete split page storage exists: ${obsolete}`)
+}
+
 if (!(await exists(join(repositoryRoot, 'api', 'content.php')))) failures.push('public content API is missing: api/content.php')
 if (await exists(join(repositoryRoot, 'engine', 'data', 'frontend.json'))) failures.push('engine/data/frontend.json must not exist')
 if (!(await exists(join(runtimeRoot, 'theme.js')))) failures.push('theme runtime entry is missing: assets/runtime/theme.js')

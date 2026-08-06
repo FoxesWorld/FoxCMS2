@@ -4,9 +4,19 @@ import { includesLocalized } from './i18n-test-utils.mjs'
 
 const root = resolve(import.meta.dirname, '..', '..', '..')
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
+function attributes(source) {
+  const result = {}
+  for (const match of source.matchAll(/([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*("[^"]*"|'[^']*')/gu)) result[match[1].toLowerCase()] = match[2].slice(1, -1)
+  return result
+}
+const adminTpl = read('templates/foxengine2/userOptions/AdminPanel.tpl')
+const runtimeTools = [...adminTpl.matchAll(/<fox-admin-tool\b([^>]*)\/>/gu)].map((match) => attributes(match[1]))
+const runtimeCategories = [...adminTpl.matchAll(/<fox-admin-category\b([^>]*)\/>/gu)].map((match) => attributes(match[1]))
+const panelBody = adminTpl.match(/<fox-template-body\b[^>]*>([\s\S]*?)<\/fox-template-body>/u)?.[1] ?? ''
 const source = {
   state: read('engine/classes/modules/AdminPanel/client/useAdminPanel.ts'),
-  panel: read('templates/foxengine2/src/userOptions/userOptions/AdminPanel.vue'),
+  controller: read('templates/foxengine2/src/userOptions/userOptions/AdminPanel.vue'),
+  panel: panelBody,
   dashboard: read('templates/foxengine2/src/foxEngine/admin/Dashboard.vue'),
   category: read('templates/foxengine2/src/foxEngine/admin/Category.vue'),
   catalogs: read('templates/foxengine2/src/foxEngine/admin/Catalogs.vue'),
@@ -15,29 +25,22 @@ const source = {
   package: read('templates/foxengine2/package.json'),
 }
 const failures = []
-const requireToken = (file, token, message) => {
-  if (!includesLocalized(source[file], token)) failures.push(message)
-}
-const forbidToken = (file, token, message) => {
-  if (source[file].includes(token)) failures.push(message)
-}
+const requireToken = (file, token, message) => { if (!includesLocalized(source[file], token)) failures.push(message) }
+const forbidToken = (file, token, message) => { if (source[file].includes(token)) failures.push(message) }
 
 for (const [file, token, message] of [
   ['state', "export type AdminSection = 'home' | AdminToolId", 'Admin destination type is incomplete.'],
   ['state', "const activeTab = ref<AdminView>('home')", 'Admin panel does not start from the card dashboard.'],
   ['state', 'const groupedTabs = computed', 'Semantic category grouping is missing.'],
-  ['state', "{ id: 'infobox', tab: 'catalogs', category: 'community', catalog: 'infobox'", 'InfoBox is not a direct Community destination.'],
-  ['state', "{ id: 'badges', tab: 'catalogs', category: 'community', catalog: 'badges'", 'Badges are not a direct Community destination.'],
-  ['state', "{ id: 'groups', tab: 'catalogs', category: 'community', catalog: 'groups'", 'Groups are not a direct Community destination.'],
-  ['state', "{ id: 'rewards', tab: 'rewards', category: 'community'", 'Rewards are not a direct Community destination.'],
-  ['panel', "import { useRoute, useRouter } from 'vue-router'", 'Admin navigation is not synchronized with Vue Router.'],
-  ['panel', 'route.query.group', 'Admin category query parameter is missing.'],
-  ['panel', 'route.query.section', 'Admin tool query parameter is missing.'],
-  ['panel', 'navigateCategory', 'Full category navigation is missing.'],
-  ['panel', 'class="admin-breadcrumbs"', 'Navigation breadcrumb is missing.'],
-  ['panel', '<AdminDashboard', 'Admin dashboard is not mounted.'],
-  ['panel', '<AdminCategoryView', 'Full-width category view is not mounted.'],
-  ['panel', '<AdminRewards', 'Independent Rewards view is not mounted.'],
+  ['controller', "import { useRoute, useRouter } from 'vue-router'", 'Admin navigation is not synchronized with Vue Router.'],
+  ['controller', 'route.query.group', 'Admin category query parameter is missing.'],
+  ['controller', 'route.query.section', 'Admin tool query parameter is missing.'],
+  ['controller', 'navigateCategory', 'Full category navigation is missing.'],
+  ['controller', '<RuntimeTpl', 'AdminPanel.vue is not a runtime TPL host.'],
+  ['panel', 'class="admin-breadcrumbs"', 'Navigation breadcrumb is missing from AdminPanel.tpl.'],
+  ['panel', '<AdminDashboard', 'Admin dashboard is not mounted by AdminPanel.tpl.'],
+  ['panel', '<AdminCategoryView', 'Full-width category view is not mounted by AdminPanel.tpl.'],
+  ['panel', '<AdminRewards', 'Independent Rewards view is not mounted by AdminPanel.tpl.'],
   ['panel', ':name="catalogName"', 'Shared data editor is not bound to the direct route destination.'],
   ['dashboard', "@click=\"emit('selectCategory', category.id)\"", 'Dashboard category headers are not navigable.'],
   ['dashboard', 'class="admin-dashboard__groups"', 'Grouped dashboard card layout is missing.'],
@@ -64,47 +67,23 @@ for (const [file, token, message] of [
   ['catalogs', "'update:name'", 'Shared editor can desynchronize route state through update:name.'],
 ]) forbidToken(file, token, message)
 
-const expectedTools = [
-  'overview', 'logs', 'users', 'infobox', 'badges', 'rewards', 'groups',
-  'content', 'slides', 'settings', 'servers', 'files', 'maintenance',
-]
-for (const tool of expectedTools) {
-  const pattern = new RegExp(`\\{ id: '${tool}', tab: '([a-z]+)', category: '([a-z]+)'`, 'g')
-  const matches = [...source.state.matchAll(pattern)]
-  if (matches.length !== 1) failures.push(`Admin tool ${tool} must belong to exactly one semantic category and view.`)
+const expectedTools = ['overview', 'logs', 'users', 'infobox', 'badges', 'rewards', 'groups', 'content', 'slides', 'settings', 'runtime-options', 'servers', 'files', 'maintenance']
+for (const tool of expectedTools) if (runtimeTools.filter((entry) => entry.id === tool).length !== 1) failures.push(`Admin tool ${tool} must belong to exactly one semantic category and view.`)
+for (const category of ['observability', 'community', 'content', 'infrastructure']) if (!runtimeCategories.some((entry) => entry.id === category)) failures.push(`Admin category ${category} is missing.`)
+for (const tool of ['infobox', 'badges', 'groups', 'rewards']) {
+  const definition = runtimeTools.find((entry) => entry.id === tool)
+  if (!definition || definition.category !== 'community') failures.push(`${tool} is not a direct Community destination.`)
 }
-for (const category of ['observability', 'community', 'content', 'infrastructure']) {
-  if (!source.state.includes(`id: '${category}'`)) failures.push(`Admin category ${category} is missing.`)
+for (const [tool, catalog] of Object.entries({ infobox: 'infobox', badges: 'badges', groups: 'groups' })) {
+  const definition = runtimeTools.find((entry) => entry.id === tool)
+  if (!definition || definition.tab !== 'catalogs' || definition.catalog !== catalog) failures.push(`${tool} must directly map to the shared editor for ${catalog}.`)
 }
+const protectedRuntimeTool = runtimeTools.find((entry) => entry.id === 'runtime-options')
+if (protectedRuntimeTool?.enabled !== 'true' || protectedRuntimeTool?.protected !== 'true') failures.push('Runtime options editor must remain a protected direct destination.')
 
-const directMappings = {
-  infobox: 'infobox',
-  badges: 'badges',
-  groups: 'groups',
-}
-for (const [tool, catalog] of Object.entries(directMappings)) {
-  const definition = source.state.match(new RegExp(`\\{ id: '${tool}'[^\\n]+`))?.[0] ?? ''
-  if (!definition.includes("tab: 'catalogs'") || !definition.includes(`catalog: '${catalog}'`)) {
-    failures.push(`${tool} must directly map to the shared editor for ${catalog}.`)
-  }
-}
-
-const suspicious = [
-  String.fromCodePoint(0x0420, 0x0452),
-  String.fromCodePoint(0x0420, 0x2018),
-  String.fromCodePoint(0x0421, 0x0453),
-  '\uFFFD',
-]
-for (const [name, text] of Object.entries(source)) {
-  if (name === 'package' || name === 'styles') continue
-  for (const marker of suspicious) {
-    if (text.includes(marker)) failures.push(`${name} contains a UTF-8 mojibake marker.`)
-  }
-}
-
-if (failures.length > 0) {
+if (failures.length) {
   console.error(`Admin navigation contract failed (${failures.length}):`)
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
-console.log('Admin navigation contract passed: Community exposes InfoBox, Badges, Rewards and Groups directly, with no legacy Catalogs parent.')
+console.log('Admin navigation contract passed: AdminPanel.tpl owns the HTML and directly exposes Community destinations without a legacy Catalogs parent.')

@@ -24,6 +24,10 @@ final class ContentApiApplication
         $context->requireEngine(
             'classes/syslib/database.php',
             'classes/themes/ThemeContentRepository.class.php',
+            'classes/themes/ThemeRuntimeTplDocument.class.php',
+            'classes/themes/ThemeRuntimeTplCompiler.class.php',
+            'classes/themes/ThemeUserOptionsRepository.class.php',
+            'classes/themes/ThemePageTemplateRepository.class.php',
             'classes/themes/ThemeEmoticonRepository.class.php',
             'classes/themes/BadgeSlug.class.php',
             'classes/themes/ThemeBadgePageRepository.class.php',
@@ -45,6 +49,8 @@ final class ContentApiApplication
 
             match ($registry) {
                 'project-pages', 'static-pages' => $this->projectPages($contentRepository),
+                'user-options' => $this->respond((new \ThemeUserOptionsRepository(TEMPLATE_DIR, $themeName))->read(false)),
+                'page-templates' => $this->respond((new \ThemePageTemplateRepository(TEMPLATE_DIR, $themeName))->read(false)),
                 'emoticons' => $this->respond((new \ThemeEmoticonRepository(TEMPLATE_DIR, $themeName))->catalog()),
                 'badges' => $this->badges($badgeRepository),
                 'badge' => $this->badge($badgeRepository),
@@ -54,19 +60,14 @@ final class ContentApiApplication
             JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
         } catch (Throwable $error) {
             $requestId = RequestId::create();
-            error_log(sprintf(
-                '[FoxesCraft content API][%s] registry=%s %s: %s at %s:%d',
+            \FoxCMS\Api\Core\FatalResponse::send(
+                $error,
+                $this->context,
+                'content_registry_unavailable',
+                503,
                 $requestId,
-                $registry,
-                $error::class,
-                $error->getMessage(),
-                $error->getFile(),
-                $error->getLine(),
-            ));
-            JsonResponse::send([
-                'error' => 'content_registry_unavailable',
-                'requestId' => $requestId,
-            ], 503, ['Cache-Control' => 'no-store', 'X-Request-ID' => $requestId]);
+                ['registry' => $registry],
+            );
         }
     }
 

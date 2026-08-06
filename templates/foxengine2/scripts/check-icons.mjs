@@ -3,7 +3,7 @@ import { extname, join, relative } from 'node:path'
 import { modulesRoot, repositoryRoot, sourceRoot, themeRoot, engineClientRoot } from './theme-paths.mjs'
 
 const failures = []
-const sourceDirectories = [sourceRoot, engineClientRoot, modulesRoot]
+const sourceDirectories = [sourceRoot, engineClientRoot, modulesRoot, join(themeRoot, 'userOptions')]
 const fontsPath = join(themeRoot, 'src', 'styles', 'fonts.css')
 const fontAwesomePath = join(themeRoot, 'src', 'styles', 'font-awesome-pro.css')
 const fonts = await readFile(fontsPath, 'utf8')
@@ -22,7 +22,7 @@ async function walk(directory) {
       await walk(path)
       continue
     }
-    if (!entry.isFile() || !['.vue', '.ts', '.html', '.php'].includes(extname(entry.name))) continue
+    if (!entry.isFile() || !['.vue', '.ts', '.html', '.php', '.tpl'].includes(extname(entry.name))) continue
     const source = await readFile(path, 'utf8')
     for (const match of source.matchAll(/\bfa-[a-z0-9-]+\b/g)) {
       const icon = match[0]

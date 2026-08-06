@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/ThemePageStorage.class.php';
+
 final class ThemeContentRepository
 {
     private const MAXIMUM_HTML_BYTES = 524_288;
@@ -18,26 +20,14 @@ final class ThemeContentRepository
 
     public function __construct(string $templatesDirectory, string $themeName)
     {
-        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/D', $themeName) !== 1) {
-            throw new InvalidArgumentException('Некорректное имя активной темы.');
-        }
-        $templatesRoot = realpath($templatesDirectory);
-        $themeDirectory = is_string($templatesRoot)
-            ? realpath($templatesRoot . DIRECTORY_SEPARATOR . $themeName)
-            : false;
-        if (!is_string($templatesRoot) || !is_string($themeDirectory) || !is_dir($themeDirectory)
-            || !str_starts_with($themeDirectory, rtrim($templatesRoot, '/\\') . DIRECTORY_SEPARATOR)) {
-            throw new RuntimeException('Активная тема недоступна.');
-        }
-        $this->pagesDirectory = rtrim($themeDirectory, '/\\')
-            . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'pages';
+        $this->pagesDirectory = (new ThemePageStorage($templatesDirectory, $themeName))->contentDirectory();
     }
 
     /** @return array{schema:int,pages:list<array{id:string,title:string,html:string}>} */
     public function readProjectPages(): array
     {
         if (!is_dir($this->pagesDirectory)) {
-            throw new RuntimeException('Каталог HTML-страниц проекта templates/' . basename(dirname(dirname($this->pagesDirectory))) . '/data/pages не найден.');
+            throw new RuntimeException('Каталог HTML-страниц проекта templates/' . basename(dirname(dirname($this->pagesDirectory))) . '/pages/content не найден.');
         }
         if (is_link($this->pagesDirectory)) {
             throw new RuntimeException('Каталог HTML-страниц проекта не может быть символической ссылкой.');

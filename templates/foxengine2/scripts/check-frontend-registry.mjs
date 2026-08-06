@@ -211,17 +211,17 @@ const requiredLegacyTemplates = [
 for (const relativePath of requiredLegacyTemplates) {
   if (!(await exists(join(themeRoot, relativePath)))) failures.push(`legacy-style theme template is missing: ${relativePath}`)
 }
-for (const relativePath of ['data/pages/about.html', 'data/pages/start.html', 'data/badges/earlyuser.html']) {
+for (const relativePath of ['pages/content/about.html', 'pages/content/start.html', 'data/badges/earlyuser.html']) {
   if (!(await exists(join(themeRoot, relativePath)))) failures.push(`runtime content data is missing: ${relativePath}`)
 }
 if (themeManifest?.configuration !== undefined) {
   failures.push('theme page content must not be stored in theme.json configuration files')
 }
-if (!(await exists(join(themeRoot, 'data', 'pages')))) {
-  failures.push('standalone project HTML directory is missing: data/pages')
+if (!(await exists(join(themeRoot, 'pages', 'content')))) {
+  failures.push('standalone project HTML directory is missing: pages/content')
 }
-if (await exists(join(themeRoot, 'datas')) || await exists(join(themeRoot, 'data', 'pages.json'))) {
-  failures.push('obsolete project page storage exists; use one HTML file per page in data/pages')
+if (await exists(join(themeRoot, 'datas')) || await exists(join(themeRoot, 'data', 'pages')) || await exists(join(themeRoot, 'data', 'pages.json'))) {
+  failures.push('obsolete project page storage exists; use one HTML file per page in pages/content')
 }
 for (const forbiddenPath of ['src/pages', 'src/components']) {
   if (await exists(join(themeRoot, forbiddenPath))) {
@@ -313,8 +313,9 @@ for (const option of ['ProfileOption', 'AppearanceOption', 'SecurityOption']) {
     failures.push(`profile settings option is statically bundled: ${option}`)
   }
 }
-if (!profileSettingsTemplate.includes('<Suspense timeout="0">')) {
-  failures.push('profile settings runtime loader has no suspense fallback')
+const profileSettingsRuntimeTpl = await readFile(join(themeRoot, 'userOptions', 'ProfileSettings.tpl'), 'utf8')
+if (!profileSettingsRuntimeTpl.includes('<Suspense timeout="0">')) {
+  failures.push('ProfileSettings.tpl runtime loader has no suspense fallback')
 }
 const adminPanelTemplate = await readFile(join(themeRoot, 'src', 'userOptions', 'userOptions', 'AdminPanel.vue'), 'utf8')
 for (const component of ['Users', 'Servers', 'Content', 'FileManager']) {

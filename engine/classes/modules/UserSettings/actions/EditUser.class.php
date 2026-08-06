@@ -42,7 +42,20 @@ final class EditUser
                 'Profile update failed unexpectedly.',
                 ['component' => 'profile'],
             );
-            $this->respond('Не удалось обновить профиль.', 'error', 500);
+            $requestId = RequestTelemetry::requestId();
+            if ($requestId === '') {
+                $requestId = ExceptionContext::requestId('profile-update');
+            }
+            JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $exception,
+                    $requestId,
+                    defined('ROOT_DIR') ? ROOT_DIR : '',
+                    false,
+                    ['type' => 'error', 'operation' => 'profile_update'],
+                ),
+                500,
+            );
         }
     }
 

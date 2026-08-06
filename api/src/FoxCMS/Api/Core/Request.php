@@ -79,6 +79,17 @@ final class Request
         return strtolower(trim(explode(';', $this->header('Content-Type'))[0]));
     }
 
+    public function origin(): string
+    {
+        return $this->header('Origin');
+    }
+
+    public function contentLength(): ?int
+    {
+        $value = filter_var($this->header('Content-Length'), FILTER_VALIDATE_INT);
+        return is_int($value) && $value >= 0 ? $value : null;
+    }
+
     public function query(string $name): ?string
     {
         if (!array_key_exists($name, $this->query)) {

@@ -126,8 +126,14 @@ final class SystemRequests
             if ($requestId === '') {
                 $requestId = ExceptionContext::requestId('system-request');
             }
-            JsonResponse::error(
-                'Внутренняя ошибка обработки запроса. Код события: ' . $requestId . '.',
+            JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $error,
+                    $requestId,
+                    ROOT_DIR,
+                    false,
+                    ['type' => 'error', 'error' => 'system_request_failed', 'action' => $action],
+                ),
                 500,
             );
         }
@@ -187,12 +193,9 @@ final class SystemRequests
         if (!is_array($servers) || !array_is_list($servers)) {
             throw new RuntimeException('Server parser returned an invalid monitoring payload.');
         }
-        $monitor = new foxesMon(
-            $this->logger,
-            $serversJson,
-            ['out' => 2, 'record_day' => 86400],
-        );
-        JsonResponse::rawJson($monitor->outputMonitoringData());
+        $monitorConfig = is_array($this->config['monitor'] ?? null) ? $this->config['monitor'] : [];
+        $monitor = new FoxesMon($this->logger, $serversJson, $monitorConfig);
+        JsonResponse::send($monitor->outputMonitoringData());
     }
 
     private function handleTopPlayers(): void

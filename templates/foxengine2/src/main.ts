@@ -18,4 +18,6 @@ import './styles/admin-content.css'
 import './styles/admin-site-settings.css'
 import './styles/shell-chrome.css'
 
+import './styles/admin-runtime-options.css'
+import './styles/pages-achievements.css'
 mountEngine(ThemeRoot)

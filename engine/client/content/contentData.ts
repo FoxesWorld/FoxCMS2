@@ -32,7 +32,7 @@ function registryUrl(registry: string): string {
   return url.toString()
 }
 
-function loadRegistry<T>(registry: string): Promise<T> {
+export function loadContentRegistry<T>(registry: string): Promise<T> {
   return fetch(registryUrl(registry), {
     credentials: 'same-origin',
     cache: 'no-store',
@@ -49,15 +49,15 @@ function loadRegistry<T>(registry: string): Promise<T> {
 }
 
 export function loadStaticPages(): Promise<Record<string, StaticPageDefinition>> {
-  return staticPagesPromise ??= loadRegistry<Record<string, StaticPageDefinition>>('project-pages')
+  return staticPagesPromise ??= loadContentRegistry<Record<string, StaticPageDefinition>>('project-pages')
 }
 
 export function loadBadges(): Promise<readonly BadgeDefinition[]> {
-  return badgesPromise ??= loadRegistry<readonly BadgeDefinition[]>('badges')
+  return badgesPromise ??= loadContentRegistry<readonly BadgeDefinition[]>('badges')
 }
 
 export function loadEmoticons(): Promise<EmoticonCatalog> {
-  return emoticonsPromise ??= loadRegistry<EmoticonCatalog>('emoticons').catch((error: unknown) => {
+  return emoticonsPromise ??= loadContentRegistry<EmoticonCatalog>('emoticons').catch((error: unknown) => {
     emoticonsPromise = null
     throw error
   })

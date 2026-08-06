@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Core;
 
+use FoxCMS\Shared\Environment\Environment as SharedEnvironment;
+
+/** @deprecated Inject SharedEnvironment through ApplicationContext. */
 final class Environment
 {
     public static function load(string $rootDirectory): string
     {
-        $rootDirectory = rtrim($rootDirectory, '/\\');
-        require_once $rootDirectory . '/engine/data/environment.php';
-        \foxLoadEnv($rootDirectory . '/.env');
-        return $rootDirectory;
+        return SharedEnvironment::boot($rootDirectory)->rootDirectory();
     }
 }

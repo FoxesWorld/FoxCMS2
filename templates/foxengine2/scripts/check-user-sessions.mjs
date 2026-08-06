@@ -9,7 +9,9 @@ const files = {
   session: join(repositoryRoot, 'engine', 'classes', 'session', 'UserSession.class.php'),
   authorise: join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'actions', 'authorise.class.php'),
   auth: join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'AuthReg.class.php'),
+  authLifecycle: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Auth', 'AuthSessionLifecycle.php'),
   actions: join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'UserActions.class.php'),
+  controller: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'User', 'UserBrowserSessionController.php'),
   application: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Application', 'UserSessionSynchronizer.php'),
   health: join(repositoryRoot, 'engine', 'classes', 'services', 'HealthCheckService.class.php'),
   manifest: join(themeRoot, 'frontend.json'),
@@ -78,28 +80,38 @@ requireText('Password login session issue', source.authorise, [
   '->issueForAuthenticatedSession($this->session, $userUuid, $remember, $context)',
   'UserSessionRegistryService::isSchemaMissing($error)',
 ])
-requireText('Remembered session restore and logout', source.auth, [
+requireText('Authentication lifecycle facade', source.auth, [
+  'new AuthSessionLifecycle(',
+  '$this->sessionLifecycle->restoreSafely();',
+  '$this->sessionLifecycle->logout()',
+  '$this->sessionLifecycle->invalidateCurrent();',
+])
+requireText('Remembered session restore and logout', source.authLifecycle, [
   '->restoreRememberedSession($token, $this->session, $context)',
   "'legacy_migrated'",
   '->revokeCurrentSession($this->session)',
-  'private function setRememberCookie(',
+  'new RememberCookie(',
+  '$this->rememberCookie->set(',
+  '$this->rememberCookie->clear()',
 ])
 requireText('Request lifecycle synchronization', source.application, [
   'final class UserSessionSynchronizer',
   '$this->synchronizeBrowserSession();',
   '->synchronizeCurrentSession(',
 ])
-requireText('Session list API', source.actions, [
-  "'getActiveSessions' => 'getActiveSessions'",
-  "'getActiveSessions' => $this->getActiveSessions()",
-  'private function getActiveSessions(): never',
+requireText('Session transport facade', source.actions, [
+  "'getActiveSessions' => $this->browserSessions->getActiveSessions()",
+  "'revokeActiveSession' => $this->browserSessions->revokeActiveSession()",
+  'new UserBrowserSessionController(',
+])
+requireText('Session use-case controller', source.controller, [
+  'public function getActiveSessions(): never',
   '->activeSessions(',
   '024_user_browser_sessions.sql',
-  "'revokeActiveSession' => 'revokeActiveSession'",
-  "'revokeActiveSession' => $this->revokeActiveSession()",
-  'private function revokeActiveSession(): never',
+  'public function revokeActiveSession(): never',
   'CsrfToken::requireValid($this->request->csrfToken())',
   '->revokeSession($userUuid, $sessionUuid, $currentSessionUuid)',
+  '$this->guard->uuid()',
 ])
 requireText('Health check schema', source.health, ["'userBrowserSessions' => ["])
 

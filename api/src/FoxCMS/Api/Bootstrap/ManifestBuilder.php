@@ -13,7 +13,7 @@ final class ManifestBuilder
     }
 
     /** @return array<string, mixed> */
-    public function build(string $platform): array
+    public function build(string $platform, array $runtimeRequest): array
     {
         $storageDirectory = $this->settings->storageDirectory();
         $catalog = new ArtifactCatalog($storageDirectory);
@@ -26,7 +26,7 @@ final class ManifestBuilder
                 'version' => $bootstrapper['version'],
                 'artifacts' => [$platform => $this->publicArtifact($bootstrapper['artifact'])],
             ],
-            'jvm' => (new RuntimeCatalog())->resolve($storageDirectory),
+            'jvm' => (new RuntimeCatalog())->resolve($storageDirectory, $runtimeRequest),
             'launcher' => [
                 'version' => $launcher['version'],
                 'file_name' => $launcher['file_name'],

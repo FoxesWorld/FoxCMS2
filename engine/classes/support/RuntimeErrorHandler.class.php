@@ -20,6 +20,7 @@ final class RuntimeErrorHandler
             . DIRECTORY_SEPARATOR . 'runtime.log';
         self::$requestId = self::createRequestId();
         self::setDebug($debug);
+        $GLOBALS['foxRuntimeErrorHandlerRegistered'] = true;
 
         ini_set('log_errors', '1');
         error_reporting(E_ALL);
@@ -116,52 +117,7 @@ final class RuntimeErrorHandler
             $throwable->getCode(),
         );
 
-        if (!headers_sent()) {
-            http_response_code(500);
-            header('Cache-Control: no-store');
-            header('X-Content-Type-Options: nosniff');
-            header('X-FoxCMS-Request-Id: ' . self::$requestId);
-            header('X-Request-ID: ' . self::$requestId);
-            if (class_exists(RequestTelemetry::class, false) && RequestTelemetry::correlationId() !== '') {
-                header('X-Correlation-ID: ' . RequestTelemetry::correlationId());
-            }
-            header('X-Request-ID: ' . self::$requestId);
-            if (class_exists(RequestTelemetry::class, false) && RequestTelemetry::correlationId() !== '') {
-                header('X-Correlation-ID: ' . RequestTelemetry::correlationId());
-            }
-        }
-
-        if (self::expectsJson()) {
-            if (!headers_sent()) {
-                header('Content-Type: application/json; charset=UTF-8');
-            }
-
-            $payload = [
-                'type' => 'error',
-                'message' => self::$debug
-                    ? $throwable->getMessage()
-                    : 'Internal server error.',
-                'requestId' => self::$requestId,
-                'correlationId' => class_exists(RequestTelemetry::class, false)
-                    ? RequestTelemetry::correlationId()
-                    : self::$requestId,
-            ];
-
-            if (self::$debug) {
-                $payload['exception'] = get_class($throwable);
-                $payload['file'] = self::relativePath($throwable->getFile());
-                $payload['line'] = $throwable->getLine();
-            }
-
-            echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            return;
-        }
-
-        if (!headers_sent()) {
-            header('Content-Type: text/html; charset=UTF-8');
-        }
-
-        echo self::renderHtml($throwable);
+        self::emitThrowableResponse($throwable);
     }
 
     public static function handleShutdown(): void
@@ -210,21 +166,109 @@ final class RuntimeErrorHandler
             (int)$error['type'],
         );
 
+        self::emitThrowableResponse(new ErrorException(
+            (string)$error['message'],
+            0,
+            (int)$error['type'],
+            (string)$error['file'],
+            (int)$error['line'],
+        ));
+    }
+
+    private static function emitThrowableResponse(Throwable $throwable): void
+    {
+        self::discardOutputBuffers();
+
         if (!headers_sent()) {
             http_response_code(500);
-            header('Content-Type: text/plain; charset=UTF-8');
             header('Cache-Control: no-store');
+            header('X-Content-Type-Options: nosniff');
             header('X-FoxCMS-Request-Id: ' . self::$requestId);
+            header('X-Request-ID: ' . self::$requestId);
+            if (class_exists(RequestTelemetry::class, false) && RequestTelemetry::correlationId() !== '') {
+                header('X-Correlation-ID: ' . RequestTelemetry::correlationId());
+            }
         }
 
-        if (self::$debug) {
-            echo "Fatal error: {$error['message']}\n"
-                . 'File: ' . self::relativePath((string)$error['file']) . ':' . (int)$error['line'] . "\n"
-                . 'Request ID: ' . self::$requestId;
+        if (self::expectsJson()) {
+            if (!headers_sent()) {
+                header('Content-Type: application/json; charset=UTF-8');
+            }
+
+            $payload = [
+                'type' => 'error',
+                'fatal' => true,
+                'exception' => get_class($throwable),
+                'message' => self::publicMessage($throwable->getMessage()),
+                'requestId' => self::$requestId,
+                'correlationId' => class_exists(RequestTelemetry::class, false)
+                    ? RequestTelemetry::correlationId()
+                    : self::$requestId,
+            ];
+
+            if (self::$debug) {
+                $payload['file'] = self::relativePath($throwable->getFile());
+                $payload['line'] = $throwable->getLine();
+                $payload['trace'] = $throwable->getTraceAsString();
+            }
+
+            $json = json_encode(
+                $payload,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
+            );
+            echo is_string($json)
+                ? $json
+                : '{"type":"error","fatal":true,"message":"Unable to encode fatal error response."}';
             return;
         }
 
-        echo 'Internal server error. Request ID: ' . self::$requestId;
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=UTF-8');
+        }
+
+        echo self::renderHtml($throwable);
+    }
+
+    private static function discardOutputBuffers(): void
+    {
+        while (ob_get_level() > 0) {
+            if (!@ob_end_clean()) {
+                break;
+            }
+        }
+    }
+
+    private static function publicMessage(string $message): string
+    {
+        $message = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/u', ' ', $message) ?? $message;
+        $message = trim(preg_replace('/\s+/u', ' ', $message) ?? $message);
+
+        if (self::$rootDirectory !== '') {
+            $message = str_ireplace(
+                [self::$rootDirectory, str_replace('\\', '/', self::$rootDirectory)],
+                '[project]',
+                $message,
+            );
+        }
+
+        $message = preg_replace(
+            '#([a-z][a-z0-9+.-]*://)([^/@\s:]+):([^@\s]+)@#i',
+            '$1[credentials-redacted]@',
+            $message,
+        ) ?? $message;
+        $message = preg_replace(
+            '/\b(password|passwd|pwd|secret|token|authorization)\s*[:=]\s*([^\s;,&]+)/i',
+            '$1=[redacted]',
+            $message,
+        ) ?? $message;
+
+        if ($message === '') {
+            return 'Fatal error without a diagnostic message.';
+        }
+
+        return function_exists('mb_substr')
+            ? mb_substr($message, 0, 2000)
+            : substr($message, 0, 2000);
     }
 
     private static function writeLog(
@@ -281,10 +325,8 @@ final class RuntimeErrorHandler
 
     private static function renderHtml(Throwable $throwable): string
     {
-        $title = self::$debug ? get_class($throwable) : 'Внутренняя ошибка сервера';
-        $message = self::$debug
-            ? $throwable->getMessage()
-            : 'FoxCMS не удалось завершить запрос. Ошибка уже зафиксирована в журнале.';
+        $title = get_class($throwable);
+        $message = self::publicMessage($throwable->getMessage());
         $details = '';
 
         if (self::$debug) {

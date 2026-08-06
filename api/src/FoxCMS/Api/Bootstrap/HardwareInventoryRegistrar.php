@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Bootstrap;
 
+use FoxCMS\Api\Core\Request;
 use Throwable;
 
 final class HardwareInventoryRegistrar
 {
-    public function __construct(private readonly BootstrapSettings $settings)
-    {
+    public function __construct(
+        private readonly BootstrapSettings $settings,
+        private readonly Request $request,
+    ) {
     }
 
     public function register(string $requestId): void
@@ -19,7 +22,7 @@ final class HardwareInventoryRegistrar
             return;
         }
 
-        $report = (new HardwareReportFactory())->fromHttpBody(
+        $report = (new HardwareReportFactory($this->request))->fromHttpBody(
             $this->settings->hardwareInventoryMaxPayloadBytes(),
         );
         try {

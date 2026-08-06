@@ -41,7 +41,7 @@ final class GameScanner implements JsonSerializable
         $launcher = is_array($config['launcherSettings'] ?? null)
             ? $config['launcherSettings']
             : [];
-        $gameFiles = (string)($launcher['gameFiles'] ?? 'files/clients/');
+        $gameFiles = (string)($launcher['gameFiles'] ?? 'game/');
         $root = realpath(ROOT_DIR . UPLOADS_DIR . $gameFiles);
         if ($root === false || !is_dir($root)) {
             throw new RuntimeException('Game files directory is unavailable.');

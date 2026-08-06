@@ -40,9 +40,13 @@ export default defineConfig({
     target: 'es2022',
     cssCodeSplit: false,
     rollupOptions: {
-      input: resolve(themeSource, 'main.ts'),
+      preserveEntrySignatures: 'strict',
+      input: {
+        theme: resolve(themeSource, 'main.ts'),
+        'vue-runtime': resolve(engineClient, 'runtime', 'vueRuntimeBridge.ts'),
+      },
       output: {
-        entryFileNames: 'theme.js',
+        entryFileNames: (chunkInfo) => chunkInfo.name === 'theme' ? 'theme.js' : '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           const cssName = assetInfo.names?.find((name) => name.endsWith('.css'))

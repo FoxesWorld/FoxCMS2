@@ -10,9 +10,8 @@ use Throwable;
 
 final class RuntimeResolver
 {
-    public static function resolveRuntimeForRequest(string $storageDirectory): array
+    public static function resolveRuntimeForRequest(string $storageDirectory, array $request): array
     {
-        $request = RuntimeRequest::parseRuntimeRequest();
         $runtimeRoot = rtrim($storageDirectory, '/\\') . DIRECTORY_SEPARATOR . 'runtime';
         if (!is_dir($runtimeRoot) || !is_readable($runtimeRoot)) {
             RuntimeSupport::fail(503, 'runtime_catalog_unavailable', 'The runtime catalog is unavailable.', array(

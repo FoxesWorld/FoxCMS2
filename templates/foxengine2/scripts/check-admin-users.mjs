@@ -8,7 +8,7 @@ const files = {
   editor: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserEditor.vue'),
   badgeEditor: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserBadgeEditor.vue'),
   users: join(themeRoot, 'src', 'foxEngine', 'admin', 'Users.vue'),
-  panel: join(themeRoot, 'src', 'userOptions', 'userOptions', 'AdminPanel.vue'),
+  panel: join(themeRoot, 'userOptions', 'AdminPanel.tpl'),
   table: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserTable.vue'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   backendFacade: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),

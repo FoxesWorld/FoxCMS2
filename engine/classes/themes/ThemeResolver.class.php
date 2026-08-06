@@ -74,9 +74,14 @@ final class ThemeResolver
                 continue;
             }
             $relative = $this->safeRelativePath($asset);
-            $this->resolveFile($directory, $relative);
+            $path = $this->resolveFile($directory, $relative);
+            $hash = hash_file('sha256', $path);
+            if (!is_string($hash) || $hash === '') {
+                throw new RuntimeException('Theme asset hash could not be calculated: ' . $path);
+            }
             $resolved[] = '/templates/' . rawurlencode($themeName) . '/'
-                . implode('/', array_map('rawurlencode', explode('/', $relative)));
+                . implode('/', array_map('rawurlencode', explode('/', $relative)))
+                . '?v=' . substr($hash, 0, 16);
         }
         return $resolved;
     }

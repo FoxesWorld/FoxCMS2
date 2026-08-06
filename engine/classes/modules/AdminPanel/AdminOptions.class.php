@@ -14,6 +14,8 @@ final class AdminOptions {
         'overview' => 'overview',
         'siteSettings' => 'siteSettings',
         'saveSiteSettings' => 'saveSiteSettings',
+        'userOptions' => 'userOptions',
+        'saveUserOptions' => 'saveUserOptions',
         'users' => 'users',
         'updateUser' => 'updateUser',
         'grantUserBadge' => 'grantUserBadge',
@@ -33,6 +35,7 @@ final class AdminOptions {
         'uploadSiteSocialImage' => 'uploadSiteSocialImage',
         'content' => 'content',
         'saveProjectPages' => 'saveProjectPages',
+        'savePageTemplate' => 'savePageTemplate',
         'saveBadgePage' => 'saveBadgePage',
         'deleteBadgePage' => 'deleteBadgePage',
         'rewards' => 'rewards',
@@ -71,6 +74,7 @@ final class AdminOptions {
     private AdminContentController $contentController;
     private LogQueryService $logQuery;
     private AdminRewardController $rewardController;
+    private AdminRuntimeOptionsController $runtimeOptionsController;
 
     public function __construct(
         array $request,
@@ -140,6 +144,21 @@ final class AdminOptions {
             TEMPLATE_DIR,
             (string)($site['siteTpl'] ?? ''),
         );
+        $userOptionsRepository = new ThemeUserOptionsRepository(
+            TEMPLATE_DIR,
+            (string)($site['siteTpl'] ?? ''),
+        );
+        $pageTemplateRepository = new ThemePageTemplateRepository(
+            TEMPLATE_DIR,
+            (string)($site['siteTpl'] ?? ''),
+        );
+        $this->runtimeOptionsController = new AdminRuntimeOptionsController(
+            $userOptionsRepository,
+            $session,
+            $logger,
+            $this->payload,
+            $this->responder,
+        );
         $badgePageRepository = new ThemeBadgePageRepository(
             TEMPLATE_DIR,
             (string)($site['siteTpl'] ?? ''),
@@ -147,8 +166,10 @@ final class AdminOptions {
         $this->contentController = new AdminContentController(
             $db,
             $request,
+            $session,
             $logger,
             $contentRepository,
+            $pageTemplateRepository,
             $badgePageRepository,
             $this->badgeCatalogSchema,
             $this->payload,
@@ -238,6 +259,16 @@ final class AdminOptions {
             'message' => 'Настройки сайта и SEO сохранены. Публичные метатеги обновятся при следующей загрузке страницы.',
             'type' => 'success',
         ]));
+    }
+
+    private function userOptions(): void
+    {
+        $this->runtimeOptionsController->userOptions();
+    }
+
+    private function saveUserOptions(): void
+    {
+        $this->runtimeOptionsController->saveUserOptions();
     }
 
     private function overview(): void {
@@ -518,6 +549,11 @@ final class AdminOptions {
     private function saveProjectPages(): void
     {
         $this->contentController->saveProjectPages();
+    }
+
+    private function savePageTemplate(): void
+    {
+        $this->contentController->savePageTemplate();
     }
 
     private function saveBadgePage(): void

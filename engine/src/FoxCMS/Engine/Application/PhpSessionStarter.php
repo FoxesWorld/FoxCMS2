@@ -22,8 +22,6 @@ final class PhpSessionStarter
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_samesite', 'Lax');
         ini_set('session.gc_maxlifetime', (string)$absoluteLifetime);
-        ini_set('session.sid_length', '48');
-        ini_set('session.sid_bits_per_character', '6');
 
         session_name('FOXESCRAFTSESSID');
         session_set_cookie_params([

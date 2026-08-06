@@ -25,6 +25,10 @@ command -v python3 >/dev/null 2>&1 || {
   exit 2
 }
 
+DEPLOY_THEME="${FOXESCRAFT_TEMPLATE:-foxengine2}"
+python3 "${SOURCE_ROOT}/scripts/verify-deployment.py" "${SOURCE_ROOT}" --theme "${DEPLOY_THEME}"
+echo "Source deployment preflight passed for theme: ${DEPLOY_THEME}"
+
 if command -v php >/dev/null 2>&1 && [[ -f "${TARGET_ROOT}/.env" ]]; then
   set +e
   FOXESCRAFT_ENV_FILE="${TARGET_ROOT}/.env" php "${SOURCE_ROOT}/scripts/migrate.php" --status >/tmp/foxescraft-migration-status.json

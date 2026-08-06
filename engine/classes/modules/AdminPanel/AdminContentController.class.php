@@ -10,8 +10,10 @@ final class AdminContentController
     public function __construct(
         private db $db,
         private array $request,
+        private UserSession $session,
         private Logger $logger,
         private ThemeContentRepository $contentRepository,
+        private ThemePageTemplateRepository $pageTemplateRepository,
         private ThemeBadgePageRepository $badgePageRepository,
         private AdminBadgeCatalogSchema $badgeCatalogSchema,
         private AdminRequestPayload $payload,
@@ -64,6 +66,8 @@ final class AdminContentController
 
         $this->responder->send([
             'projectPages' => $this->contentRepository->readProjectPages(),
+            'pageTemplates' => $this->pageTemplateRepository->read(true),
+            'pageTemplatesStorageReady' => $this->pageTemplateRepository->storageReady(),
             'systemPages' => [
                 [
                     'id' => 'achievements',
@@ -101,9 +105,56 @@ final class AdminContentController
             'success',
         );
         $this->responder->send([
-            'message' => 'HTML-страницы проекта сохранены в data/pages.',
+            'message' => 'HTML-страницы проекта сохранены в pages/content.',
             'type' => 'success',
             'document' => $document,
+        ]);
+    }
+
+    public function savePageTemplate(): void {
+        $entry = $this->payload->object('entry');
+        $templateId = trim((string)($entry['templateId'] ?? ''));
+        $source = (string)($entry['source'] ?? '');
+        try {
+            $document = $this->pageTemplateRepository->saveTemplate($templateId, $source);
+        } catch (InvalidArgumentException $error) {
+            $this->responder->send(['message' => $error->getMessage(), 'type' => 'error'], 400);
+        } catch (RuntimeException $error) {
+            $this->logger->exception(
+                'theme.pages.template.compile_failed',
+                $error,
+                'Runtime page TPL compilation failed; the previous revision remains active.',
+                [
+                    'component' => 'theme_pages',
+                    'operation' => 'compile_page_template',
+                    'templateId' => $templateId,
+                    'actorUuid' => $this->session->uuid(),
+                ],
+            );
+            $this->responder->send([
+                'message' => 'Компилятор runtime-шаблонов недоступен. Предыдущая ревизия страницы остаётся активной.',
+                'type' => 'error',
+            ], 503);
+        }
+        $this->logger->event(
+            'theme.pages.template.saved',
+            'Theme page runtime TPL saved.',
+            [
+                'component' => 'theme_pages',
+                'operation' => 'save_page_template',
+                'templateId' => $templateId,
+                'revision' => (int)($document['revision'] ?? 0),
+                'templatesCount' => count($document['templates'] ?? []),
+                'actorUuid' => $this->session->uuid(),
+            ],
+            'INFO',
+            'success',
+        );
+        $this->responder->send([
+            'message' => 'Runtime-шаблон страницы сохранён в pages/templates и опубликован без пересборки frontend chunks.',
+            'type' => 'success',
+            'document' => $document,
+            'storageReady' => $this->pageTemplateRepository->storageReady(),
         ]);
     }
 

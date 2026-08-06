@@ -78,8 +78,12 @@ function openMenu(): void {
 function closeMenu(restoreFocus = true): void {
   if (!mobileOpen.value) return
 
+  const active = document.activeElement
+  if (active instanceof HTMLElement && mobileNavigation.value?.contains(active)) {
+    if (restoreFocus && menuToggle.value) menuToggle.value.focus({ preventScroll: true })
+    else active.blur()
+  }
   mobileOpen.value = false
-  if (restoreFocus) void nextTick(() => menuToggle.value?.focus())
 }
 
 function toggleMenu(): void {

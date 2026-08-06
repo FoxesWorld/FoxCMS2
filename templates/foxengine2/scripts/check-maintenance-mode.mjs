@@ -35,7 +35,18 @@ const contracts = [
     "$this->request->boolean('maintenanceAccess')",
     'MaintenanceModePolicy::allows($maintenance, $this->session)',
     'maintenance_group_required',
+    '$this->sessionLifecycle->invalidateCurrent()',
+  ]],
+  ['engine/src/FoxCMS/Engine/Auth/AuthSessionLifecycle.php', [
+    'public function invalidateCurrent(): void',
     '$this->session->clear()',
+    '$this->rememberCookie->clear()',
+  ]],
+  ['engine/src/FoxCMS/Engine/Auth/RememberCookie.php', [
+    'public function clear(): void',
+    "'secure' => $this->request->isSecure()",
+    "'httponly' => true",
+    "'samesite' => 'Lax'",
   ]],
   ['engine/classes/modules/AuthReg/actions/authorise.class.php', [
     "!$this->request->boolean('maintenanceAccess')",

@@ -57,7 +57,20 @@ final class UpdateProfilePhoto
                     'target' => $result->relativePath(),
                 ],
             );
-            $this->respond('Не удалось обновить профиль.', 'error', null, 500);
+            $requestId = RequestTelemetry::requestId();
+            if ($requestId === '') {
+                $requestId = ExceptionContext::requestId('profile-photo');
+            }
+            JsonResponse::send(
+                \FoxCMS\Shared\Error\ThrowableDiagnostic::payload(
+                    $error,
+                    $requestId,
+                    defined('ROOT_DIR') ? ROOT_DIR : '',
+                    false,
+                    ['type' => 'error', 'operation' => 'profile_photo_update'],
+                ),
+                500,
+            );
         }
 
         if ($currentPath !== '' && $currentPath !== $publicPath) {
