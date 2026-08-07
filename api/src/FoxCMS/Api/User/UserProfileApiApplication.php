@@ -51,13 +51,6 @@ final class UserProfileApiApplication
                 DatabaseFactory::create($this->context->config()),
             );
             $profile = $repository->findByUuid($uuid);
-            if ($profile === null) {
-                throw new HttpException(
-                    404,
-                    'user_not_found',
-                    'Пользователь не найден.',
-                );
-            }
 
             $environment = is_array($this->context->config()['environment'] ?? null)
                 ? $this->context->config()['environment']
@@ -66,9 +59,13 @@ final class UserProfileApiApplication
                 (string)($environment['publicBaseUrl'] ?? ''),
             );
 
+            $user = $profile === null
+                ? $presenter->anonymous($uuid)
+                : $presenter->present($profile);
+
             JsonResponse::send([
                 'schemaVersion' => self::SCHEMA_VERSION,
-                'user' => $presenter->present($profile),
+                'user' => $user,
             ], headers: ['Cache-Control' => self::SUCCESS_CACHE], conditional: true);
         } catch (HttpException $error) {
             JsonResponse::error(

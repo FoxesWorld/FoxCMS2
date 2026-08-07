@@ -16,6 +16,24 @@ final class UserProfilePresenter
     {
     }
 
+    /** @return array<string, mixed> */
+    public function anonymous(string $uuid): array
+    {
+        return $this->present([
+            'uuid' => $uuid,
+            'login' => 'Anonymous',
+            'realname' => 'Anonymous',
+            'colorScheme' => self::DEFAULT_ACCENT_COLOR,
+            'profilePhoto' => '/uploads/users/anonymous/avatar.jpg',
+            'groupTag' => 'guest',
+            'groupName' => 'Гостевичок',
+            'groupColor' => self::DEFAULT_GROUP_COLOR,
+            'badges' => '[]',
+            'serversOnline' => '{}',
+            'isAnonymous' => true,
+        ]);
+    }
+
     /**
      * Convert the persistence record into the stable, public API contract.
      *
@@ -30,6 +48,7 @@ final class UserProfilePresenter
 
         return [
             'uuid' => \Uuid::canonical((string)($profile['uuid'] ?? '')),
+            'isAnonymous' => (bool)($profile['isAnonymous'] ?? false),
             'login' => $login,
             'fullName' => $fullName,
             'displayName' => $fullName ?? $login,

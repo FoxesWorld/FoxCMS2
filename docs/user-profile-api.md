@@ -16,6 +16,7 @@ The endpoint is read-only and does not require authentication. UUID is the immut
   "schemaVersion": 1,
   "user": {
     "uuid": "0198de8f-1e14-7bf7-8ef8-b8ed6c2bd4d1",
+    "isAnonymous": false,
     "login": "Kayla",
     "fullName": "Kayla Verner",
     "displayName": "Kayla Verner",
@@ -41,6 +42,29 @@ The endpoint is read-only and does not require authentication. UUID is the immut
 
 The public contract intentionally excludes email addresses, balances, permissions, password hashes, tokens, numeric database IDs, IP addresses, hardware reports and session data.
 
+## Anonymous fallback
+
+A valid UUID that is not present in `users` returns HTTP `200` with the same response schema. The requested UUID is preserved and the profile contains:
+
+```json
+{
+  "uuid": "0198de8f-1e14-7bf7-8ef8-b8ed6c2bd4d3",
+  "isAnonymous": true,
+  "login": "Anonymous",
+  "fullName": "Anonymous",
+  "displayName": "Anonymous",
+  "colorScheme": "#b5b8b1",
+  "profilePhoto": "https://foxescraft.ru/uploads/users/anonymous/avatar.jpg",
+  "group": {
+    "tag": "guest",
+    "name": "Гостевичок",
+    "color": "#ffffff"
+  }
+}
+```
+
+This fallback has no status, location, dates, badges or server activity.
+
 ## Errors
 
 Missing UUID:
@@ -52,7 +76,7 @@ Missing UUID:
 }
 ```
 
-Invalid UUID returns HTTP `400` with `user_uuid_invalid`. An unknown UUID returns HTTP `404` with `user_not_found`. Unexpected database/runtime failures return HTTP `503` with the standard request identifier.
+Invalid UUID returns HTTP `400` with `user_uuid_invalid`. Unknown valid UUIDs use the Anonymous fallback above. Unexpected database/runtime failures return HTTP `503` with the standard request identifier.
 
 Successful responses use `Cache-Control: public, max-age=30, stale-while-revalidate=60` and an ETag. Error responses are not cached.
 

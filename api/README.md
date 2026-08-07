@@ -11,6 +11,7 @@ api/
 ├── news.php                          # Public news endpoint
 ├── content.php                       # Theme content registries
 ├── health.php                        # Health endpoint
+├── badges/                           # Public badge catalog and lookup
 ├── users/                            # Public UUID profile endpoint
 ├── bootstrap/                        # Stable public bootstrap URLs
 ├── launcher/                         # Private launcher bridge URLs
@@ -20,6 +21,7 @@ api/
 │   ├── News/                         # News presentation and image encoding
 │   ├── Content/                      # Content registries and badge catalog
 │   ├── Health/                       # Health-check application
+│   ├── Badge/                        # Public badge presentation and lookup
 │   ├── User/                         # Public profile query and presentation
 │   ├── Bootstrap/                    # Manifest, artifacts, hardware inventory, JDK selection
 │   └── Launcher/                     # Bridge authentication, cache and runtime bridge
@@ -45,6 +47,7 @@ Create an application/controller under `src/FoxCMS/Api/<Domain>/`, use `Request`
 ```powershell
 php -l api\index.php
 php api\tests\architecture-smoke.php
+php api\tests\badge-api-contract.php
 php api\tests\user-profile-contract.php
 php scripts\check-bootstrap-hardware.php
 python scripts\verify-deployment.py
