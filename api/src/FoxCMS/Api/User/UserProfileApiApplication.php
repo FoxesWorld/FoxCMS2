@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\User;
 
+use FoxCMS\Api\Core\ApiExecutionBoundary;
 use FoxCMS\Api\Core\ApplicationContext;
 use FoxCMS\Api\Core\DatabaseFactory;
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\JsonResponse;
 use FoxCMS\Api\Core\Request;
-use FoxCMS\Api\Core\RequestId;
-use Throwable;
 
 final class UserProfileApiApplication
 {
@@ -29,7 +28,7 @@ final class UserProfileApiApplication
 
     public function run(): never
     {
-        try {
+        ApiExecutionBoundary::run($this->context, function (): void {
             $this->request->requireMethod('GET', 'HEAD');
             $uuid = trim((string)$this->request->query('uuid'));
             if ($uuid === '') {
@@ -67,21 +66,6 @@ final class UserProfileApiApplication
                 'schemaVersion' => self::SCHEMA_VERSION,
                 'user' => $user,
             ], headers: ['Cache-Control' => self::SUCCESS_CACHE], conditional: true);
-        } catch (HttpException $error) {
-            JsonResponse::error(
-                $error->errorCode(),
-                $error->getMessage(),
-                $error->statusCode(),
-                $error->details(),
-            );
-        } catch (Throwable $error) {
-            \FoxCMS\Api\Core\FatalResponse::send(
-                $error,
-                $this->context,
-                'user_profile_unavailable',
-                503,
-                RequestId::create(),
-            );
-        }
+        }, 'user_profile_unavailable');
     }
 }

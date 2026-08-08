@@ -20,9 +20,10 @@ index.php
               -> UserSessionSynchronizer
               -> ModulesLoader
           -> MaintenanceGate
-          -> SystemRequests (HTTP facade)
-              -> FoxCMS\Engine\Launcher\LauncherAccess
-              -> FoxCMS\Engine\Launcher\LauncherRequestController
+          -> SystemRequests (compatibility HTTP facade)
+              -> FoxCMS\Engine\System\SystemRequestRouterFactory
+                  -> Server / Media / Texture / Runtime handlers
+                  -> FoxCMS\Engine\Launcher\LauncherRequestController
           -> FrontendResponder
   -> templates/<theme>/ Vue 3 + TypeScript application
 ```
@@ -41,8 +42,11 @@ The runtime follows these ownership boundaries:
 - `UserSessionSynchronizer` owns database refresh, activity touch, browser-session registry synchronization and related telemetry;
 - `MaintenanceGate` owns maintenance authorization and the 503 response;
 - `FrontendResponder` owns theme resolution and frontend bootstrap rendering;
-- `SystemRequests` remains a transport facade; launcher authentication and playtime commands are delegated to launcher services;
-- `AdminOptions` remains a compatibility facade; cohesive administrative use-cases are extracted into focused controllers such as `AdminRewardController`, `AdminContentController`, `AdminServerController`, `AdminCatalogController` and `AdminUserController`; shared `AdminResponder`, `AdminRequestPayload`, `AdminBadgeOptionsProvider` and schema guards remove repeated transport, lookup and validation code;
+- `SystemRequests` is a compatibility-only transport facade. `SystemRequestRouterFactory` is its composition root; monitoring, media, texture and runtime behavior live in focused `FoxCMS\Engine\System` controllers, while launcher commands remain in `FoxCMS\Engine\Launcher`;
+- `AdminOptions` is a compatibility-only dispatcher. `AdminActionRouterFactory` composes focused administrative controllers and registers legacy `admPanel` action names without putting business behavior back into the facade;
+- legacy `sysRequest` and `admPanel` transports share `FoxCMS\Shared\Routing\ActionDispatcher`, so route registration, duplicate detection and handler metadata have one implementation;
+- public `/api` applications use `FoxCMS\Api\Core\ApiExecutionBoundary` for the standard `HttpException`/fatal response contract; protocol-specific APIs may keep specialized boundaries when their wire contract requires custom headers or error types;
+- `check:php-architecture` enforces facade size and responsibility limits so compatibility layers cannot silently grow back into monoliths;
 - vendored libraries and guarded utilities remain behind `UtilityLoader` and are not folded into the application namespace.
 
 Presentation ownership is strict: reusable runtime controls may live under `engine/client`, while theme-specific layout and visual components belong to `templates/<theme>`. Backend modules do not own route manifests; the selected theme owns route composition.

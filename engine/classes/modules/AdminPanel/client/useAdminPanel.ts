@@ -859,11 +859,14 @@ export function useAdminPanel() {
     if (!slide || !window.confirm(t('modules.adminpanel.useadminpanel.042', [slide.title]))) return
     sliderSettings.slides.splice(index, 1)
   }
-  function moveSlide(index: number, direction: number): void {
-    const target = index + direction
-    if (index < 0 || target < 0 || index >= sliderSettings.slides.length || target >= sliderSettings.slides.length) return
-    const [slide] = sliderSettings.slides.splice(index, 1)
-    if (slide) sliderSettings.slides.splice(target, 0, slide)
+  function reorderSlide(fromIndex: number, toIndex: number): void {
+    if (
+      fromIndex < 0 || toIndex < 0
+      || fromIndex >= sliderSettings.slides.length || toIndex >= sliderSettings.slides.length
+      || fromIndex === toIndex
+    ) return
+    const [slide] = sliderSettings.slides.splice(fromIndex, 1)
+    if (slide) sliderSettings.slides.splice(toIndex, 0, slide)
   }
   async function uploadSlideImage(index: number, file: File): Promise<void> {
     const slide = sliderSettings.slides[index]
@@ -1552,7 +1555,7 @@ export function useAdminPanel() {
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp, runtimeUserOptionsRevision,
     runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimePageTemplatesDraft, runtimePageTemplatesStorageReady,
     loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
-    saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
+    saveMaintenance, loadSlides, addSlide, removeSlide, reorderSlide, uploadSlideImage, saveSlides,
     loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, savePageTemplate, saveBadgePage, deleteBadgePage,
     loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, saveAchievementEconomy, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,

@@ -102,7 +102,7 @@ if (str_contains($encoded, str_repeat('a', 64)) || str_contains($encoded, str_re
     throw new RuntimeException('Full systemHWID leaked into the administrative response.');
 }
 
-$adminSource = requireText($root . '/engine/classes/modules/AdminPanel/AdminOptions.class.php');
+$adminSource = requireText($root . '/engine/src/FoxCMS/Engine/Admin/AdminSystemController.php');
 $serviceSource = requireText($root . '/engine/classes/services/HardwareInventoryStatisticsService.class.php');
 $frontendSource = requireText($root . '/templates/foxengine2/src/foxEngine/admin/Overview.vue');
 $schemaSource = requireText($root . '/database/schema-000.sql');

@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+// Keep the ingestion service self-contained across rolling/mixed deployments.
+// The Game API bootstrap also requires this dependency, but loading it here
+// guarantees that a freshly deployed event service cannot execute without its
+// point-ledger implementation. require_once remains idempotent.
+require_once dirname(__DIR__) . '/services/AchievementPointExchangeService.class.php';
+
 final class GameAchievementEventService
 {
     public function __construct(private db $db)

@@ -11,7 +11,7 @@ const files = {
   panel: join(themeRoot, 'userOptions', 'AdminPanel.tpl'),
   table: join(themeRoot, 'src', 'foxEngine', 'admin', 'users', 'UserTable.vue'),
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
-  backendFacade: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  backendFacade: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php'),
   userBackend: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminUserController.class.php'),
   notifications: join(repositoryRoot, 'engine', 'classes', 'services', 'NotificationService.class.php'),
   badges: join(repositoryRoot, 'engine', 'client', 'domain', 'userBadges.ts'),
@@ -60,8 +60,8 @@ requireText('Badge operation wiring', `${users}\n${panel}`, [
   '@revoke-badge="revokeUserBadge"',
 ])
 requireText('Administrative badge backend', backend, [
-  "'grantUserBadge' => 'grantUserBadge'",
-  "'revokeUserBadge' => 'revokeUserBadge'",
+  "->register('grantUserBadge'",
+  "->register('revokeUserBadge'",
   'private function mutateUserBadge(bool $grant): void',
   "'SELECT `uuid`, `login`, `badges` FROM `users` WHERE `uuid` = :uuid LIMIT 1 FOR UPDATE'",
   "'UPDATE `users` SET `badges` = :badges WHERE `uuid` = :uuid'",

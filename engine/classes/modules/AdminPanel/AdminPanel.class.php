@@ -48,14 +48,14 @@ final class AdminPanel extends Module
             $payload['_slideUpload'] = $request->file('image');
             $payload['_serverImageUpload'] = $request->file('image');
             $payload['_siteSocialImageUpload'] = $request->file('image');
-            new AdminOptions(
+            (new AdminOptions(
                 $payload,
                 $db,
                 $session,
                 $logger,
                 $request,
                 $config,
-            );
+            ))->dispatch($action);
         } catch (HttpException $error) {
             RequestTelemetry::rejectHttp(
                 'admin.operation.rejected',

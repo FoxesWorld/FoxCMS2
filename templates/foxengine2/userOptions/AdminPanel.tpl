@@ -1,4 +1,4 @@
-<fox-user-options-template id="admin-panel" schema="1" revision="4" updated-at="2026-08-08T05:45:00Z">
+<fox-user-options-template id="admin-panel" schema="1" revision="5" updated-at="2026-08-08T05:45:00Z">
   <fox-admin-categories>
     <fox-admin-category id="observability" label="Обзор и контроль" description="Состояние проекта, метрики и диагностика" icon="fa-chart-line" order="10" enabled="true" />
     <fox-admin-category id="community" label="Сообщество" description="Игроки, группы, награды и справочники" icon="fa-users" order="20" enabled="true" />
@@ -171,7 +171,7 @@
             :loading="loading"
             @add="addSlide"
             @remove="removeSlide"
-            @move="moveSlide"
+            @reorder="reorderSlide"
             @upload="uploadSlideImage"
             @save="saveSlides"
           />

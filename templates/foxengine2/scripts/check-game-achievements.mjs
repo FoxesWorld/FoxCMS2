@@ -48,7 +48,7 @@ const files = {
   frontendClient: join(repositoryRoot, 'engine', 'client', 'achievements', 'playerAchievements.ts'),
   economyClient: join(repositoryRoot, 'engine', 'client', 'achievements', 'achievementEconomy.ts'),
   economyComposable: join(repositoryRoot, 'engine', 'client', 'achievements', 'useAchievementEconomy.ts'),
-  achievementsView: join(repositoryRoot, 'engine', 'client', 'views', 'AchievementsView.vue'),
+  achievementsView: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementsRuntimeHost.vue'),
   statisticsTree: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementStatisticsTree.vue'),
   statisticsTreeModel: join(repositoryRoot, 'engine', 'client', 'achievements', 'achievementStatisticsTree.ts'),
   statisticsTreeNode: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementTreeNode.vue'),
@@ -61,10 +61,11 @@ const files = {
   frontendProfile: join(themeRoot, 'src', 'userOptions', 'userOptions', 'Profile.vue'),
   frontendStyles: join(themeRoot, 'src', 'styles', 'profile.css'),
   adminAchievementController: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminAchievementController.class.php'),
-  adminOptions: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  adminOptions: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php'),
   adminComposable: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   adminAchievementsView: join(themeRoot, 'src', 'foxEngine', 'admin', 'Achievements.vue'),
   adminPanelTpl: join(themeRoot, 'userOptions', 'AdminPanel.tpl'),
+  deploymentVerifier: join(repositoryRoot, 'scripts', 'verify-deployment.py'),
 }
 
 const values = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
@@ -191,6 +192,7 @@ requireText('Legacy technical recipe rows stay out of public achievement views',
   "NOT LIKE '%:advancement/recipes/%'",
 ])
 requireText('Achievement event service', source.eventService, [
+  "require_once dirname(__DIR__) . '/services/AchievementPointExchangeService.class.php'",
   'final class GameAchievementEventService',
   'INSERT IGNORE INTO `gameAchievementEvents`',
   '`playerUuid` = :playerUuid',
@@ -261,6 +263,7 @@ requireText('Game API front controller', source.apiIndex, [
 ])
 requireText('Game API application', source.gameApiApplication, [
   'final class GameApiApplication',
+  "'classes/services/AchievementPointExchangeService.class.php'",
   "private const PROTOCOL = 'fox-achievements-v1'",
   "'/game/achievements/catalog' => $this->catalog()",
   "'/game/achievements/event' => $this->event()",
@@ -701,10 +704,10 @@ requireText('Achievement profile styles', source.frontendStyles, [
 ])
 
 requireText('Achievement admin backend registration', source.adminOptions, [
-  "'achievementsAdmin' => 'achievementsAdmin'",
-  "'saveAchievementEconomy' => 'saveAchievementEconomy'",
-  "'clearAchievementServer' => 'clearAchievementServer'",
-  "'clearAchievementPlayer' => 'clearAchievementPlayer'",
+  "->register('achievementsAdmin'",
+  "->register('saveAchievementEconomy'",
+  "->register('clearAchievementServer'",
+  "->register('clearAchievementPlayer'",
   'AdminAchievementController',
 ])
 requireText('Achievement admin MariaDB-safe statistics query', source.adminAchievementController, [
@@ -762,6 +765,15 @@ requireText('Achievement admin runtime destination', source.adminPanelTpl, [
   ':economy="achievementEconomy"',
   ':economy-stats="achievementEconomyStats"',
   '@save-economy="saveAchievementEconomy"',
+])
+
+requireText('Achievement deployment verifier', source.deploymentVerifier, [
+  'engine/classes/game/GameAchievementEventService.class.php',
+  'engine/classes/services/AchievementPointExchangeService.class.php',
+  'api/src/FoxCMS/Api/Game/GameApiApplication.php',
+  'database/migrations/026_game_achievement_category_labels.sql',
+  'database/migrations/027_game_achievement_points_economy.sql',
+  'database/migrations/028_game_achievement_category_label_cleanup.sql',
 ])
 
 if (failures.length) {

@@ -28,6 +28,7 @@ final class GameApiApplication
             'classes/game/GameApiException.class.php',
             'classes/game/GameServerAuthenticator.class.php',
             'classes/game/GameAchievementCatalogService.class.php',
+            'classes/services/AchievementPointExchangeService.class.php',
             'classes/game/GameAchievementEventService.class.php',
         );
     }

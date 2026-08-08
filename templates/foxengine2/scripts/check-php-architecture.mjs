@@ -137,6 +137,38 @@ for (const entry of await readdir(modulesRoot, { withFileTypes: true })) {
   }
 }
 
+const architectureFiles = {
+  systemFacade: await readFile(join(repositoryRoot, 'engine', 'SystemRequests.class.php'), 'utf8'),
+  adminFacade: await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8'),
+  actionDispatcher: await readFile(join(repositoryRoot, 'src', 'FoxCMS', 'Shared', 'Routing', 'ActionDispatcher.php'), 'utf8'),
+  apiExecutionBoundary: await readFile(join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Core', 'ApiExecutionBoundary.php'), 'utf8'),
+}
+const sourceLines = (source) => source.split(/\r?\n/).length
+if (sourceLines(architectureFiles.systemFacade) > 180) {
+  failures.push('SystemRequests compatibility facade exceeded 180 lines; move domain behavior into FoxCMS\\Engine\\System handlers')
+}
+if (sourceLines(architectureFiles.adminFacade) > 120) {
+  failures.push('AdminOptions compatibility facade exceeded 120 lines; move use-cases into FoxCMS\\Engine\\Admin handlers')
+}
+for (const token of ['SystemRequestRouterFactory', 'ActionDispatcher', '$this->router->dispatch($action)']) {
+  if (!architectureFiles.systemFacade.includes(token)) failures.push(`SystemRequests facade is missing ${token}`)
+}
+for (const token of ['new UploadService(', 'new \\ServerParser(', 'new \\GetJre(']) {
+  if (architectureFiles.systemFacade.includes(token)) failures.push(`SystemRequests facade regained domain responsibility: ${token}`)
+}
+for (const token of ['AdminActionRouterFactory', 'ActionDispatcher', '$this->router->dispatch($action)']) {
+  if (!architectureFiles.adminFacade.includes(token)) failures.push(`AdminOptions facade is missing ${token}`)
+}
+for (const token of ['ACTION_HANDLERS', 'new UploadService(', 'ThemeSlidesRepository', 'MaintenanceModeRepository']) {
+  if (architectureFiles.adminFacade.includes(token)) failures.push(`AdminOptions facade regained composition/domain responsibility: ${token}`)
+}
+for (const token of ['final class ActionDispatcher', 'Closure::fromCallable(', 'Duplicate action registration:', 'public function dispatch(']) {
+  if (!architectureFiles.actionDispatcher.includes(token)) failures.push(`Shared action dispatcher is missing ${token}`)
+}
+for (const token of ['final class ApiExecutionBoundary', 'catch (HttpException $error)', 'catch (Throwable $error)', 'FatalResponse::send(', 'RequestId::create()']) {
+  if (!architectureFiles.apiExecutionBoundary.includes(token)) failures.push(`Shared API execution boundary is missing ${token}`)
+}
+
 if (failures.length) {
   console.error('PHP architecture check failed:')
   for (const failure of [...new Set(failures)]) console.error(`- ${failure}`)

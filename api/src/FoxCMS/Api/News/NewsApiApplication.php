@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\News;
 
+use FoxCMS\Api\Core\ApiExecutionBoundary;
 use FoxCMS\Api\Core\ApplicationContext;
 use FoxCMS\Api\Core\DatabaseFactory;
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\JsonResponse;
 use FoxCMS\Api\Core\Request;
-use FoxCMS\Api\Core\RequestId;
-use Throwable;
 
 final class NewsApiApplication
 {
@@ -33,7 +32,7 @@ final class NewsApiApplication
 
     public function run(): never
     {
-        try {
+        ApiExecutionBoundary::run($this->context, function (): void {
             $this->request->requireMethod('GET', 'HEAD');
             $database = DatabaseFactory::create($this->context->config());
             (new \NewsSchemaManager($database))->ensure();
@@ -52,18 +51,7 @@ final class NewsApiApplication
                 $this->single($repository, $presenter, $includeImages);
             }
             $this->catalog($repository, $presenter, $includeImages);
-        } catch (HttpException $error) {
-            JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
-        } catch (Throwable $error) {
-            $requestId = RequestId::create();
-            \FoxCMS\Api\Core\FatalResponse::send(
-                $error,
-                $this->context,
-                'news_unavailable',
-                503,
-                $requestId,
-            );
-        }
+        }, 'news_unavailable');
     }
 
     private function single(\NewsRepository $repository, NewsPresenter $presenter, bool $includeImages): never

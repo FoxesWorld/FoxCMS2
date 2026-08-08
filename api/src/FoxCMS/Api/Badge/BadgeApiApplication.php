@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace FoxCMS\Api\Badge;
 
 use FoxCMS\Api\Content\BadgeCatalogService;
+use FoxCMS\Api\Core\ApiExecutionBoundary;
 use FoxCMS\Api\Core\ApplicationContext;
 use FoxCMS\Api\Core\DatabaseFactory;
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\JsonResponse;
 use FoxCMS\Api\Core\Request;
-use FoxCMS\Api\Core\RequestId;
-use Throwable;
 
 final class BadgeApiApplication
 {
@@ -34,7 +33,7 @@ final class BadgeApiApplication
 
     public function run(): never
     {
-        try {
+        ApiExecutionBoundary::run($this->context, function (): void {
             $this->request->requireMethod('GET', 'HEAD');
 
             $site = is_array($this->context->config()['siteSettings'] ?? null)
@@ -79,22 +78,7 @@ final class BadgeApiApplication
                 'schemaVersion' => self::SCHEMA_VERSION,
                 'badge' => $badge,
             ]);
-        } catch (HttpException $error) {
-            JsonResponse::error(
-                $error->errorCode(),
-                $error->getMessage(),
-                $error->statusCode(),
-                $error->details(),
-            );
-        } catch (Throwable $error) {
-            \FoxCMS\Api\Core\FatalResponse::send(
-                $error,
-                $this->context,
-                'badge_catalog_unavailable',
-                503,
-                RequestId::create(),
-            );
-        }
+        }, 'badge_catalog_unavailable');
     }
 
     private function validateIdentifier(string $identifier): void

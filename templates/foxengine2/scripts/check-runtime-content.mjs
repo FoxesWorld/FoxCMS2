@@ -208,7 +208,7 @@ for (const token of ['RecursiveDirectoryIterator', "str_ends_with($entry->getFil
   if (!engineAutoload.includes(token)) failures.push(`Engine autoload does not expose content classes through ${token}`)
 }
 
-const adminFacade = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
+const adminFacade = await readFile(join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php'), 'utf8')
 const adminContent = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminContentController.class.php'), 'utf8')
 const adminCatalog = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminCatalogController.class.php'), 'utf8')
 const adminBackend = `${adminFacade}
@@ -217,7 +217,7 @@ ${adminCatalog}`
 for (const method of ['$this->logger->event(', '$this->logger->deviation(', '$this->logger->exception(']) {
   if (!adminBackend.includes(method)) failures.push(`Admin content structured logging is missing ${method}`)
 }
-for (const token of ["'content' => 'content'", "'saveProjectPages' => 'saveProjectPages'", "'saveBadgePage' => 'saveBadgePage'", "'deleteBadgePage' => 'deleteBadgePage'", 'ThemeBadgePageRepository', 'BadgeSlug::assign', '$this->badgePageRepository->exists($slug)', "'.html'", 'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`']) {
+for (const token of ["->register('content'", "->register('saveProjectPages'", "->register('saveBadgePage'", "->register('deleteBadgePage'", 'ThemeBadgePageRepository', 'BadgeSlug::assign', '$this->badgePageRepository->exists($slug)', "'.html'", 'SELECT `id`, `badgeName`, `description`, `img` FROM `badgesList`']) {
   if (!includesLocalized(adminBackend, token)) failures.push(`Admin content backend is missing ${token}`)
 }
 for (const token of ["mb_strlen($badgeName) > 120", "preg_match('/[\\x00-\\x1F\\x7F]/u', $badgeName)", 'renameBadgeAssignments', '$this->badgePageRepository->move($oldSlug, $newSlug, $badgeName)']) {

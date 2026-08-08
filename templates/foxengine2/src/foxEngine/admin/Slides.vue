@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import ImageUploadField from '@/components/ImageUploadField.vue'
 import { appBootstrap } from '@engine/app/context'
@@ -17,12 +17,22 @@ const props = defineProps<{
 const emit = defineEmits<{
   add: []
   remove: [index: number]
-  move: [index: number, direction: number]
+  reorder: [fromIndex: number, toIndex: number]
   upload: [index: number, file: File]
   save: []
 }>()
 
 const selectedSlide = ref<SlideDraft | null>(null)
+const slideList = ref<HTMLElement | null>(null)
+const draggedSlide = ref<SlideDraft | null>(null)
+const dragPointerId = ref<number | null>(null)
+const dragFromIndex = ref(-1)
+const dragTargetIndex = ref(-1)
+const dragStartY = ref(0)
+const dragCurrentY = ref(0)
+const dragMinTranslateY = ref(0)
+const dragMaxTranslateY = ref(0)
+const dragHandle = ref<HTMLElement | null>(null)
 const enabledCount = computed(() => props.settings.slides.filter((slide) => slide.enabled).length)
 const selectedIndex = computed(() => selectedSlide.value ? props.settings.slides.indexOf(selectedSlide.value) : -1)
 const selectedImage = computed(() => selectedSlide.value?.image ? preview(selectedSlide.value.image) : '')
@@ -71,8 +81,137 @@ async function removeSlide(index: number): Promise<void> {
   }
 }
 
-function moveSlide(index: number, direction: number): void {
-  emit('move', index, direction)
+function reorderSlide(fromIndex: number, toIndex: number): void {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+  if (fromIndex >= props.settings.slides.length || toIndex >= props.settings.slides.length) return
+  emit('reorder', fromIndex, toIndex)
+}
+
+function slideElements(list: HTMLElement): HTMLElement[] {
+  return Array.from(list.children).filter((child): child is HTMLElement =>
+    child instanceof HTMLElement && child.matches('.admin-slide-item[data-slide-index]'))
+}
+
+function dragTranslateY(): number {
+  if (!draggedSlide.value) return 0
+  const desired = dragCurrentY.value - dragStartY.value
+  return Math.min(dragMaxTranslateY.value, Math.max(dragMinTranslateY.value, desired))
+}
+
+function draggedSlideStyle(slide: SlideDraft): Record<string, string> | undefined {
+  if (draggedSlide.value !== slide) return undefined
+  return {
+    transform: `translate3d(0, ${dragTranslateY()}px, 0)`,
+  }
+}
+
+function startSlideDrag(event: PointerEvent, slide: SlideDraft): void {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  const handle = event.currentTarget
+  const list = slideList.value
+  if (!(handle instanceof HTMLElement) || !list) return
+
+  const index = props.settings.slides.indexOf(slide)
+  if (index < 0) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  draggedSlide.value = slide
+  dragPointerId.value = event.pointerId
+  dragFromIndex.value = index
+  dragTargetIndex.value = index
+  dragStartY.value = event.clientY
+  dragCurrentY.value = event.clientY
+  const listBounds = list.getBoundingClientRect()
+  const card = handle.closest<HTMLElement>('.admin-slide-item')
+  const cardBounds = card?.getBoundingClientRect()
+  dragMinTranslateY.value = cardBounds ? listBounds.top - cardBounds.top : 0
+  dragMaxTranslateY.value = cardBounds ? listBounds.bottom - cardBounds.bottom : 0
+  dragHandle.value = handle
+  handle.setPointerCapture?.(event.pointerId)
+
+  window.addEventListener('pointermove', dragSlide, { passive: false })
+  window.addEventListener('pointerup', finishSlideDrag, { passive: false })
+  window.addEventListener('pointercancel', cancelSlideDrag, { passive: false })
+}
+
+function updateDragTarget(clientY: number): void {
+  const list = slideList.value
+  const slide = draggedSlide.value
+  if (!list || !slide) return
+
+  const currentIndex = props.settings.slides.indexOf(slide)
+  const entries = slideElements(list).filter((element) =>
+    Number.parseInt(element.dataset.slideIndex ?? '', 10) !== currentIndex)
+  if (!entries.length) {
+    dragTargetIndex.value = currentIndex
+    return
+  }
+
+  let insertionIndex = 0
+  for (const element of entries) {
+    const rect = element.getBoundingClientRect()
+    if (clientY >= rect.top + rect.height / 2) insertionIndex += 1
+  }
+  dragTargetIndex.value = Math.max(0, Math.min(insertionIndex, props.settings.slides.length - 1))
+}
+
+function dragSlide(event: PointerEvent): void {
+  const list = slideList.value
+  if (!draggedSlide.value || !list || dragPointerId.value !== event.pointerId) return
+  event.preventDefault()
+
+  const bounds = list.getBoundingClientRect()
+  dragCurrentY.value = event.clientY
+  const boundedY = Math.min(bounds.bottom, Math.max(bounds.top, event.clientY))
+
+  const edge = Math.min(48, Math.max(28, bounds.height * 0.12))
+  if (event.clientY < bounds.top + edge) list.scrollTop -= 14
+  else if (event.clientY > bounds.bottom - edge) list.scrollTop += 14
+
+  updateDragTarget(boundedY)
+}
+
+function resetSlideDrag(): void {
+  const pointerId = dragPointerId.value
+  const handle = dragHandle.value
+  if (pointerId !== null && handle?.hasPointerCapture?.(pointerId)) {
+    handle.releasePointerCapture(pointerId)
+  }
+  window.removeEventListener('pointermove', dragSlide)
+  window.removeEventListener('pointerup', finishSlideDrag)
+  window.removeEventListener('pointercancel', cancelSlideDrag)
+  dragPointerId.value = null
+  draggedSlide.value = null
+  dragFromIndex.value = -1
+  dragTargetIndex.value = -1
+  dragStartY.value = 0
+  dragCurrentY.value = 0
+  dragMinTranslateY.value = 0
+  dragMaxTranslateY.value = 0
+  dragHandle.value = null
+}
+
+function finishSlideDrag(event: PointerEvent): void {
+  if (dragPointerId.value !== event.pointerId) return
+  event.preventDefault()
+  const fromIndex = dragFromIndex.value
+  const toIndex = dragTargetIndex.value
+  resetSlideDrag()
+  reorderSlide(fromIndex, toIndex)
+}
+
+function cancelSlideDrag(event: PointerEvent): void {
+  if (dragPointerId.value !== event.pointerId) return
+  resetSlideDrag()
+}
+
+onBeforeUnmount(resetSlideDrag)
+
+function reorderSlideByKeyboard(event: KeyboardEvent, index: number): void {
+  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+  event.preventDefault()
+  reorderSlide(index, index + (event.key === 'ArrowUp' ? -1 : 1))
 }
 
 function selectImage(index: number, file: File): void {
@@ -135,12 +274,19 @@ function selectImage(index: number, file: File): void {
             <span>{{ settings.slides.length }}</span>
           </header>
 
-          <div class="admin-slides__list">
+          <div ref="slideList" class="admin-slides__list" :class="{ 'is-reordering': draggedSlide }" :aria-label="t('theme.foxengine.admin.slides.021')">
             <article
               v-for="(slide, index) in settings.slides"
               :key="slide.id"
               class="admin-slide-item"
-              :class="{ 'is-selected': selectedSlide === slide, 'is-disabled': !slide.enabled }"
+              :class="{
+                'is-selected': selectedSlide === slide,
+                'is-disabled': !slide.enabled,
+                'is-dragging': draggedSlide === slide,
+                'is-drop-target': draggedSlide && draggedSlide !== slide && dragTargetIndex === index,
+              }"
+              :style="draggedSlideStyle(slide)"
+              :data-slide-index="index"
             >
               <button class="admin-slide-item__select" type="button" @click="selectSlide(slide)">
                 <span class="admin-slide-item__number">{{ String(index + 1).padStart(2, '0') }}</span>
@@ -158,14 +304,16 @@ function selectImage(index: number, file: File): void {
                 </span>
               </button>
 
-              <div class="admin-slide-item__order" :aria-label="t('theme.foxengine.admin.slides.021')">
-                <button type="button" :disabled="index === 0" :title="t('theme.foxengine.admin.slides.022')" @click="moveSlide(index, -1)">
-                  <i class="fa-solid fa-arrow-up" aria-hidden="true" />
-                </button>
-                <button type="button" :disabled="index === settings.slides.length - 1" :title="t('theme.foxengine.admin.slides.023')" @click="moveSlide(index, 1)">
-                  <i class="fa-solid fa-arrow-down" aria-hidden="true" />
-                </button>
-              </div>
+              <button
+                class="admin-slide-item__drag-handle"
+                type="button"
+                :aria-label="draggedSlide === slide ? t('theme.foxengine.admin.slides.023') : t('theme.foxengine.admin.slides.022')"
+                :title="draggedSlide === slide ? t('theme.foxengine.admin.slides.023') : t('theme.foxengine.admin.slides.022')"
+                @pointerdown="startSlideDrag($event, slide)"
+                @keydown="reorderSlideByKeyboard($event, index)"
+              >
+                <i class="fa-solid fa-grip-vertical" aria-hidden="true" />
+              </button>
             </article>
           </div>
 

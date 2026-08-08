@@ -38,10 +38,10 @@ for (const file of await phpFiles(engineRoot)) {
 }
 
 const consumers = new Map([
-  ['engine/SystemRequests.class.php', ['new UploadService($db, $userSession, $logger, $request)', 'UploadPurpose::MINECRAFT_SKIN', 'UploadPurpose::MINECRAFT_CAPE']],
+  ['engine/src/FoxCMS/Engine/System/SystemRequestTextureController.php', ['UploadService', 'UploadPurpose::MINECRAFT_SKIN', 'UploadPurpose::MINECRAFT_CAPE']],
   ['engine/classes/modules/UserSettings/actions/updateProfilePhoto.class.php', ['UploadService', 'UploadPurpose::PROFILE_PHOTO']],
   ['engine/classes/modules/News/News.class.php', ['UploadService', 'UploadPurpose::NEWS_COVER']],
-  ['engine/classes/modules/AdminPanel/AdminOptions.class.php', ['UploadService', 'UploadPurpose::SLIDER_IMAGE', 'UploadPurpose::SERVER_IMAGE', 'UploadPurpose::SITE_SOCIAL_IMAGE']],
+  ['engine/src/FoxCMS/Engine/Admin/AdminThemeController.php', ['UploadService', 'UploadPurpose::SLIDER_IMAGE', 'UploadPurpose::SERVER_IMAGE', 'UploadPurpose::SITE_SOCIAL_IMAGE']],
   ['engine/classes/modules/AdminPanel/AdminFileManager.class.php', ['UploadService', 'UploadPurpose::ADMIN_FILE']],
 ])
 for (const [file, required] of consumers) {
@@ -65,7 +65,10 @@ const service = await readFile(uploadService, 'utf8')
 const uploadInspector = await readFile(uploadInspectorPath, 'utf8')
 const uploadFilesystem = await readFile(uploadFilesystemPath, 'utf8')
 const adminFileManager = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminFileManager.class.php'), 'utf8')
-const adminOptions = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
+const adminOptions = (await Promise.all([
+  join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php'),
+  join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminThemeController.php'),
+].map((path) => readFile(path, 'utf8')))).join('\n')
 const adminServer = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminServerController.class.php'), 'utf8')
 const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
 const fileManager = await readFile(join(repositoryRoot, 'templates', 'foxengine2', 'src', 'foxEngine', 'admin', 'FileManager.vue'), 'utf8')
@@ -73,7 +76,7 @@ const adminPanel = await readFile(join(repositoryRoot, 'engine', 'classes', 'mod
 const serverEditor = await readFile(join(repositoryRoot, 'templates', 'foxengine2', 'src', 'foxEngine', 'admin', 'servers', 'ServerEditor.vue'), 'utf8')
 const serverPage = await readFile(join(repositoryRoot, 'templates', 'foxengine2', 'src', 'foxEngine', 'serverPage', 'ServerPage.vue'), 'utf8')
 const serverImageDomain = await readFile(join(repositoryRoot, 'engine', 'client', 'domain', 'serverImage.ts'), 'utf8')
-const systemRequests = await readFile(join(repositoryRoot, 'engine', 'SystemRequests.class.php'), 'utf8')
+const systemRequests = await readFile(join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'System', 'SystemRequestMediaController.php'), 'utf8')
 const imageUploadField = await readFile(join(repositoryRoot, 'engine', 'client', 'components', 'ImageUploadField.vue'), 'utf8')
 const imageUploadCss = await readFile(join(repositoryRoot, 'engine', 'client', 'components', 'image-upload-field.css'), 'utf8')
 const pinturaImageEditor = await readFile(join(repositoryRoot, 'engine', 'client', 'media', 'pinturaImageEditor.ts'), 'utf8')
@@ -149,10 +152,10 @@ if (/\baccept\s*=/.test(fileManager)) {
 }
 
 for (const token of [
-  "'uploadSiteSocialImage' => 'uploadSiteSocialImage'",
+  "->register('uploadSiteSocialImage'",
   'UploadPurpose::SITE_SOCIAL_IMAGE',
   "'_siteSocialImageUpload'",
-  'private function uploadSiteSocialImage()',
+  'public function uploadSiteSocialImage()',
 ]) {
   if (!includesLocalized(adminOptions, token)) violations.push(`Admin social-card image backend is missing ${token}`)
 }
@@ -205,10 +208,10 @@ for (const token of ["'og:image'", "'twitter:image'", "$site['ogImage']"]) {
 }
 
 for (const token of [
-  "'uploadServerImage' => 'uploadServerImage'",
+  "->register('uploadServerImage'",
   "UploadPurpose::SERVER_IMAGE",
   "'_serverImageUpload'",
-  "private function uploadServerImage()",
+  "public function uploadServerImage()",
   "normalizeServerImageReference",
   "validateReference(UploadPurpose::SERVER_IMAGE",
 ]) {

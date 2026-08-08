@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { t } from '@/i18n'
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import type { AchievementAdminPlayer, AchievementAdminServer, AchievementEconomyAdminSettings, AchievementEconomyAdminStats } from '@modules/AdminPanel/client/useAdminPanel'
 
 const props = defineProps<{
@@ -140,10 +141,13 @@ function playerLabel(player: AchievementAdminPlayer): string {
             <h3>{{ t('theme.foxengine.admin.achievements.037') }}</h3>
             <p>{{ t('theme.foxengine.admin.achievements.038') }}</p>
           </div>
-          <label class="admin-achievements__economy-toggle">
-            <input v-model="economyDraft.enabled" type="checkbox" :disabled="loading">
-            <span>{{ t('theme.foxengine.admin.achievements.039') }}</span>
-          </label>
+          <UiCheckbox
+            v-model="economyDraft.enabled"
+            class="admin-achievements__economy-toggle"
+            :disabled="loading"
+          >
+            {{ t('theme.foxengine.admin.achievements.039') }}
+          </UiCheckbox>
         </header>
 
         <div class="admin-achievements__economy-stats">

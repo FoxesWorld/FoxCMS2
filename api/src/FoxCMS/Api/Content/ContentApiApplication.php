@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace FoxCMS\Api\Content;
 
+use FoxCMS\Api\Core\ApiExecutionBoundary;
 use FoxCMS\Api\Core\ApplicationContext;
 use FoxCMS\Api\Core\DatabaseFactory;
 use FoxCMS\Api\Core\HttpException;
 use FoxCMS\Api\Core\JsonResponse;
 use FoxCMS\Api\Core\Request;
-use FoxCMS\Api\Core\RequestId;
-use Throwable;
 
 final class ContentApiApplication
 {
@@ -26,8 +25,10 @@ final class ContentApiApplication
     public function run(): never
     {
         $registry = 'unknown';
-        try {
-            $this->request->requireMethod('GET', 'HEAD');
+        ApiExecutionBoundary::run(
+            $this->context,
+            function () use (&$registry): void {
+                $this->request->requireMethod('GET', 'HEAD');
             $registry = trim((string)$this->request->query('registry'));
             $this->requireRegistryDependencies($registry);
 
@@ -47,19 +48,12 @@ final class ContentApiApplication
                 'badge' => $this->badge(new \ThemeBadgePageRepository(TEMPLATE_DIR, $themeName)),
                 default => throw new HttpException(404, 'content_registry_not_found', 'Content registry not found.'),
             };
-        } catch (HttpException $error) {
-            JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
-        } catch (Throwable $error) {
-            $requestId = RequestId::create();
-            \FoxCMS\Api\Core\FatalResponse::send(
-                $error,
-                $this->context,
-                'content_registry_unavailable',
-                503,
-                $requestId,
-                ['registry' => $registry],
-            );
-        }
+            },
+            'content_registry_unavaile',
+            fatalDetails: function () use (&$registry): array {
+                return ['registry' => $registry];
+            },
+        );
     }
 
     private function requireRegistryDependencies(string $registry): void

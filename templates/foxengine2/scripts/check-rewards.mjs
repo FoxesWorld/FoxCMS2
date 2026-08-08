@@ -15,7 +15,7 @@ const rejectText = (label, text, tokens) => {
 const [service, admin, adminRewards, adminCatalog, adminUsers, userActions, userRewardController, runtimeOptions, runtimeOptionsSource, state, rewardsUi, catalogs, contentUi, panel,
   homeView, welcome, staticView, staticContent, offerDomain, offerComposable, migration, schema] = await Promise.all([
   read('engine/classes/services/RewardClaimService.class.php'),
-  read('engine/classes/modules/AdminPanel/AdminOptions.class.php'),
+  read('engine/src/FoxCMS/Engine/Admin/AdminActionRouterFactory.php'),
   read('engine/classes/modules/AdminPanel/AdminRewardController.class.php'),
   read('engine/classes/modules/AdminPanel/AdminCatalogController.class.php'),
   read('engine/classes/modules/AdminPanel/AdminUserController.class.php'),
@@ -136,11 +136,11 @@ requireText('Reward migration', migration, [
 ])
 
 requireText('Reward administration endpoints', `${admin}\n${adminRewards}`, [
-  "'rewards' => 'rewards'",
-  "'saveReward' => 'saveReward'",
-  "'deleteReward' => 'deleteReward'",
-  "'issueRewardClaimKey' => 'issueRewardClaimKey'",
-  "'revokeRewardClaimKey' => 'revokeRewardClaimKey'",
+  "->register('rewards'",
+  "->register('saveReward'",
+  "->register('deleteReward'",
+  "->register('issueRewardClaimKey'",
+  "->register('revokeRewardClaimKey'",
   '$this->rewardClaims->saveDefinition(',
   '$this->rewardClaims->issue(',
   '$this->rewardClaims->revoke(',

@@ -25,6 +25,8 @@ STATIC_REQUIRED_FILES = {
     "engine/classes/identity/Uuid.class.php": "final class Uuid",
     "engine/classes/security/RememberToken.class.php": "final class RememberToken",
     "engine/classes/modules/AdminPanel/AdminAchievementController.class.php": "final class AdminAchievementController",
+    "engine/classes/game/GameAchievementEventService.class.php": "AchievementPointExchangeService.class.php",
+    "engine/classes/services/AchievementPointExchangeService.class.php": "final class AchievementPointExchangeService",
     "engine/classes/services/HealthCheckService.class.php": "identityCheck",
     "engine/classes/services/LauncherSessionService.class.php": "userUuid",
     "engine/classes/services/RuntimeJdkCatalog.class.php": "RuntimeMetadata::runtimeNormalizeVersion",
@@ -50,6 +52,7 @@ STATIC_REQUIRED_FILES = {
     "api/autoload.php": "dirname(__DIR__) . '/autoload.php'",
     "api/content.php": "ContentApiApplication",
     "api/src/FoxCMS/Api/Content/ContentApiApplication.php": "requireRegistryDependencies",
+    "api/src/FoxCMS/Api/Game/GameApiApplication.php": "classes/services/AchievementPointExchangeService.class.php",
     "api/health.php": "HealthApiApplication",
     "api/src/FoxCMS/Api/Content/BadgeCatalogService.php": "final class BadgeCatalogService",
     "api/src/FoxCMS/Api/Bootstrap/BootstrapConfig.php": "FOXESCRAFT_BOOTSTRAP_STORAGE_DIRECTORY",
@@ -82,6 +85,9 @@ STATIC_REQUIRED_FILES = {
     "database/migrations/017_public_badge_claim_access.sql": "`accessMode` = 'public'",
     "database/migrations/018_expand_server_image_column.sql": "`serverImage` VARCHAR(512)",
     "database/migrations/025_game_achievements.sql": "CREATE TABLE IF NOT EXISTS `gameAchievements`",
+    "database/migrations/026_game_achievement_category_labels.sql": "ADD COLUMN `categoryLabel`",
+    "database/migrations/027_game_achievement_points_economy.sql": "CREATE TABLE IF NOT EXISTS `gameAchievementPointAwards`",
+    "database/migrations/028_game_achievement_category_label_cleanup.sql": "SET `categoryLabel` = ",
     "database/repair-legacy-schema.sql": "Safe to run repeatedly",
 }
 

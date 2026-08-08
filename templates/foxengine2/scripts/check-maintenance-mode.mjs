@@ -24,9 +24,9 @@ const contracts = [
     "'allowedGroups' => ['admin']",
     'public function save(',
   ]],
-  ['engine/classes/modules/AdminPanel/AdminOptions.class.php', [
-    "'maintenance' => 'maintenance'",
-    "'saveMaintenance' => 'saveMaintenance'",
+  ['engine/src/FoxCMS/Engine/Admin/AdminActionRouterFactory.php', [
+    "->register('maintenance'",
+    "->register('saveMaintenance'",
     'MaintenanceModeRepository',
   ]],
   ['engine/classes/modules/AuthReg/AuthReg.class.php', [

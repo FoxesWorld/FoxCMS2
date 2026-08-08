@@ -37,8 +37,11 @@ for (const required of ['touch-action: pan-y', 'user-select: none', '-webkit-use
   if (!sliderStyles.includes(required)) failures.push(`Slider styles are missing ${required}`)
 }
 
-const admin = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8')
-for (const required of ["'slides' => 'slides'", "'saveSlides' => 'saveSlides'", "'uploadSlideImage' => 'uploadSlideImage'", 'ThemeSlidesRepository', 'UploadPurpose::SLIDER_IMAGE']) {
+const admin = (await Promise.all([
+  join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php'),
+  join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminThemeController.php'),
+].map((path) => readFile(path, 'utf8')))).join('\n')
+for (const required of ["->register('slides'", "->register('saveSlides'", "->register('uploadSlideImage'", 'ThemeSlidesRepository', 'UploadPurpose::SLIDER_IMAGE']) {
   if (!admin.includes(required)) failures.push(`AdminOptions missing ${required}`)
 }
 const repository = await readFile(join(repositoryRoot, 'engine', 'classes', 'themes', 'ThemeSlidesRepository.class.php'), 'utf8')
@@ -60,9 +63,37 @@ for (const required of [
   if (!repository.includes(required)) failures.push(`ThemeSlidesRepository missing ${required}`)
 }
 const adminClient = await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'), 'utf8')
-for (const required of ["'slides'", "admPanel: 'slides'", "admPanel: 'saveSlides'", "body.set('admPanel', 'uploadSlideImage')"]) {
+for (const required of ["'slides'", "admPanel: 'slides'", "admPanel: 'saveSlides'", "body.set('admPanel', 'uploadSlideImage')", 'function reorderSlide(fromIndex: number, toIndex: number)']) {
   if (!adminClient.includes(required)) failures.push(`Admin slider client missing ${required}`)
 }
+
+const adminSlides = await readFile(join(themeRoot, 'src', 'foxEngine', 'admin', 'Slides.vue'), 'utf8')
+for (const required of [
+  'admin-slide-item__drag-handle',
+  '@pointerdown="startSlideDrag($event, slide)"',
+  '@keydown="reorderSlideByKeyboard($event, index)"',
+  "window.addEventListener('pointermove', dragSlide",
+  "window.addEventListener('pointerup', finishSlideDrag",
+  "window.addEventListener('pointercancel', cancelSlideDrag",
+  'transform: `translate3d(0, ${dragTranslateY()}px, 0)`',
+  "'is-drop-target':",
+  'reorderSlide(fromIndex, toIndex)',
+  "emit('reorder', fromIndex, toIndex)",
+]) {
+  if (!adminSlides.includes(required)) failures.push(`Admin Slides.vue missing drag-reorder contract ${required}`)
+}
+for (const forbidden of ['admin-slide-item__order', 'fa-arrow-up', 'fa-arrow-down', "emit('move'"]) {
+  if (adminSlides.includes(forbidden)) failures.push(`Admin Slides.vue still contains legacy order control ${forbidden}`)
+}
+
+const adminSlidesStyles = await readFile(join(themeRoot, 'src', 'styles', 'admin-slides.css'), 'utf8')
+for (const required of ['.admin-slides__list.is-reordering', '.admin-slide-item.is-dragging', '.admin-slide-item.is-drop-target::before', '.admin-slide-item__drag-handle', 'touch-action: none']) {
+  if (!adminSlidesStyles.includes(required)) failures.push(`Admin slide drag styles are missing ${required}`)
+}
+
+const adminPanelTpl = await readFile(join(themeRoot, 'userOptions', 'AdminPanel.tpl'), 'utf8')
+if (!adminPanelTpl.includes('@reorder="reorderSlide"')) failures.push('AdminPanel.tpl does not wire slide reorder events')
+if (adminPanelTpl.includes('@move="moveSlide"')) failures.push('AdminPanel.tpl still wires legacy moveSlide events')
 
 if (failures.length) {
   console.error('Slider configuration contract failed:')

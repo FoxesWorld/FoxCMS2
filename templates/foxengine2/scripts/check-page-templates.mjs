@@ -10,7 +10,7 @@ const definitions = [
   { id: 'start-game', file: 'StartGame.tpl', host: 'templates/foxengine2/src/userOptions/pages/StartGame.vue', markers: ['start-page-runtime', 'v-html="hydratedHtml"'] },
   { id: 'badges', file: 'Badges.tpl', host: 'templates/foxengine2/src/userOptions/pages/badges/Badges.vue', markers: ['badges-directory__header', 'badges-table'] },
   { id: 'badge', file: 'Badge.tpl', host: 'templates/foxengine2/src/userOptions/pages/badges/Badge.vue', markers: ['badge-runtime-page', 'v-html="badge.html"'] },
-  { id: 'achievements', file: 'Achievements.tpl', host: 'engine/client/views/AchievementsView.vue', markers: ['achievements-player-search', 'achievements-metrics', 'achievements-grid'] },
+  { id: 'achievements', file: 'Achievements.tpl', host: 'engine/client/achievements/AchievementsRuntimeHost.vue', markers: ['achievements-player-search', 'achievements-metrics', 'achievements-grid'] },
   { id: 'achievement-statistics', file: 'achievements/StatisticsTree.tpl', host: 'engine/client/achievements/AchievementStatisticsTree.vue', markers: ['achievement-statistics__metrics', 'achievement-statistics__tree'] },
   { id: 'achievement-tree-node', file: 'achievements/TreeNode.tpl', host: 'engine/client/achievements/AchievementTreeNode.vue', markers: ['achievement-tree-node__players', 'achievement-tree-node__children'] },
   { id: 'achievement-profile-panel', file: 'achievements/ProfilePanel.tpl', host: 'templates/foxengine2/src/userOptions/userOptions/profile/ProfileAchievements.vue', markers: ['profile-achievements__summary', 'profile-achievement-card__progress'] },

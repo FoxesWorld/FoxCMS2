@@ -90,7 +90,7 @@ const runtimeEditor = await read('templates/foxengine2/src/foxEngine/admin/Runti
 const runtimeCompiler = await read('engine/classes/themes/ThemeRuntimeTplCompiler.class.php')
 const repository = await read('engine/classes/themes/ThemeUserOptionsRepository.class.php')
 const adminController = await read('engine/classes/modules/AdminPanel/AdminRuntimeOptionsController.class.php')
-const adminOptions = await read('engine/classes/modules/AdminPanel/AdminOptions.class.php')
+const adminOptions = await read('engine/src/FoxCMS/Engine/Admin/AdminActionRouterFactory.php')
 const contentApi = await read('api/src/FoxCMS/Api/Content/ContentApiApplication.php')
 const vite = await read('templates/foxengine2/vite.config.ts')
 
@@ -123,7 +123,7 @@ requireText(repository, '$this->compiler->publish', 'server repository must comp
 requireText(repository, '$this->compiler->ensure', 'server repository must ensure the derivative render cache exists')
 requireText(repository, 'ALLOWED_COMPONENTS', 'server repository must whitelist Vue component adapters')
 requireText(adminController, '$this->repository->saveTemplate', 'admin controller must persist raw TPL through the repository')
-requireText(adminOptions, "'saveUserOptions' => 'saveUserOptions'", 'admin dispatcher must register saveUserOptions')
+requireText(adminOptions, "->register('saveUserOptions'", 'admin dispatcher must register saveUserOptions')
 requireText(contentApi, "->read(false)", 'public content API must omit raw administrative TPL source')
 for (const token of ['final class ThemeRuntimeTplCompiler', 'proc_open(', "['bypass_shell' => true]", 'moduleUrl']) {
   requireText(runtimeCompiler, token, `runtime TPL compiler is missing ${token}`)

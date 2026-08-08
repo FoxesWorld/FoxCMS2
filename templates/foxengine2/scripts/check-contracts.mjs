@@ -37,9 +37,9 @@ for (const root of clientSourceRoots) {
 }
 
 const backendRouters = new Map([
-  ['sysRequest', join(repositoryRoot, 'engine', 'SystemRequests.class.php')],
+  ['sysRequest', join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'System', 'SystemRequestRouterFactory.php')],
   ['user_doaction', join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'UserActions.class.php')],
-  ['admPanel', join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php')],
+  ['admPanel', join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php')],
   ['userAction', join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'AuthReg.class.php')],
 ])
 for (const [key, path] of backendRouters) {
@@ -48,6 +48,7 @@ for (const [key, path] of backendRouters) {
     ...[...text.matchAll(/case\s+['"]([^'"]+)['"]\s*:/g)].map((match) => match[1]),
     ...[...text.matchAll(/['"]([^'"]+)['"]\s*=>\s*(?:\$this->|\(new\s|new\s)/g)].map((match) => match[1]),
     ...[...text.matchAll(/['"]([^'"]+)['"]\s*=>\s*['"][A-Za-z_][A-Za-z0-9_]*['"]/g)].map((match) => match[1]),
+    ...[...text.matchAll(/->register\(\s*['"]([^'"]+)['"]/g)].map((match) => match[1]),
   ])
   for (const action of frontendActions.get(key)) {
     if (!backendActions.has(action)) failures.push(`client ${key}=${action} has no backend route`)

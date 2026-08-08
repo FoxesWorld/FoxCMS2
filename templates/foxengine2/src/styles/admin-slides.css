@@ -271,10 +271,11 @@
 }
 
 .admin-slide-item {
+  position: relative;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
-  gap: 5px;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 6px;
   padding: 6px;
   border: 1px solid var(--color-border);
   border-radius: 13px;
@@ -376,33 +377,62 @@
   color: var(--color-danger);
 }
 
-.admin-slide-item__order {
-  display: grid;
-  align-content: center;
-  gap: 4px;
+.admin-slides__list.is-reordering {
+  cursor: grabbing;
+  user-select: none;
 }
 
-.admin-slide-item__order button {
-  width: 30px;
-  height: 30px;
+.admin-slide-item.is-drop-target::before {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: -5px;
+  height: 3px;
+  border-radius: 999px;
+  content: '';
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 13%, transparent);
+  pointer-events: none;
+}
+
+.admin-slide-item.is-dragging {
+  z-index: 4;
+  border-color: color-mix(in srgb, var(--color-accent) 70%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-soft) 82%, var(--color-surface));
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 12%, transparent), inset 3px 0 var(--color-accent);
+  opacity: .92;
+  pointer-events: none;
+  transition: border-color .12s ease, background .12s ease, opacity .12s ease, box-shadow .12s ease;
+}
+
+.admin-slide-item__drag-handle {
+  width: 32px;
+  min-height: 46px;
+  align-self: stretch;
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 9px;
   color: var(--color-text-muted);
   background: transparent;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  transition: border-color .16s ease, color .16s ease, background .16s ease, transform .16s ease;
 }
 
-.admin-slide-item__order button:hover:not(:disabled) {
+.admin-slide-item__drag-handle:hover,
+.admin-slide-item__drag-handle:focus-visible {
   border-color: var(--color-border);
-  color: var(--color-text);
+  color: var(--color-accent);
   background: var(--color-surface-hover);
+  outline: none;
 }
 
-.admin-slide-item__order button:disabled {
-  opacity: .25;
-  cursor: not-allowed;
+.admin-slide-item.is-dragging .admin-slide-item__drag-handle {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  cursor: grabbing;
+  transform: scale(.96);
 }
 
 .admin-slides__add-card {

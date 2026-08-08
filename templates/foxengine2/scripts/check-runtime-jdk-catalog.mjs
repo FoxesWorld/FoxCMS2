@@ -11,7 +11,7 @@ const paths = {
   client: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
   editor: join(themeRoot, 'src', 'foxEngine', 'admin', 'servers', 'ServerEditor.vue'),
   selectBox: join(repositoryRoot, 'engine', 'client', 'components', 'UiSelectBox.vue'),
-  systemRequests: join(repositoryRoot, 'engine', 'SystemRequests.class.php'),
+  systemRequests: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'System', 'SystemRequestRuntimeController.php'),
   getJre: join(repositoryRoot, 'engine', 'classes', 'utils', 'GetJre', '1.0.0', 'GetJre.class.php'),
   request: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimeRequest.php'),
   platform: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Bootstrap', 'Runtime', 'RuntimePlatform.php'),
@@ -163,7 +163,7 @@ requireTokens(selectBox, 'UiSelectBox', [
 
 const systemRequests = await readFile(paths.systemRequests, 'utf8')
 requireTokens(systemRequests, 'SystemRequests GetJre call', [
-  'new GetJre(',
+  'new \\GetJre(',
   "$this->request->string('jreVersion')",
   "$this->request->string('platform')",
   '$this->config',

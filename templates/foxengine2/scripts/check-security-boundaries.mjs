@@ -28,6 +28,7 @@ const files = {
   emergencyHandler: await read('engine/EmergencyRuntimeHandler.php'),
   throwableDiagnostic: await read('src/FoxCMS/Shared/Error/ThrowableDiagnostic.php'),
   apiFatalResponse: await read('api/src/FoxCMS/Api/Core/FatalResponse.php'),
+  apiExecutionBoundary: await read('api/src/FoxCMS/Api/Core/ApiExecutionBoundary.php'),
   systemRequests: await read('engine/SystemRequests.class.php'),
   authManager: await read('engine/classes/modules/AuthReg/AuthReg.class.php'),
   contentApi: await read('api/src/FoxCMS/Api/Content/ContentApiApplication.php'),
@@ -197,11 +198,18 @@ requireTokens('Authentication fatal boundary', files.authManager, [
   'ThrowableDiagnostic::payload(',
   "'authentication_internal_error'",
 ])
+requireTokens('Shared API execution boundary', files.apiExecutionBoundary, [
+  'catch (HttpException $error)',
+  'JsonResponse::error(',
+  'catch (Throwable $error)',
+  'FatalResponse::send(',
+  'RequestId::create()',
+])
 for (const [label, source] of [
   ['Content API', files.contentApi],
   ['News API', files.newsApi],
-  ['Game API', files.gameApi],
-]) requireTokens(`${label} fatal boundary`, source, ['FatalResponse::send('])
+]) requireTokens(`${label} execution boundary`, source, ['ApiExecutionBoundary::run('])
+requireTokens('Game API protocol-specific fatal boundary', files.gameApi, ['FatalResponse::send('])
 requireTokens('Bootstrap manifest fatal boundary', files.manifestController, [
   'ThrowableDiagnostic::payload(',
   "'bootstrap_manifest_internal_error'",
