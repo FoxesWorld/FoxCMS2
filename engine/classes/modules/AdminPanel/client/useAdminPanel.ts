@@ -435,11 +435,30 @@ export interface AchievementAdminPlayer {
   completedCount: number
   events: number
 }
+export interface AchievementEconomyAdminSettings {
+  enabled: boolean
+  pointsPerUnit: number
+  minimumPoints: number
+  updatedAt: number
+  updatedByUuid: string
+}
+export interface AchievementEconomyAdminStats {
+  awardCount: number
+  awardedPlayers: number
+  earnedPoints: number
+  exchangeCount: number
+  exchangePlayers: number
+  exchangedPoints: number
+  availablePoints: number
+  unitsGranted: number
+}
 export interface AchievementAdminResponse {
   available: boolean
   servers: AchievementAdminServer[]
   players: AchievementAdminPlayer[]
   selectedServerId: string
+  economy?: AchievementEconomyAdminSettings | null
+  economyStats?: AchievementEconomyAdminStats | null
   message?: string
 }
 export interface ServerRow extends JsonRow {
@@ -562,6 +581,23 @@ export function useAdminPanel() {
   const achievementPlayers = ref<AchievementAdminPlayer[]>([])
   const achievementServerId = ref('')
   const achievementPlayerSearch = ref('')
+  const achievementEconomy = reactive<AchievementEconomyAdminSettings>({
+    enabled: true,
+    pointsPerUnit: 10,
+    minimumPoints: 10,
+    updatedAt: 0,
+    updatedByUuid: '',
+  })
+  const achievementEconomyStats = reactive<AchievementEconomyAdminStats>({
+    awardCount: 0,
+    awardedPlayers: 0,
+    earnedPoints: 0,
+    exchangeCount: 0,
+    exchangePlayers: 0,
+    exchangedPoints: 0,
+    availablePoints: 0,
+    unitsGranted: 0,
+  })
   const userDraft = shallowReactive<UserDraft>({
     login: '',
     realname: '',
@@ -1168,7 +1204,39 @@ export function useAdminPanel() {
       events: Math.max(0, Number(entry.events) || 0),
     })) : []
     achievementServerId.value = String(response.selectedServerId ?? '')
+    if (response.economy) {
+      achievementEconomy.enabled = response.economy.enabled === true
+      achievementEconomy.pointsPerUnit = Math.max(1, Number(response.economy.pointsPerUnit) || 10)
+      achievementEconomy.minimumPoints = Math.max(1, Number(response.economy.minimumPoints) || 10)
+      achievementEconomy.updatedAt = Math.max(0, Number(response.economy.updatedAt) || 0)
+      achievementEconomy.updatedByUuid = String(response.economy.updatedByUuid ?? '')
+    }
+    if (response.economyStats) {
+      achievementEconomyStats.awardCount = Math.max(0, Number(response.economyStats.awardCount) || 0)
+      achievementEconomyStats.awardedPlayers = Math.max(0, Number(response.economyStats.awardedPlayers) || 0)
+      achievementEconomyStats.earnedPoints = Math.max(0, Number(response.economyStats.earnedPoints) || 0)
+      achievementEconomyStats.exchangeCount = Math.max(0, Number(response.economyStats.exchangeCount) || 0)
+      achievementEconomyStats.exchangePlayers = Math.max(0, Number(response.economyStats.exchangePlayers) || 0)
+      achievementEconomyStats.exchangedPoints = Math.max(0, Number(response.economyStats.exchangedPoints) || 0)
+      achievementEconomyStats.availablePoints = Math.max(0, Number(response.economyStats.availablePoints) || 0)
+      achievementEconomyStats.unitsGranted = Math.max(0, Number(response.economyStats.unitsGranted) || 0)
+    }
     if (response.message) feedback.value = { type: response.available === false ? 'warning' : 'success', message: response.message }
+  }
+  async function saveAchievementEconomy(settings: AchievementEconomyAdminSettings): Promise<void> {
+    if (loading.value) return
+    const response = await run(() => foxesApi.post<Feedback & {
+      economy?: AchievementEconomyAdminSettings
+      economyStats?: AchievementEconomyAdminStats
+    }>({
+      admPanel: 'saveAchievementEconomy',
+      enabled: settings.enabled,
+      pointsPerUnit: Math.max(1, Math.trunc(settings.pointsPerUnit)),
+      minimumPoints: Math.max(1, Math.trunc(settings.minimumPoints)),
+    }))
+    if (!response) return
+    feedback.value = response
+    await loadAchievementAdmin()
   }
   async function selectAchievementServer(serverId: string): Promise<void> {
     achievementServerId.value = serverId.trim()
@@ -1478,7 +1546,7 @@ export function useAdminPanel() {
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
     maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
-    users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
+    users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch, achievementEconomy, achievementEconomyStats, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp, runtimeUserOptionsRevision,
@@ -1486,7 +1554,7 @@ export function useAdminPanel() {
     loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
     loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, savePageTemplate, saveBadgePage, deleteBadgePage,
-    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
+    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, saveAchievementEconomy, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,

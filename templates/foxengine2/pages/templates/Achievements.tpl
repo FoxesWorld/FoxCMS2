@@ -1,4 +1,4 @@
-<fox-page-template id="achievements" schema="1" revision="5" updated-at="2026-08-08T05:20:00Z">
+<fox-page-template id="achievements" schema="1" revision="6" updated-at="2026-08-08T05:45:00Z">
   <fox-template-body>
 <section class="achievements-page" aria-labelledby="achievements-page-title">
     <header class="achievements-hero" :class="{ 'achievements-hero--global': statisticsMode }">
@@ -98,6 +98,97 @@
       <span class="achievements-overall-progress__track" aria-hidden="true">
         <i :style="{ width: `${completionPercent}%` }" />
       </span>
+    </section>
+
+    <section v-if="isOwnAchievements" class="achievement-economy" :aria-label="t('engine.views.achievements.071')">
+      <header class="achievement-economy__header">
+        <span class="achievement-economy__icon" aria-hidden="true"><i class="fa-solid fa-coins" /></span>
+        <div>
+          <span class="eyebrow">{{ t('engine.views.achievements.071') }}</span>
+          <h2>{{ t('engine.views.achievements.072') }}</h2>
+          <p>{{ t('engine.views.achievements.073') }}</p>
+        </div>
+      </header>
+
+      <div v-if="economyLoading" class="achievement-economy__state" aria-live="polite">
+        <i class="fa-solid fa-spinner achievements-spin" aria-hidden="true" />
+        <span>{{ t('engine.views.achievements.074') }}</span>
+      </div>
+
+      <template v-else-if="economy">
+        <div class="achievement-economy__metrics">
+          <article>
+            <small>{{ t('engine.views.achievements.075') }}</small>
+            <strong>{{ economy.availablePoints }}</strong>
+            <span>{{ t('engine.views.achievements.076') }}</span>
+          </article>
+          <article>
+            <small>{{ t('engine.views.achievements.077') }}</small>
+            <strong>{{ economy.pointsPerUnit }} : 1</strong>
+            <span>{{ t('engine.views.achievements.090', [economy.pointsPerUnit]) }}</span>
+          </article>
+          <article>
+            <small>{{ t('engine.views.achievements.078') }}</small>
+            <strong>{{ economy.unitBalance }} {{ economy.currencySymbol }}</strong>
+            <span>{{ t('engine.views.achievements.079', [economy.lifetimeUnits]) }}</span>
+          </article>
+        </div>
+
+        <form class="achievement-economy__exchange" @submit.prevent="exchangeMyAchievementPoints">
+          <label>
+            <span>{{ t('engine.views.achievements.080') }}</span>
+            <input
+              v-model.number="exchangePointsInput"
+              type="number"
+              inputmode="numeric"
+              :min="economy.minimumPoints"
+              :max="economy.maxExchangeablePoints"
+              :step="economy.pointsPerUnit"
+              :disabled="!economy.enabled || exchangeBusy || economy.maxExchangeablePoints < economy.minimumPoints"
+            >
+          </label>
+          <span class="achievement-economy__conversion" aria-live="polite">
+            <small>{{ t('engine.views.achievements.081') }}</small>
+            <strong>{{ exchangePreviewUnits }} {{ economy.currencySymbol }}</strong>
+          </span>
+          <button
+            class="button button--primary achievement-economy__submit"
+            type="submit"
+            :disabled="!canExchangePoints"
+          >
+            <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true" />
+            <span>{{ exchangeBusy ? t('engine.views.achievements.085') : t('engine.views.achievements.086') }}</span>
+          </button>
+          <button
+            v-if="economy.maxExchangeablePoints > economy.minimumPoints"
+            class="button button--ghost"
+            type="button"
+            :disabled="exchangeBusy || !economy.enabled"
+            @click="exchangeAllAchievementPoints"
+          >
+            {{ t('engine.views.achievements.087') }}
+          </button>
+        </form>
+
+        <p v-if="!economy.enabled" class="achievement-economy__notice achievement-economy__notice--warning">
+          <i class="fa-solid fa-circle-pause" aria-hidden="true" />
+          {{ t('engine.views.achievements.088') }}
+        </p>
+        <p v-else-if="economy.availablePoints < economy.minimumPoints" class="achievement-economy__notice">
+          <i class="fa-solid fa-circle-info" aria-hidden="true" />
+          {{ t('engine.views.achievements.089', [economy.minimumPoints]) }}
+        </p>
+        <p v-if="exchangeMessage" class="achievement-economy__notice achievement-economy__notice--success">
+          <i class="fa-solid fa-circle-check" aria-hidden="true" />
+          {{ exchangeMessage }}
+        </p>
+      </template>
+
+      <p v-if="economyError" class="achievement-economy__notice achievement-economy__notice--error" role="alert">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+        <span>{{ economyError }}</span>
+        <button class="button button--ghost" type="button" @click="refreshAchievementEconomy">{{ t('engine.views.achievements.026') }}</button>
+      </p>
     </section>
 
     <div v-if="!statisticsMode" class="achievements-workspace" :class="{ 'achievements-workspace--catalog-only': !hasPlayerContext }">

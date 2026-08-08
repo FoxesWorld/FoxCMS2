@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { t } from '@/i18n'
-import type { AchievementAdminPlayer, AchievementAdminServer } from '@modules/AdminPanel/client/useAdminPanel'
+import type { AchievementAdminPlayer, AchievementAdminServer, AchievementEconomyAdminSettings, AchievementEconomyAdminStats } from '@modules/AdminPanel/client/useAdminPanel'
 
 const props = defineProps<{
   available: boolean
@@ -10,6 +10,8 @@ const props = defineProps<{
   serverId: string
   search: string
   loading: boolean
+  economy: AchievementEconomyAdminSettings
+  economyStats: AchievementEconomyAdminStats
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +21,7 @@ const emit = defineEmits<{
   reload: []
   clearServer: []
   clearPlayer: [player: AchievementAdminPlayer]
+  saveEconomy: [settings: AchievementEconomyAdminSettings]
 }>()
 
 const selectedServer = computed(() => props.servers.find((entry) => entry.serverId === props.serverId) ?? null)
@@ -26,6 +29,33 @@ const totalServerRows = computed(() => {
   const server = selectedServer.value
   return server ? server.definitions + server.progressRows + server.events : 0
 })
+
+const economyDraft = reactive<AchievementEconomyAdminSettings>({
+  enabled: true,
+  pointsPerUnit: 10,
+  minimumPoints: 10,
+  updatedAt: 0,
+  updatedByUuid: '',
+})
+watch(
+  () => props.economy,
+  (value) => Object.assign(economyDraft, value),
+  { immediate: true, deep: true },
+)
+const economyValid = computed(() => {
+  const rate = Math.trunc(Number(economyDraft.pointsPerUnit) || 0)
+  const minimum = Math.trunc(Number(economyDraft.minimumPoints) || 0)
+  return rate > 0 && minimum >= rate && minimum % rate === 0
+})
+
+function saveEconomy(): void {
+  if (!economyValid.value || props.loading) return
+  emit('saveEconomy', {
+    ...economyDraft,
+    pointsPerUnit: Math.trunc(economyDraft.pointsPerUnit),
+    minimumPoints: Math.trunc(economyDraft.minimumPoints),
+  })
+}
 
 function playerLabel(player: AchievementAdminPlayer): string {
   return player.login || player.realname || player.uuid
@@ -102,6 +132,47 @@ function playerLabel(player: AchievementAdminPlayer): string {
         <i class="fa-solid fa-circle-info" aria-hidden="true" />
         <p>{{ t('theme.foxengine.admin.achievements.016') }}</p>
       </div>
+
+      <section class="admin-achievements__economy">
+        <header>
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.037') }}</span>
+            <h3>{{ t('theme.foxengine.admin.achievements.037') }}</h3>
+            <p>{{ t('theme.foxengine.admin.achievements.038') }}</p>
+          </div>
+          <label class="admin-achievements__economy-toggle">
+            <input v-model="economyDraft.enabled" type="checkbox" :disabled="loading">
+            <span>{{ t('theme.foxengine.admin.achievements.039') }}</span>
+          </label>
+        </header>
+
+        <div class="admin-achievements__economy-stats">
+          <article><small>{{ t('theme.foxengine.admin.achievements.043') }}</small><strong>{{ economyStats.earnedPoints }}</strong></article>
+          <article><small>{{ t('theme.foxengine.admin.achievements.044') }}</small><strong>{{ economyStats.exchangedPoints }}</strong></article>
+          <article><small>{{ t('theme.foxengine.admin.achievements.045') }}</small><strong>{{ economyStats.unitsGranted }} U</strong></article>
+          <article><small>{{ t('theme.foxengine.admin.achievements.046') }}</small><strong>{{ economyStats.exchangePlayers }}</strong></article>
+          <article><small>{{ t('theme.foxengine.admin.achievements.047') }}</small><strong>{{ economyStats.exchangeCount }}</strong></article>
+        </div>
+
+        <form class="admin-achievements__economy-form" @submit.prevent="saveEconomy">
+          <label>
+            <span>{{ t('theme.foxengine.admin.achievements.040') }}</span>
+            <input v-model.number="economyDraft.pointsPerUnit" type="number" min="1" max="1000000" step="1" :disabled="loading">
+          </label>
+          <label>
+            <span>{{ t('theme.foxengine.admin.achievements.041') }}</span>
+            <input v-model.number="economyDraft.minimumPoints" type="number" min="1" max="1000000000" step="1" :disabled="loading">
+          </label>
+          <button class="button button--primary" type="submit" :disabled="loading || !economyValid">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true" />
+            {{ t('theme.foxengine.admin.achievements.042') }}
+          </button>
+        </form>
+        <p class="admin-achievements__economy-note">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true" />
+          {{ t('theme.foxengine.admin.achievements.048') }}
+        </p>
+      </section>
 
       <div v-if="selectedServer" class="admin-achievements__workspace">
         <section class="admin-achievements__danger-card admin-achievements__danger-card--server">

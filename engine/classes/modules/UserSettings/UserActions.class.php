@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use FoxCMS\Engine\User\AuthenticatedUserGuard;
 use FoxCMS\Engine\User\UserActionResponder;
+use FoxCMS\Engine\User\UserAchievementController;
 use FoxCMS\Engine\User\UserBrowserSessionController;
 use FoxCMS\Engine\User\UserNotificationController;
 use FoxCMS\Engine\User\UserProfileQueryController;
@@ -29,6 +30,8 @@ final class UserActions
         'getBadgeOffer' => 'rewards.offer',
         'claimReward' => 'rewards.claim',
         'claimBadge' => 'rewards.claim',
+        'getAchievementEconomy' => 'achievements.economy',
+        'exchangeAchievementPoints' => 'achievements.exchange',
         'getNotifications' => 'notifications.list',
         'markNotificationRead' => 'notifications.mark_read',
         'markAllNotificationsRead' => 'notifications.mark_all_read',
@@ -40,6 +43,7 @@ final class UserActions
 
     private UserActionResponder $responder;
     private UserRewardController $rewards;
+    private UserAchievementController $achievements;
     private UserBrowserSessionController $browserSessions;
     private UserNotificationController $notifications;
     private UserProfileQueryController $profiles;
@@ -55,6 +59,14 @@ final class UserActions
         $this->responder = new UserActionResponder($action);
         $guard = new AuthenticatedUserGuard($session, $this->responder);
         $this->rewards = new UserRewardController(
+            $db,
+            $logger,
+            $request,
+            $session,
+            $guard,
+            $this->responder,
+        );
+        $this->achievements = new UserAchievementController(
             $db,
             $logger,
             $request,
@@ -105,6 +117,8 @@ final class UserActions
             'getBadgeOffer' => $this->rewards->getRewardOffer(),
             'claimReward' => $this->rewards->claimReward(),
             'claimBadge' => $this->rewards->claimReward(),
+            'getAchievementEconomy' => $this->achievements->getEconomy(),
+            'exchangeAchievementPoints' => $this->achievements->exchangePoints(),
             'getNotifications' => $this->notifications->getNotifications(),
             'markNotificationRead' => $this->notifications->markNotificationRead(),
             'markAllNotificationsRead' => $this->notifications->markAllNotificationsRead(),

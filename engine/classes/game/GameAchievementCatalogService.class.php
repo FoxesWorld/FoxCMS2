@@ -22,6 +22,35 @@ final class GameAchievementCatalogService
         return self::matchesDatabaseError($error, '42S22', 1054);
     }
 
+    public static function requiredMigration(Throwable $error): string
+    {
+        $message = self::errorMessageChain($error);
+
+        if (
+            str_contains($message, 'gameachievementpointawards')
+            || str_contains($message, 'gameachievementpointexchanges')
+            || str_contains($message, 'gameachievementeconomysettings')
+        ) {
+            return '027_game_achievement_points_economy.sql';
+        }
+
+        if (str_contains($message, 'categorylabel') || self::isSchemaOutdated($error)) {
+            return '026_game_achievement_category_labels.sql';
+        }
+
+        return '025_game_achievements.sql';
+    }
+
+    private static function errorMessageChain(Throwable $error): string
+    {
+        $messages = [];
+        do {
+            $messages[] = strtolower($error->getMessage());
+            $error = $error->getPrevious();
+        } while ($error instanceof Throwable);
+        return implode("\n", $messages);
+    }
+
     private static function matchesDatabaseError(Throwable $error, string $sqlState, int $driverCode): bool
     {
         do {

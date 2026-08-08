@@ -168,10 +168,22 @@ final class GameAchievementEventService
                 ':updatedAt' => $now,
             ]);
 
+            $pointAwarded = false;
+            if ($nextCompleted) {
+                $pointAwarded = (new AchievementPointExchangeService($this->db))->recordAward(
+                    $serverId,
+                    $playerUuid,
+                    $achievementKey,
+                    max(0, (int)$achievement['points']),
+                    $completedAt ?? $occurredAt,
+                );
+            }
+
             return [
                 'accepted' => true,
                 'duplicate' => false,
                 'completedNow' => !$wasCompleted && $nextCompleted,
+                'pointAwarded' => $pointAwarded,
                 'completed' => $nextCompleted,
                 'progress' => $nextProgress,
                 'target' => $nextTarget,
@@ -190,21 +202,27 @@ final class GameAchievementEventService
 
         if (($result['completedNow'] ?? false) === true && class_exists(NotificationService::class)) {
             try {
+                $points = max(0, (int)($result['points'] ?? 0));
+                $message = 'Получено достижение «' . (string)$result['title'] . '» на сервере ' . $serverId . '.';
+                if ($points > 0) {
+                    $message .= ' +' . $points . ' очков доступны для обмена на Units в личных достижениях.';
+                }
                 (new NotificationService($this->db))->create(
                     (string)$result['playerUuid'],
                     'achievement.game_unlocked',
                     'success',
-                    'Получено достижение',
-                    'Открыто достижение «' . (string)$result['title'] . '» на сервере ' . $serverId . '.',
+                    'Новое достижение',
+                    $message,
                     [
                         'serverId' => $serverId,
                         'achievementKey' => $achievementKey,
                         'title' => (string)$result['title'],
                         'description' => (string)$result['description'],
-                        'points' => (int)$result['points'],
+                        'points' => $points,
+                        'pointAwarded' => ($result['pointAwarded'] ?? false) === true,
                         'completedAt' => (int)$result['completedAt'],
                     ],
-                    '/#/profile/' . rawurlencode((string)$result['playerLogin']),
+                    '/#/achievements/' . rawurlencode((string)$result['playerUuid']),
                     'game-achievement:' . $serverId . ':' . $achievementKey,
                     (int)$result['completedAt'],
                 );
@@ -279,9 +297,7 @@ final class GameAchievementEventService
                 'description' => (string)$row['description'],
                 'frameType' => (string)$row['frameType'],
                 'category' => (string)$row['category'],
-                'categoryLabel' => trim((string)($row['categoryLabel'] ?? '')) !== ''
-                    ? (string)$row['categoryLabel']
-                    : (string)($categoryLabels[(string)$row['serverId'] . "\0" . (string)$row['category']] ?? (string)$row['category']),
+                'categoryLabel' => $this->resolvedCategoryLabel($row, $categoryLabels),
                 'iconDataUrl' => 'data:' . (string)$row['iconMime'] . ';base64,' . (string)$row['iconBase64'],
                 'iconItem' => (string)$row['iconItem'],
                 'points' => $itemPoints,
@@ -345,9 +361,7 @@ final class GameAchievementEventService
                 'description' => (string)$row['description'],
                 'frameType' => (string)$row['frameType'],
                 'category' => (string)$row['category'],
-                'categoryLabel' => trim((string)($row['categoryLabel'] ?? '')) !== ''
-                    ? (string)$row['categoryLabel']
-                    : (string)($categoryLabels[(string)$row['serverId'] . "\0" . (string)$row['category']] ?? (string)$row['category']),
+                'categoryLabel' => $this->resolvedCategoryLabel($row, $categoryLabels),
                 'iconDataUrl' => 'data:' . (string)$row['iconMime'] . ';base64,' . (string)$row['iconBase64'],
                 'iconItem' => (string)$row['iconItem'],
                 'points' => max(0, (int)$row['points']),
@@ -424,6 +438,35 @@ final class GameAchievementEventService
                 'unlockCount' => $unlockCount,
             ],
         ];
+    }
+
+
+    /**
+     * @param array<string,mixed> $row
+     * @param array<string,string> $categoryLabels
+     */
+    private function resolvedCategoryLabel(array $row, array $categoryLabels): string
+    {
+        $category = trim((string)($row['category'] ?? ''));
+        $stored = trim((string)($row['categoryLabel'] ?? ''));
+        // Migration 026 historically backfilled categoryLabel with the technical
+        // registry id. Treat that value as an empty placeholder, not localization.
+        if ($stored !== '' && $stored !== $category && !$this->looksTechnicalCategory($stored)) {
+            return $stored;
+        }
+
+        $serverId = trim((string)($row['serverId'] ?? ''));
+        $fallback = trim((string)($categoryLabels[$serverId . "\0" . $category] ?? ''));
+        if ($fallback !== '' && $fallback !== $category) {
+            return $fallback;
+        }
+
+        return $category;
+    }
+
+    private function looksTechnicalCategory(string $value): bool
+    {
+        return preg_match('~^[a-z0-9_.-]+:[a-z0-9_./-]+$~D', $value) === 1;
     }
 
     /**

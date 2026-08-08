@@ -7,7 +7,7 @@ Fox Achievements is a server-side Forge 1.7.10 integration that synchronizes the
 - Minecraft `1.7.10`
 - Forge `10.13.4.1614`
 - Java 8 bytecode
-- FoxCMS migration `025_game_achievements.sql`
+- FoxCMS migrations `025_game_achievements.sql` → `026_game_achievement_category_labels.sql` → `027_game_achievement_points_economy.sql`
 
 Minecraft 1.7.10 predates datapack advancements. In this runtime, the complete available catalog means every registered `Achievement` discovered through:
 
@@ -62,13 +62,20 @@ Apply migrations using the normal deployment process. The relevant migration is:
 ```text
 database/migrations/025_game_achievements.sql
 database/migrations/026_game_achievement_category_labels.sql
+database/migrations/027_game_achievement_points_economy.sql
+database/migrations/028_game_achievement_category_label_cleanup.sql
 ```
+
+Apply all three migrations in numeric order. `025` creates the base catalog/progress tables, `026` adds localized category labels, and `027` adds the immutable point-award/exchange economy.
 
 It creates:
 
 - `gameAchievements` — the active catalog for each server;
 - `playerAchievements` — player progress and completion state;
-- `gameAchievementEvents` — idempotent delivery history.
+- `gameAchievementEvents` — idempotent delivery history;
+- `gameAchievementPointAwards` — immutable, one-time point awards per server/player/achievement;
+- `gameAchievementPointExchanges` — immutable Points → Units exchanges;
+- `gameAchievementEconomySettings` — administrator-controlled conversion rate and minimum exchange.
 
 The Minecraft profile UUID is already the canonical `users.uuid` in FoxCMS, so no secondary account-link table is required.
 
@@ -272,6 +279,30 @@ The response includes the complete enabled catalog for the selected player:
 
 The FoxEngine profile page consumes this endpoint through `ProfileAchievements.vue`.
 
+## Achievement points economy
+
+Completing an achievement does **not** credit Units automatically. FoxCMS records the achievement's point value once in `gameAchievementPointAwards`; the player's achievement score remains visible independently of whether those points are ever converted.
+
+The player can explicitly convert any valid portion of the unspent award balance from **their own Achievements page**. The default rate is `10 points = 1 Unit`, but administrators can change the rate, minimum exchange amount, or temporarily disable exchanges from the Achievements admin destination.
+
+The user flow is:
+
+```text
+new achievement
+→ notification in FoxCMS (+N points)
+→ points become available to exchange
+→ player opens personal achievements
+→ player chooses an amount
+→ player presses “Exchange”
+→ transaction atomically records the exchange and increments users.balance / Units
+```
+
+Point awards are idempotent on `(serverId, playerUuid, achievementKey)`. Exchange requests are idempotent on `requestUuid`, use the authenticated session UUID rather than any client-supplied player UUID, require CSRF validation, lock the user balance during the transaction, and update Units through the canonical `BalanceMatrix`.
+
+Existing completed achievements are backfilled by migration 027, so installing the economy does not discard points that players earned before the feature existed. Technical recipe advancements are excluded from the backfill.
+
+Achievement notifications link directly to the stable UUID-based personal achievements route. Viewing another player's achievements or global statistics never exposes the exchange controls.
+
 ## Administrative maintenance
 
 FoxCMS exposes a dedicated **Achievements** destination in the administrator panel. It shows per-server counts for catalog definitions, player progress, tracked players and ingestion events, plus a searchable list of players for the selected `serverId`.
@@ -280,6 +311,8 @@ Two destructive operations are available:
 
 - **Clear server** removes `gameAchievementEvents`, `playerAchievements` and `gameAchievements` for the selected achievement `serverId`. It does not remove the configured FoxCMS server record.
 - **Clear player** removes `gameAchievementEvents` and `playerAchievements` for one player on the selected server. It does not remove the FoxCMS user account or the server catalog.
+
+Neither operation deletes `gameAchievementPointAwards` or `gameAchievementPointExchanges`. Economic history is deliberately immutable so clearing/reconciling gameplay progress cannot be used to earn or exchange the same points twice.
 
 Both operations are protected by the normal AdminPanel administrator/CSRF boundary, execute transactionally and write warning-level audit events. The UI displays the affected row counts before confirmation.
 

@@ -172,18 +172,32 @@ final class GameApiApplication
     private function rethrowSchemaError(Throwable $error): never
     {
         if (\GameAchievementCatalogService::isSchemaMissing($error)) {
+            $migration = \GameAchievementCatalogService::requiredMigration($error);
             JsonResponse::send([
                 'error' => 'achievement_schema_missing',
-                'message' => 'В подключённой к API базе отсутствуют таблицы достижений.',
-                'migration' => '025_game_achievements.sql',
+                'message' => 'В подключенной к API базе отсутствует часть схемы достижений.',
+                'migration' => $migration,
+                'requiredMigrations' => [
+                    '025_game_achievements.sql',
+                    '026_game_achievement_category_labels.sql',
+                    '027_game_achievement_points_economy.sql',
+                    '028_game_achievement_category_label_cleanup.sql',
+                ],
             ], 503, ['Cache-Control' => 'no-store, max-age=0']);
         }
 
         if (\GameAchievementCatalogService::isSchemaOutdated($error)) {
+            $migration = \GameAchievementCatalogService::requiredMigration($error);
             JsonResponse::send([
                 'error' => 'achievement_schema_outdated',
                 'message' => 'Схема таблиц достижений не соответствует текущей версии FoxCMS.',
-                'migration' => '025_game_achievements.sql',
+                'migration' => $migration,
+                'requiredMigrations' => [
+                    '025_game_achievements.sql',
+                    '026_game_achievement_category_labels.sql',
+                    '027_game_achievement_points_economy.sql',
+                    '028_game_achievement_category_label_cleanup.sql',
+                ],
             ], 503, ['Cache-Control' => 'no-store, max-age=0']);
         }
 

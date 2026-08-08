@@ -9,12 +9,17 @@ const neoForgeRoot = resolve(achievementsRoot, 'neoforge-1.21.1')
 const files = {
   migration: join(repositoryRoot, 'database', 'migrations', '025_game_achievements.sql'),
   categoryMigration: join(repositoryRoot, 'database', 'migrations', '026_game_achievement_category_labels.sql'),
+  categoryCleanupMigration: join(repositoryRoot, 'database', 'migrations', '028_game_achievement_category_label_cleanup.sql'),
+  economyMigration: join(repositoryRoot, 'database', 'migrations', '027_game_achievement_points_economy.sql'),
   environment: join(repositoryRoot, '.env.example'),
   health: join(repositoryRoot, 'engine', 'classes', 'services', 'HealthCheckService.class.php'),
   exception: join(repositoryRoot, 'engine', 'classes', 'game', 'GameApiException.class.php'),
   authenticator: join(repositoryRoot, 'engine', 'classes', 'game', 'GameServerAuthenticator.class.php'),
   catalogService: join(repositoryRoot, 'engine', 'classes', 'game', 'GameAchievementCatalogService.class.php'),
   eventService: join(repositoryRoot, 'engine', 'classes', 'game', 'GameAchievementEventService.class.php'),
+  economyService: join(repositoryRoot, 'engine', 'classes', 'services', 'AchievementPointExchangeService.class.php'),
+  userAchievementController: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'User', 'UserAchievementController.php'),
+  userActions: join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'UserActions.class.php'),
   apiIndex: join(repositoryRoot, 'api', 'index.php'),
   gameApiApplication: join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Game', 'GameApiApplication.php'),
   catalogEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'catalog', 'index.php'),
@@ -41,6 +46,8 @@ const files = {
   legacyForgeMain: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsMod.java'),
   legacyForgeCatalog: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementCatalogBuilder.java'),
   frontendClient: join(repositoryRoot, 'engine', 'client', 'achievements', 'playerAchievements.ts'),
+  economyClient: join(repositoryRoot, 'engine', 'client', 'achievements', 'achievementEconomy.ts'),
+  economyComposable: join(repositoryRoot, 'engine', 'client', 'achievements', 'useAchievementEconomy.ts'),
   achievementsView: join(repositoryRoot, 'engine', 'client', 'views', 'AchievementsView.vue'),
   statisticsTree: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementStatisticsTree.vue'),
   statisticsTreeModel: join(repositoryRoot, 'engine', 'client', 'achievements', 'achievementStatisticsTree.ts'),
@@ -87,7 +94,30 @@ rejectText('Achievement database migration', source.migration, ['secretKey', 'ra
 requireText('Achievement category-label migration', source.categoryMigration, [
   'ALTER TABLE `gameAchievements`',
   'ADD COLUMN `categoryLabel` VARCHAR(190)',
+  'Keep the label empty until Fox Achievements supplies a localized value',
+])
+requireText('Achievement category-label cleanup migration', source.categoryCleanupMigration, [
   'UPDATE `gameAchievements`',
+  "SET `categoryLabel` = ''",
+  'WHERE `categoryLabel` = `category`',
+])
+requireText('Achievement schema migration diagnostics', source.catalogService + source.gameApiApplication, [
+  'requiredMigration(Throwable $error)',
+  '026_game_achievement_category_labels.sql',
+  '027_game_achievement_points_economy.sql',
+  "'requiredMigrations'",
+])
+requireText('Achievement point economy migration', source.economyMigration, [
+  'CREATE TABLE IF NOT EXISTS `gameAchievementPointAwards`',
+  'UNIQUE KEY `uq_game_achievement_point_award` (`serverId`, `playerUuid`, `achievementKey`)',
+  'CREATE TABLE IF NOT EXISTS `gameAchievementPointExchanges`',
+  'UNIQUE KEY `uq_game_achievement_point_exchange_request` (`requestUuid`)',
+  'CREATE TABLE IF NOT EXISTS `gameAchievementEconomySettings`',
+  '`pointsPerUnit` INT UNSIGNED NOT NULL DEFAULT 10',
+  '`minimumPoints` INT UNSIGNED NOT NULL DEFAULT 10',
+  'INSERT IGNORE INTO `gameAchievementPointAwards`',
+  'FROM `playerAchievements` AS `player`',
+  "NOT LIKE '%:advancement/recipes/%'",
 ])
 
 
@@ -99,6 +129,9 @@ requireText('Achievement health schema', source.health, [
   "'gameAchievements' => [",
   "'playerAchievements' => [",
   "'gameAchievementEvents' => [",
+  "'gameAchievementPointAwards' => [",
+  "'gameAchievementPointExchanges' => [",
+  "'gameAchievementEconomySettings' => [",
 ])
 requireText('Game API exception', source.exception, [
   'final class GameApiException',
@@ -148,6 +181,12 @@ rejectText('Achievement schema error classification', source.catalogService, [
   "|| str_contains($message, 'gameachievementevents')",
 ])
 
+requireText('Technical category ids are never accepted as localized labels', source.eventService, [
+  'resolvedCategoryLabel(',
+  '$stored !== $category',
+  'looksTechnicalCategory(',
+])
+
 requireText('Legacy technical recipe rows stay out of public achievement views', source.eventService, [
   "NOT LIKE '%:advancement/recipes/%'",
 ])
@@ -174,6 +213,45 @@ rejectText('Public achievement response', source.eventService.slice(source.event
   'payloadJson',
   'eventUuid',
   'secret',
+])
+rejectText('Achievement completion never auto-credits Units', source.eventService, [
+  'BalanceMatrix::increment(',
+  'UPDATE `users` SET `balance`',
+])
+requireText('Achievement completion point award', source.eventService, [
+  'new AchievementPointExchangeService($this->db)',
+  '->recordAward(',
+  "'pointAwarded' => $pointAwarded",
+  "'achievement.game_unlocked'",
+  "'Новое достижение'",
+  "'/#/achievements/'",
+  "очков доступны для обмена на Units",
+])
+requireText('Achievement point exchange service', source.economyService, [
+  'final class AchievementPointExchangeService',
+  'INSERT IGNORE INTO `gameAchievementPointAwards`',
+  'public function state(',
+  'public function exchange(',
+  'transactional(function',
+  'LIMIT 1 FOR UPDATE',
+  'gameAchievementPointExchanges',
+  'pointsSpent',
+  'unitsGranted',
+  'pointsPerUnit',
+  'BalanceMatrix::increment(',
+  "'units'",
+  '$points % $rate !== 0',
+  '$points > $available',
+  'public function saveSettings(',
+  'public function statistics()',
+])
+requireText('Achievement exchange authenticated user action', source.userActions + source.userAchievementController, [
+  "'getAchievementEconomy' => 'achievements.economy'",
+  "'exchangeAchievementPoints' => 'achievements.exchange'",
+  'requireRewardAccess()',
+  'CsrfToken::requireValid',
+  'AchievementPointExchangeService',
+  "$this->session->set('balance'",
 ])
 
 requireText('Game API front controller', source.apiIndex, [
@@ -469,11 +547,30 @@ requireText('Achievements controller host', source.achievementsView, [
   'activeCategorySummary',
   'openCategory',
   'closeCategory',
+  'isOwnAchievements',
+  'useAchievementEconomy',
+  'exchangeMyAchievementPoints',
+  'canExchangePoints',
   "runtimePageTemplate('achievements')",
   '<RuntimeTpl',
 ])
 rejectText('Achievements controller host', source.achievementsView, [
   'achievements-player-search', 'achievements-metrics', 'achievements-status-tabs', 'achievements-grid',
+])
+requireText('Achievement economy frontend client', source.economyClient, [
+  "user_doaction: 'getAchievementEconomy'",
+  "user_doaction: 'exchangeAchievementPoints'",
+  'requestUuid: operationUuid()',
+  'appBootstrap.user.balance',
+])
+requireText('Achievement economy composable', source.economyComposable, [
+  'loadAchievementEconomy',
+  'submitAchievementPointExchange',
+  'canExchangePoints',
+  'exchangeAllAchievementPoints',
+  'exchangeMyAchievementPoints',
+  'window.confirm',
+  'toValue(enabled)',
 ])
 requireText('Achievements page TPL', source.achievementsTpl, [
   '<fox-page-template id="achievements"',
@@ -494,6 +591,11 @@ requireText('Achievements page TPL', source.achievementsTpl, [
   'entry.completedCount',
   'entry.totalCount',
   'item.iconDataUrl',
+  'v-if="isOwnAchievements"',
+  'achievement-economy',
+  'exchangePointsInput',
+  'exchangePreviewUnits',
+  'exchangeMyAchievementPoints',
   '<AchievementStatisticsTree',
 ])
 rejectText('Achievements page category root', source.achievementsTpl, [
@@ -600,6 +702,7 @@ requireText('Achievement profile styles', source.frontendStyles, [
 
 requireText('Achievement admin backend registration', source.adminOptions, [
   "'achievementsAdmin' => 'achievementsAdmin'",
+  "'saveAchievementEconomy' => 'saveAchievementEconomy'",
   "'clearAchievementServer' => 'clearAchievementServer'",
   "'clearAchievementPlayer' => 'clearAchievementPlayer'",
   'AdminAchievementController',
@@ -630,9 +733,14 @@ requireText('Achievement admin destructive boundary', source.adminAchievementCon
 rejectText('Achievement admin destructive scope', source.adminAchievementController, [
   'DELETE FROM `users`',
   'DELETE FROM `servers`',
+  "deleteByServer('gameAchievementPointAwards'",
+  "deleteByServer('gameAchievementPointExchanges'",
+  "deletePlayerRows('gameAchievementPointAwards'",
+  "deletePlayerRows('gameAchievementPointExchanges'",
 ])
 requireText('Achievement admin client actions', source.adminComposable, [
   "admPanel: 'achievementsAdmin'",
+  "admPanel: 'saveAchievementEconomy'",
   "admPanel: 'clearAchievementServer'",
   "admPanel: 'clearAchievementPlayer'",
   'window.confirm',
@@ -642,11 +750,18 @@ requireText('Achievement admin view', source.adminAchievementsView, [
   "theme.foxengine.admin.achievements.024",
   "emit('clearServer')",
   "emit('clearPlayer', player)",
+  "emit('saveEconomy'",
+  'economyStats.unitsGranted',
+  'economyDraft.pointsPerUnit',
+  'economyDraft.minimumPoints',
 ])
 requireText('Achievement admin runtime destination', source.adminPanelTpl, [
   'id="achievements" component="Achievements" tab="achievements"',
   "activeTab === 'achievements'",
   '<AdminAchievements',
+  ':economy="achievementEconomy"',
+  ':economy-stats="achievementEconomyStats"',
+  '@save-economy="saveAchievementEconomy"',
 ])
 
 if (failures.length) {
@@ -654,4 +769,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
-console.log('Game achievements contract passed: NeoForge 1.21.1 discovers vanilla and modded advancements, persists a complete Base64-icon catalog, delivers idempotent player unlock events through HMAC-authenticated FoxCMS APIs, and renders runtime-TPL views and profile panels.')
+console.log('Game achievements contract passed: NeoForge 1.21.1 discovers and renders player-facing advancements, FoxCMS persists idempotent unlock/point ledgers, players explicitly convert earned points to Units, and runtime/admin views expose the complete achievement economy.')

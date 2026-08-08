@@ -12,7 +12,8 @@ declare(strict_types=1);
 final class AdminAchievementController
 {
     private const SERVER_ID_PATTERN = '/^[a-z0-9][a-z0-9._-]{2,99}$/D';
-    private const REQUIRED_TABLES = ['gameAchievements', 'playerAchievements', 'gameAchievementEvents'];
+    private const REQUIRED_TABLES = ['gameAchievements', 'playerAchievements', 'gameAchievementEvents', 'gameAchievementPointAwards', 'gameAchievementPointExchanges', 'gameAchievementEconomySettings'];
+    private const SERVER_CLEAR_TABLES = ['gameAchievements', 'playerAchievements', 'gameAchievementEvents'];
 
     public function __construct(
         private db $db,
@@ -31,7 +32,9 @@ final class AdminAchievementController
                 'servers' => [],
                 'players' => [],
                 'selectedServerId' => '',
-                'message' => 'Схема игровых достижений недоступна. Примените миграцию 025_game_achievements.sql.',
+                'economy' => null,
+                'economyStats' => null,
+                'message' => 'Схема игровых достижений недоступна. Примените миграции 025–027 системы достижений.',
             ]);
         }
 
@@ -57,6 +60,39 @@ final class AdminAchievementController
             'servers' => $servers,
             'players' => $players,
             'selectedServerId' => $serverId,
+            'economy' => (new AchievementPointExchangeService($this->db, $this->logger))->settings(),
+            'economyStats' => (new AchievementPointExchangeService($this->db, $this->logger))->statistics(),
+        ]);
+    }
+
+    public function saveEconomy(): void
+    {
+        $this->requireSchema();
+        $enabled = filter_var($this->request['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($enabled === null) {
+            throw new HttpException('Флаг экономики достижений должен быть логическим значением.', 400);
+        }
+        $pointsPerUnit = filter_var($this->request['pointsPerUnit'] ?? null, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'max_range' => 1_000_000],
+        ]);
+        $minimumPoints = filter_var($this->request['minimumPoints'] ?? null, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'max_range' => 1_000_000_000],
+        ]);
+        if ($pointsPerUnit === false || $minimumPoints === false) {
+            throw new HttpException('Курс и минимальный обмен должны быть положительными целыми числами.', 400);
+        }
+        $service = new AchievementPointExchangeService($this->db, $this->logger);
+        $settings = $service->saveSettings(
+            $enabled,
+            (int)$pointsPerUnit,
+            (int)$minimumPoints,
+            $this->session->uuid(),
+        );
+        $this->responder->send([
+            'type' => 'success',
+            'message' => 'Настройки обмена очков достижений сохранены.',
+            'economy' => $settings,
+            'economyStats' => $service->statistics(),
         ]);
     }
 
@@ -437,7 +473,7 @@ final class AdminAchievementController
 
     private function deleteByServer(string $table, string $serverId): int
     {
-        if (!in_array($table, self::REQUIRED_TABLES, true)) {
+        if (!in_array($table, self::SERVER_CLEAR_TABLES, true)) {
             throw new LogicException('Unsupported achievement table.');
         }
         $statement = $this->db->prepare('DELETE FROM `' . $table . '` WHERE `serverId` = :serverId');
@@ -482,7 +518,7 @@ final class AdminAchievementController
     {
         if (!$this->schemaReady()) {
             throw new HttpException(
-                'Схема игровых достижений недоступна. Примените миграцию 025_game_achievements.sql.',
+                'Схема игровых достижений недоступна. Примените миграции 025–027 системы достижений.',
                 503,
             );
         }

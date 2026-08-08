@@ -22,6 +22,7 @@ final class AdminOptions {
         'grantUserBadge' => 'grantUserBadge',
         'revokeUserBadge' => 'revokeUserBadge',
         'achievementsAdmin' => 'achievementsAdmin',
+        'saveAchievementEconomy' => 'saveAchievementEconomy',
         'clearAchievementServer' => 'clearAchievementServer',
         'clearAchievementPlayer' => 'clearAchievementPlayer',
         'servers' => 'servers',
@@ -323,6 +324,11 @@ final class AdminOptions {
     private function achievementsAdmin(): void
     {
         $this->achievementController->overview();
+    }
+
+    private function saveAchievementEconomy(): void
+    {
+        $this->achievementController->saveEconomy();
     }
 
     private function clearAchievementServer(): void

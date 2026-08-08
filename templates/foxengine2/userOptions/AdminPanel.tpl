@@ -1,4 +1,4 @@
-<fox-user-options-template id="admin-panel" schema="1" revision="3" updated-at="2026-08-07T19:09:00Z">
+<fox-user-options-template id="admin-panel" schema="1" revision="4" updated-at="2026-08-08T05:45:00Z">
   <fox-admin-categories>
     <fox-admin-category id="observability" label="Обзор и контроль" description="Состояние проекта, метрики и диагностика" icon="fa-chart-line" order="10" enabled="true" />
     <fox-admin-category id="community" label="Сообщество" description="Игроки, группы, награды и справочники" icon="fa-users" order="20" enabled="true" />
@@ -237,11 +237,14 @@
             :players="achievementPlayers"
             :server-id="achievementServerId"
             :search="achievementPlayerSearch"
+            :economy="achievementEconomy"
+            :economy-stats="achievementEconomyStats"
             :loading="loading"
             @select-server="selectAchievementServer"
             @update:search="setAchievementPlayerSearch"
             @search="searchAchievementPlayers"
             @reload="loadAchievementAdmin"
+            @save-economy="saveAchievementEconomy"
             @clear-server="clearAchievementServer"
             @clear-player="clearAchievementPlayer"
           />

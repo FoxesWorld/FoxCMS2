@@ -44,7 +44,10 @@ const UNCATEGORIZED_CATEGORY = '__uncategorized__'
 const itemCategoryId = (item: AchievementStatistic): string => item.category.trim() || UNCATEGORIZED_CATEGORY
 const itemCategoryLabel = (id: string, categoryItems: AchievementStatistic[]): string => {
   if (id === UNCATEGORIZED_CATEGORY) return t('engine.views.achievements.068')
-  return categoryItems.find((item) => item.categoryLabel.trim())?.categoryLabel.trim() || id
+  const localized = categoryItems
+    .map((item) => item.categoryLabel.trim())
+    .find((label) => label && label !== id && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(label))
+  return localized || id
 }
 
 const categorySummaries = computed<AchievementStatisticsCategorySummary[]>(() => {

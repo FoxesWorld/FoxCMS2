@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { appBootstrap } from '@/app/context'
 import { bootstrapBoolean, bootstrapString } from '@/domain/bootstrap'
 import { t } from '@/i18n'
+import { useAchievementEconomy } from '@/achievements/useAchievementEconomy'
 import RuntimeTpl from '@/runtime/RuntimeTpl.vue'
 import { loadRuntimePageTemplates, runtimePageTemplate, runtimePageTemplatesState } from '@/runtime/pageTemplates'
 import {
@@ -62,6 +63,29 @@ const playerIdentity = computed(() => statisticsMode.value
   ? ''
   : requestedIdentity.value || currentUuid.value || currentLogin.value)
 const hasPlayerContext = computed(() => Boolean(playerIdentity.value))
+const isOwnAchievements = computed(() => {
+  if (!isLogged.value || statisticsMode.value) return false
+  const identity = playerIdentity.value.trim().toLocaleLowerCase('ru-RU')
+  if (!identity) return false
+  return [currentUuid.value, currentLogin.value]
+    .map((value) => value.trim().toLocaleLowerCase('ru-RU'))
+    .filter(Boolean)
+    .includes(identity)
+})
+const {
+  economy,
+  economyLoading,
+  economyError,
+  exchangeBusy,
+  exchangePointsInput,
+  exchangeMessage,
+  exchangeAmount,
+  exchangePreviewUnits,
+  canExchangePoints,
+  refreshAchievementEconomy,
+  exchangeAllAchievementPoints,
+  exchangeMyAchievementPoints,
+} = useAchievementEconomy(isOwnAchievements)
 const playerName = computed(() =>
   items.value.find((item) => item.playerName.trim())?.playerName
   || (playerIdentity.value && playerIdentity.value !== currentUuid.value ? playerIdentity.value : currentLogin.value)
@@ -98,7 +122,10 @@ function categoryId(item: PlayerAchievement): string {
 
 function categoryLabel(id: string, categoryItems: PlayerAchievement[]): string {
   if (id === UNCATEGORIZED_CATEGORY) return t('engine.views.achievements.068')
-  return categoryItems.find((item) => item.categoryLabel.trim())?.categoryLabel.trim() || id
+  const localized = categoryItems
+    .map((item) => item.categoryLabel.trim())
+    .find((label) => label && label !== id && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(label))
+  return localized || id
 }
 
 function matchesStatus(item: PlayerAchievement): boolean {
@@ -301,7 +328,17 @@ const runtimeTemplateContext: Record<string, unknown> = {
   statisticsMode,
   playerIdentity,
   hasPlayerContext,
+  isOwnAchievements,
   playerName,
+  economy,
+  economyLoading,
+  economyError,
+  exchangeBusy,
+  exchangePointsInput,
+  exchangeAmount,
+  exchangePreviewUnits,
+  canExchangePoints,
+  exchangeMessage,
   completionPercent,
   remainingCount,
   challengeCount,
@@ -315,6 +352,9 @@ const runtimeTemplateContext: Record<string, unknown> = {
   filteredItems,
   recentAchievements,
   refresh,
+  refreshAchievementEconomy,
+  exchangeAllAchievementPoints,
+  exchangeMyAchievementPoints,
   openPlayer,
   openMyAchievements,
   openStatistics,
