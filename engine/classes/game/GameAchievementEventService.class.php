@@ -229,7 +229,7 @@ final class GameAchievementEventService
             throw new GameApiException('player_not_found', 'Профиль игрока не найден.', 404);
         }
         $parameters = [':playerUuid' => $playerUuid];
-        $where = "`achievement`.`enabled` = 1 AND `achievement`.`gameCode` = 'minecraft'";
+        $where = "`achievement`.`enabled` = 1 AND `achievement`.`gameCode` = 'minecraft' AND `achievement`.`achievementKey` NOT LIKE '%:advancement/recipes/%'";
         if ($serverId !== null && trim($serverId) !== '') {
             $serverId = $this->serverId($serverId);
             $where .= ' AND `achievement`.`serverId` = :serverId';
@@ -243,7 +243,7 @@ final class GameAchievementEventService
             . '`player`.`completedAt`, COALESCE(`player`.`updatedAt`, `achievement`.`updatedAt`) AS `updatedAt`, '
             . '`achievement`.`achievementKey`, `achievement`.`achievementType`, `achievement`.`parentKey`, '
             . '`achievement`.`title`, `achievement`.`description`, `achievement`.`frameType`, '
-            . '`achievement`.`category`, `achievement`.`iconBase64`, `achievement`.`iconMime`, '
+            . '`achievement`.`category`, `achievement`.`categoryLabel`, `achievement`.`iconBase64`, `achievement`.`iconMime`, '
             . '`achievement`.`iconItem`, `achievement`.`points`, `achievement`.`hidden` '
             . 'FROM `gameAchievements` AS `achievement` '
             . 'LEFT JOIN `playerAchievements` AS `player` '
@@ -254,10 +254,12 @@ final class GameAchievementEventService
             . '`achievement`.`serverId` ASC, `achievement`.`title` ASC'
         );
         $statement->execute($parameters);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $categoryLabels = $this->categoryLabels($rows);
         $items = [];
         $completedCount = 0;
         $points = 0;
-        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        foreach ($rows as $row) {
             $completed = (int)($row['completed'] ?? 0) === 1;
             if ((int)($row['hidden'] ?? 0) === 1 && !$completed) {
                 continue;
@@ -277,6 +279,9 @@ final class GameAchievementEventService
                 'description' => (string)$row['description'],
                 'frameType' => (string)$row['frameType'],
                 'category' => (string)$row['category'],
+                'categoryLabel' => trim((string)($row['categoryLabel'] ?? '')) !== ''
+                    ? (string)$row['categoryLabel']
+                    : (string)($categoryLabels[(string)$row['serverId'] . "\0" . (string)$row['category']] ?? (string)$row['category']),
                 'iconDataUrl' => 'data:' . (string)$row['iconMime'] . ';base64,' . (string)$row['iconBase64'],
                 'iconItem' => (string)$row['iconItem'],
                 'points' => $itemPoints,
@@ -307,7 +312,7 @@ final class GameAchievementEventService
     public function achievementStatistics(?string $serverId = null): array
     {
         $parameters = [];
-        $where = "`achievement`.`enabled` = 1 AND `achievement`.`gameCode` = 'minecraft'";
+        $where = "`achievement`.`enabled` = 1 AND `achievement`.`gameCode` = 'minecraft' AND `achievement`.`achievementKey` NOT LIKE '%:advancement/recipes/%'";
         if ($serverId !== null && trim($serverId) !== '') {
             $serverId = $this->serverId($serverId);
             $where .= ' AND `achievement`.`serverId` = :serverId';
@@ -317,17 +322,19 @@ final class GameAchievementEventService
         $definitions = $this->db->prepare(
             'SELECT `achievement`.`serverId`, `achievement`.`achievementKey`, `achievement`.`parentKey`, '
             . '`achievement`.`title`, `achievement`.`description`, `achievement`.`frameType`, '
-            . '`achievement`.`category`, `achievement`.`iconBase64`, `achievement`.`iconMime`, '
+            . '`achievement`.`category`, `achievement`.`categoryLabel`, `achievement`.`iconBase64`, `achievement`.`iconMime`, '
             . '`achievement`.`iconItem`, `achievement`.`points` '
             . 'FROM `gameAchievements` AS `achievement` '
             . 'WHERE ' . $where . ' ORDER BY `achievement`.`serverId` ASC, '
             . '`achievement`.`category` ASC, `achievement`.`title` ASC'
         );
         $definitions->execute($parameters);
+        $definitionRows = $definitions->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $categoryLabels = $this->categoryLabels($definitionRows);
 
         $items = [];
         $indexes = [];
-        foreach ($definitions->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        foreach ($definitionRows as $row) {
             $key = (string)$row['serverId'] . "\0" . (string)$row['achievementKey'];
             $indexes[$key] = count($items);
             $items[] = [
@@ -338,6 +345,9 @@ final class GameAchievementEventService
                 'description' => (string)$row['description'],
                 'frameType' => (string)$row['frameType'],
                 'category' => (string)$row['category'],
+                'categoryLabel' => trim((string)($row['categoryLabel'] ?? '')) !== ''
+                    ? (string)$row['categoryLabel']
+                    : (string)($categoryLabels[(string)$row['serverId'] . "\0" . (string)$row['category']] ?? (string)$row['category']),
                 'iconDataUrl' => 'data:' . (string)$row['iconMime'] . ';base64,' . (string)$row['iconBase64'],
                 'iconItem' => (string)$row['iconItem'],
                 'points' => max(0, (int)$row['points']),
@@ -360,7 +370,7 @@ final class GameAchievementEventService
         }
 
         $completionParameters = [];
-        $completionWhere = "`achievement`.`enabled` = 1 AND `achievement`.`gameCode` = 'minecraft' "
+        $completionWhere = "`achievement`.`enabled` = 1 AND `achievement`.`gameCode` = 'minecraft' AND `achievement`.`achievementKey` NOT LIKE '%:advancement/recipes/%' "
             . 'AND `player`.`completed` = 1';
         if ($serverId !== null && $serverId !== '') {
             $completionWhere .= ' AND `player`.`serverId` = :serverId';
@@ -414,6 +424,90 @@ final class GameAchievementEventService
                 'unlockCount' => $unlockCount,
             ],
         ];
+    }
+
+    /**
+     * Build localized labels for technical category identifiers using the
+     * already-localized advancement titles stored in the catalog.
+     *
+     * @param list<array<string,mixed>> $rows
+     * @return array<string,string>
+     */
+    private function categoryLabels(array $rows): array
+    {
+        $titlesByKey = [];
+        $categories = [];
+        $labels = [];
+        foreach ($rows as $row) {
+            $serverId = trim((string)($row['serverId'] ?? ''));
+            $achievementKey = trim((string)($row['achievementKey'] ?? ''));
+            $category = trim((string)($row['category'] ?? ''));
+            $title = trim((string)($row['title'] ?? ''));
+            if ($serverId === '' || $achievementKey === '' || $category === '') {
+                continue;
+            }
+            $titlesByKey[$serverId . "\0" . $achievementKey] = $title;
+            $categories[$serverId . "\0" . $category] = [$serverId, $category];
+            if ($title !== '' && ($row['parentKey'] ?? null) === null) {
+                $labels[$serverId . "\0" . $category] ??= $title;
+            }
+        }
+
+        foreach ($categories as $mapKey => [$serverId, $category]) {
+            [$namespace, $path] = array_pad(explode(':', $category, 2), 2, 'root');
+            $candidates = $path === 'root'
+                ? [$namespace . ':advancement/root']
+                : [
+                    $namespace . ':advancement/' . $path . '/root',
+                    $path . ':advancement/' . $path . '/root',
+                    $path . ':advancement/root',
+                ];
+            foreach ($candidates as $candidate) {
+                $title = trim((string)($titlesByKey[$serverId . "\0" . $candidate] ?? ''));
+                if ($title !== '') {
+                    $labels[$mapKey] = $title;
+                    break;
+                }
+            }
+        }
+
+        // Reuse another localized root from the same namespace before falling
+        // back to a humanized technical token. This covers compatibility
+        // branches such as irons_spellbooks:root.
+        foreach ($categories as $mapKey => [$serverId, $category]) {
+            if (isset($labels[$mapKey]) && $labels[$mapKey] !== '') {
+                continue;
+            }
+            [$namespace] = array_pad(explode(':', $category, 2), 2, 'root');
+            foreach ($categories as $otherKey => [$otherServerId, $otherCategory]) {
+                if ($otherServerId !== $serverId || !isset($labels[$otherKey])) {
+                    continue;
+                }
+                [$otherNamespace] = array_pad(explode(':', $otherCategory, 2), 2, 'root');
+                if ($otherNamespace === $namespace) {
+                    $labels[$mapKey] = $labels[$otherKey];
+                    break;
+                }
+            }
+        }
+
+        foreach ($categories as $mapKey => [$serverId, $category]) {
+            if (isset($labels[$mapKey]) && trim($labels[$mapKey]) !== '') {
+                continue;
+            }
+            [, $path] = array_pad(explode(':', $category, 2), 2, 'root');
+            $token = $path === 'root' ? explode(':', $category, 2)[0] : $path;
+            $labels[$mapKey] = $this->humanizeCategoryToken($token);
+        }
+        return $labels;
+    }
+
+    private function humanizeCategoryToken(string $token): string
+    {
+        $value = trim(str_replace(['_', '-', '.'], ' ', $token));
+        $value = preg_replace('/(?<=[a-z])(?=[A-Z])/u', ' ', $value) ?? $value;
+        $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+        return $value === '' ? 'Достижения' : mb_convert_case($value, MB_CASE_TITLE, 'UTF-8');
     }
 
     private function serverId(string $serverId): string

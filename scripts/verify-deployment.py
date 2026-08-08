@@ -24,6 +24,7 @@ STATIC_REQUIRED_FILES = {
     "engine/classes/identity/UserIdentityException.class.php": "final class UserIdentityException",
     "engine/classes/identity/Uuid.class.php": "final class Uuid",
     "engine/classes/security/RememberToken.class.php": "final class RememberToken",
+    "engine/classes/modules/AdminPanel/AdminAchievementController.class.php": "final class AdminAchievementController",
     "engine/classes/services/HealthCheckService.class.php": "identityCheck",
     "engine/classes/services/LauncherSessionService.class.php": "userUuid",
     "engine/classes/services/RuntimeJdkCatalog.class.php": "RuntimeMetadata::runtimeNormalizeVersion",
@@ -80,6 +81,7 @@ STATIC_REQUIRED_FILES = {
     "database/migrations/016_revoke_public_badge_claim_key.sql": "activeLegacyPublicBadgeKeys",
     "database/migrations/017_public_badge_claim_access.sql": "`accessMode` = 'public'",
     "database/migrations/018_expand_server_image_column.sql": "`serverImage` VARCHAR(512)",
+    "database/migrations/025_game_achievements.sql": "CREATE TABLE IF NOT EXISTS `gameAchievements`",
     "database/repair-legacy-schema.sql": "Safe to run repeatedly",
 }
 
@@ -223,6 +225,11 @@ def verify_theme(root: Path, theme: str, failures: list[str]) -> list[str]:
         page_templates_root / "StartGame.tpl": '<fox-page-template id="start-game"',
         page_templates_root / "Achievements.tpl": '<fox-page-template id="achievements"',
     }
+    user_options_root = theme_root / "userOptions"
+    required_user_options_documents = {
+        user_options_root / "ProfileSettings.tpl": '<fox-user-options-template id="profile-settings"',
+        user_options_root / "AdminPanel.tpl": '<fox-user-options-template id="admin-panel"',
+    }
     for required, signature in required_page_documents.items():
         relative = str(required.relative_to(root)).replace("\\", "/")
         if not required.is_file():
@@ -232,6 +239,41 @@ def verify_theme(root: Path, theme: str, failures: list[str]) -> list[str]:
         if signature not in source:
             failures.append(f"theme page document signature {signature!r} is missing from {relative}")
         fingerprints.append(relative)
+
+    user_option_sources: dict[str, str] = {}
+    for required, signature in required_user_options_documents.items():
+        relative = str(required.relative_to(root)).replace("\\", "/")
+        if not required.is_file():
+            failures.append(f"theme userOptions document is missing: {relative}")
+            continue
+        source = required.read_text(encoding="utf-8", errors="replace")
+        if signature not in source:
+            failures.append(f"theme userOptions signature {signature!r} is missing from {relative}")
+        user_option_sources[required.stem] = source
+        fingerprints.append(relative)
+
+    repository_path = root / "engine" / "classes" / "themes" / "ThemeUserOptionsRepository.class.php"
+    admin_source = user_option_sources.get("AdminPanel")
+    if repository_path.is_file() and admin_source is not None:
+        repository_source = repository_path.read_text(encoding="utf-8", errors="replace")
+        adapters_match = re.search(
+            r"private const ADMIN_ADAPTERS = \[(.*?)\n\s*\];",
+            repository_source,
+            re.DOTALL,
+        )
+        if adapters_match is None:
+            failures.append("unable to inspect ThemeUserOptionsRepository ADMIN_ADAPTERS")
+        else:
+            adapter_ids = set(re.findall(r"^\s*'([^']+)'\s*=>", adapters_match.group(1), re.MULTILINE))
+            tool_ids = set(re.findall(r'<fox-admin-tool\b[^>]*\bid="([^"]+)"', admin_source))
+            if adapter_ids != tool_ids:
+                missing = sorted(adapter_ids - tool_ids)
+                extra = sorted(tool_ids - adapter_ids)
+                failures.append(
+                    "AdminPanel.tpl adapter set does not match backend ADMIN_ADAPTERS"
+                    + (f"; missing={missing}" if missing else "")
+                    + (f"; extra={extra}" if extra else "")
+                )
 
     obsolete_page_paths = (
         theme_root / "data" / "pages",
@@ -248,6 +290,20 @@ def verify_theme(root: Path, theme: str, failures: list[str]) -> list[str]:
     for template_id in ("static-content", "start-game", "achievements"):
         if not any(runtime_templates_root.glob(f"{template_id}.*.js")):
             failures.append(f"runtime page render module is missing: {template_id}.<revision>.js")
+
+    for stem, template_id in (("ProfileSettings", "profile-settings"), ("AdminPanel", "admin-panel")):
+        source = user_option_sources.get(stem)
+        if source is None:
+            continue
+        revision_match = re.search(r'\brevision="(\d+)"', source)
+        if revision_match is None:
+            failures.append(f"runtime userOptions TPL revision is missing: {template_id}")
+            continue
+        module = runtime_templates_root / f"{template_id}.{revision_match.group(1)}.js"
+        if not module.is_file():
+            failures.append(f"runtime userOptions render module is missing: {module.name}")
+        else:
+            fingerprints.append(str(module.relative_to(root)).replace("\\", "/"))
 
     return fingerprints
 

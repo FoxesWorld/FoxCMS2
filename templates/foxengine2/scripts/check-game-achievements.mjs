@@ -3,9 +3,12 @@ import { join, resolve } from 'node:path'
 import { repositoryRoot, themeRoot } from './theme-paths.mjs'
 import { includesLocalized } from './i18n-test-utils.mjs'
 
-const forgeRoot = resolve(repositoryRoot, '..', 'fox-achievements-forge-1.7.10')
+const achievementsRoot = resolve(repositoryRoot, '..', 'fox-achievements')
+const forgeRoot = resolve(achievementsRoot, 'forge-1.7.10')
+const neoForgeRoot = resolve(achievementsRoot, 'neoforge-1.21.1')
 const files = {
   migration: join(repositoryRoot, 'database', 'migrations', '025_game_achievements.sql'),
+  categoryMigration: join(repositoryRoot, 'database', 'migrations', '026_game_achievement_category_labels.sql'),
   environment: join(repositoryRoot, '.env.example'),
   health: join(repositoryRoot, 'engine', 'classes', 'services', 'HealthCheckService.class.php'),
   exception: join(repositoryRoot, 'engine', 'classes', 'game', 'GameApiException.class.php'),
@@ -18,22 +21,29 @@ const files = {
   eventEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'event', 'index.php'),
   playerEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'player', 'index.php'),
   statisticsEndpoint: join(repositoryRoot, 'api', 'game', 'achievements', 'statistics', 'index.php'),
-  forgeProperties: join(forgeRoot, 'gradle.properties'),
-  forgeBuild: join(forgeRoot, 'build.gradle'),
-  forgeConfig: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsConfig.java'),
-  forgeMain: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsMod.java'),
-  forgeCatalog: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementCatalogBuilder.java'),
-  forgeMetadata: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementMetadataReader.java'),
-  forgeLanguage: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementLanguageResolver.java'),
-  forgeEvents: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementEvents.java'),
-  forgeIcons: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementIconResolver.java'),
-  forgeQueue: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'DeliveryQueue.java'),
-  forgeHttp: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementHttpClient.java'),
-  forgeService: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementService.java'),
-  forgeCommand: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsCommand.java'),
+  neoForgeProperties: join(neoForgeRoot, 'gradle.properties'),
+  neoForgeBuild: join(neoForgeRoot, 'build.gradle'),
+  neoForgeConfig: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsConfig.java'),
+  neoForgeMain: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsMod.java'),
+  neoForgeCatalog: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementCatalogBuilder.java'),
+  neoForgeMetadata: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementMetadataReader.java'),
+  neoForgeLanguage: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementLanguageResolver.java'),
+  neoForgeEvents: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementEvents.java'),
+  neoForgeIcons: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementIconResolver.java'),
+  neoForgeModelInspector: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'ItemModelInspector.java'),
+  neoForgeServerRenderer: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'ServerModelRenderer.java'),
+  neoForgeQueue: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'DeliveryQueue.java'),
+  neoForgeHttp: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementHttpClient.java'),
+  neoForgeService: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementService.java'),
+  neoForgeCommand: join(neoForgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsCommand.java'),
+  legacyForgeProperties: join(forgeRoot, 'gradle.properties'),
+  legacyForgeBuild: join(forgeRoot, 'build.gradle'),
+  legacyForgeMain: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'FoxAchievementsMod.java'),
+  legacyForgeCatalog: join(forgeRoot, 'src', 'main', 'java', 'ru', 'foxescraft', 'achievements', 'AchievementCatalogBuilder.java'),
   frontendClient: join(repositoryRoot, 'engine', 'client', 'achievements', 'playerAchievements.ts'),
   achievementsView: join(repositoryRoot, 'engine', 'client', 'views', 'AchievementsView.vue'),
   statisticsTree: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementStatisticsTree.vue'),
+  statisticsTreeModel: join(repositoryRoot, 'engine', 'client', 'achievements', 'achievementStatisticsTree.ts'),
   statisticsTreeNode: join(repositoryRoot, 'engine', 'client', 'achievements', 'AchievementTreeNode.vue'),
   achievementsTpl: join(themeRoot, 'pages', 'templates', 'Achievements.tpl'),
   statisticsTreeTpl: join(themeRoot, 'pages', 'templates', 'achievements', 'StatisticsTree.tpl'),
@@ -43,6 +53,11 @@ const files = {
   frontendPanelTpl: join(themeRoot, 'pages', 'templates', 'achievements', 'ProfilePanel.tpl'),
   frontendProfile: join(themeRoot, 'src', 'userOptions', 'userOptions', 'Profile.vue'),
   frontendStyles: join(themeRoot, 'src', 'styles', 'profile.css'),
+  adminAchievementController: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminAchievementController.class.php'),
+  adminOptions: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'),
+  adminComposable: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts'),
+  adminAchievementsView: join(themeRoot, 'src', 'foxEngine', 'admin', 'Achievements.vue'),
+  adminPanelTpl: join(themeRoot, 'userOptions', 'AdminPanel.tpl'),
 }
 
 const values = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
@@ -69,6 +84,12 @@ requireText('Achievement database migration', source.migration, [
   'FOREIGN KEY (`playerUuid`) REFERENCES `users` (`uuid`) ON DELETE CASCADE',
 ])
 rejectText('Achievement database migration', source.migration, ['secretKey', 'rawSecret', 'hmacSecret'])
+requireText('Achievement category-label migration', source.categoryMigration, [
+  'ALTER TABLE `gameAchievements`',
+  'ADD COLUMN `categoryLabel` VARCHAR(190)',
+  'UPDATE `gameAchievements`',
+])
+
 
 requireText('Game server environment', source.environment, [
   'FOXESCRAFT_GAME_SERVER_KEYS_JSON',
@@ -94,10 +115,15 @@ requireText('Game server HMAC authentication', source.authenticator, [
 rejectText('Game server HMAC authentication', source.authenticator, ['md5(', 'sha1('])
 
 requireText('Achievement catalog service', source.catalogService, [
+  '($value !== [] && array_is_list($value))',
+  "'iconComponents' => (object)$iconComponents",
+  "'criteria' => (object)$criteria",
   'final class GameAchievementCatalogService',
   'private const MAX_ACHIEVEMENTS = 10000',
   'private const MAX_ICON_BYTES = 262144',
   "base64_decode($iconBase64, true)",
+  '`categoryLabel` = VALUES(`categoryLabel`)',
+  "'categoryLabel' => $categoryLabel",
   '`iconBase64` = VALUES(`iconBase64`)',
   '`catalogRevision` = VALUES(`catalogRevision`)',
   '`catalogRevision` <> :catalogRevision',
@@ -122,6 +148,9 @@ rejectText('Achievement schema error classification', source.catalogService, [
   "|| str_contains($message, 'gameachievementevents')",
 ])
 
+requireText('Legacy technical recipe rows stay out of public achievement views', source.eventService, [
+  "NOT LIKE '%:advancement/recipes/%'",
+])
 requireText('Achievement event service', source.eventService, [
   'final class GameAchievementEventService',
   'INSERT IGNORE INTO `gameAchievementEvents`',
@@ -135,6 +164,9 @@ requireText('Achievement event service', source.eventService, [
   "$playerLimitPerAchievement = 24",
   "`achievement`.`enabled` = 1",
   "'iconDataUrl' => 'data:'",
+  "'categoryLabel' =>",
+  'private function categoryLabels(',
+  'private function humanizeCategoryToken(',
   "$result['eventPersisted'] = true",
   "'databaseName'",
 ])
@@ -161,6 +193,8 @@ requireText('Game API application', source.gameApiApplication, [
   "'Cache-Control' => 'no-store, max-age=0'",
   "'operation' => 'catalog'",
   "'operation' => 'event'",
+  "'X-Fox-Error-Code'",
+  "'X-Fox-Server-Time'",
   'PlayerIdentityResolver',
 ])
 requireText('Catalog directory index', source.catalogEndpoint, [
@@ -180,14 +214,34 @@ requireText('Statistics directory index', source.statisticsEndpoint, [
   "require dirname(__DIR__, 3) . '/index.php'",
 ])
 
-requireText('NeoForge target', source.forgeProperties, [
+requireText('Forge 1.7.10 target', source.legacyForgeProperties, [
+  'minecraft_version=1.7.10',
+  'forge_version=1.7.10-10.13.4.1614-1.7.10',
+  'mod_id=foxachievements',
+])
+requireText('Forge 1.7.10 build', source.legacyForgeBuild, [
+  "classpath 'com.anatawa12.forge:ForgeGradle:1.2-1.0.12'",
+  "apply plugin: 'forge'",
+  'JavaVersion.VERSION_1_8',
+])
+requireText('Forge 1.7.10 lifecycle', source.legacyForgeMain, [
+  'acceptableRemoteVersions = "*"',
+  'FMLServerStartedEvent',
+])
+requireText('Complete Forge 1.7.10 achievement discovery', source.legacyForgeCatalog, [
+  'AchievementList.achievementList',
+  'StatList.allStats',
+  'AchievementPage.getAchievementPages()',
+])
+
+requireText('NeoForge target', source.neoForgeProperties, [
   'minecraft_version=1.21.1',
   'neo_version=21.1.244',
   'parchment_minecraft_version=1.21.1',
-  'mod_version=0.2.0',
+  'mod_version=0.2.9',
   'archives_base_name=fox-achievements-neoforge-1.21.1',
 ])
-requireText('NeoForge build', source.forgeBuild, [
+requireText('NeoForge build', source.neoForgeBuild, [
   "id 'net.neoforged.moddev' version '2.0.143'",
   'JavaLanguageVersion.of(21)',
   'options.release = 21',
@@ -196,6 +250,7 @@ requireText('NeoForge build', source.forgeBuild, [
   "assets/minecraft/textures/block/**",
   "assets/minecraft/models/item/**",
   "assets/minecraft/models/block/**",
+  "assets/minecraft/blockstates/**",
   "assets/minecraft/lang/en_us.json",
   "minecraft/lang/ru_ru.json",
   'sourceSets.main.resources.srcDir generatedMinecraftAssets',
@@ -205,7 +260,7 @@ rejectText('NeoForge integration', Object.values(source).filter((value, index) =
   'FabricLoader',
   "apply plugin: 'forge'",
 ])
-requireText('NeoForge mod lifecycle', source.forgeMain, [
+requireText('NeoForge mod lifecycle', source.neoForgeMain, [
   '@Mod(',
   'ModConfig.Type.COMMON',
   'NeoForge.EVENT_BUS.addListener(events::onAdvancementEarned)',
@@ -214,7 +269,11 @@ requireText('NeoForge mod lifecycle', source.forgeMain, [
   'ServerStartedEvent',
   'ServerStoppingEvent',
 ])
-requireText('Complete NeoForge advancement discovery', source.forgeCatalog, [
+requireText('NeoForge runtime version metadata', source.neoForgeMain, [
+  'container.getModInfo().getVersion().toString()',
+  'version()',
+])
+requireText('Complete NeoForge advancement discovery', source.neoForgeCatalog, [
   'AdvancementHolder',
   'server.getAdvancements().getAllAdvancements()',
   'AdvancementRequirements',
@@ -227,7 +286,67 @@ requireText('Complete NeoForge advancement discovery', source.forgeCatalog, [
   'descriptionKey',
   'id.getNamespace() + ":advancement/" + id.getPath()',
 ])
-requireText('NeoForge configurable advancement language', source.forgeLanguage, [
+requireText('NeoForge player-facing advancement filter', source.neoForgeCatalog, [
+  'isPlayerFacing',
+  'display().isPresent()',
+  'if (isPlayerFacing(holder))',
+])
+requireText('NeoForge localized category labels', source.neoForgeCatalog, [
+  'categoryLabels(',
+  'categoryLabel',
+  'modDisplayName(',
+  'getDisplayName()',
+])
+requireText('NeoForge model classification', source.neoForgeModelInspector, [
+  'FLAT_TEXTURE',
+  'JSON_3D',
+  'COMPLEX_MODEL',
+  'builtin/entity',
+  'neoforge:separate_transforms',
+  'perspectives',
+  'gui',
+])
+requireText('NeoForge dedicated-server 3D icon renderer', source.neoForgeServerRenderer, [
+  'model.elements()',
+  'textureRegion(',
+  'guiTransform(',
+  'BufferedImage',
+  '128',
+])
+requireText('NeoForge icon resolver never guesses a complex texture', source.neoForgeIcons, [
+  'case FLAT_TEXTURE -> renderFlatModel(itemModel)',
+  'case JSON_3D -> modelRenderer.render(itemModel)',
+  'case COMPLEX_MODEL, MISSING -> null',
+  'serverFallbackIcons.add(itemKey)',
+])
+requireText('NeoForge server-only complex-model fallback', source.neoForgeIcons + source.neoForgeService, [
+  'serverFallbackIcons',
+  'serverFallbackCount()',
+  'case COMPLEX_MODEL, MISSING -> null',
+  'Fox Achievements remains server-only',
+  'raw UV/model textures are not uploaded as achievement icons',
+])
+rejectText('NeoForge server-only boundary', source.neoForgeMain + source.neoForgeService + source.neoForgeIcons + source.neoForgeEvents, [
+  'ClientIconRenderer',
+  'RenderIconRequestPayload',
+  'RenderIconResponsePayload',
+  'RegisterPayloadHandlersEvent',
+  'PacketDistributor',
+  'NetworkRegistry',
+  'requestMissingRenders(',
+  'pendingClientRenders',
+])
+requireText('FoxCMS catalog is never blocked by render availability', source.neoForgeService, [
+  'queue.enqueueCatalog(payload)',
+  'queue.flushAsync()',
+  'serverFallbackIcons=',
+])
+rejectText('FoxCMS catalog render gate removed', source.neoForgeService, [
+  'catalog delivery postponed',
+  'GUI model render(s) are unresolved',
+  'pendingModelRenders',
+])
+requireText('NeoForge configurable advancement language', source.neoForgeLanguage, [
   'AchievementLanguageResolver',
   'loadLocale("en_us")',
   'assets/minecraft/lang/',
@@ -235,49 +354,62 @@ requireText('NeoForge configurable advancement language', source.forgeLanguage, 
   'readModFile(',
   'StandardCharsets.UTF_8',
 ])
-requireText('NeoForge locale configuration', source.forgeConfig, [
+requireText('NeoForge localization overlays', source.neoForgeLanguage, [
+  'readCrossNamespaceOverlays',
+  'readAchievementOverrides',
+  'achievementTitle',
+  'achievementDescription',
+  '":advancement/" + id.getPath()',
+])
+requireText('NeoForge advancement text overrides', source.neoForgeMetadata, [
+  'language.achievementTitle(holder.id())',
+  'language.achievementDescription(holder.id())',
+])
+requireText('NeoForge locale configuration', source.neoForgeConfig, [
   'ConfigValue<String> LOCALE',
   '.define("locale", "ru_RU")',
   'FOX_ACHIEVEMENTS_LOCALE',
   'resourceLocale()',
 ])
-requireText('NeoForge component metadata', source.forgeMetadata, [
+requireText('NeoForge component metadata', source.neoForgeMetadata, [
   'DisplayInfo::getTitle',
   'DisplayInfo::getDescription',
   'ComponentContents',
   'TranslatableContents',
   'component.getString()',
 ])
-requireText('NeoForge Brigadier command', source.forgeCommand, [
+requireText('NeoForge Brigadier command', source.neoForgeCommand, [
   'CommandDispatcher<CommandSourceStack>',
   'Commands.literal("foxachievements")',
+  'Commands.literal("push")',
   'Commands.literal("status")',
   'Commands.literal("sync")',
   'service.synchronizeCatalog()',
 ])
-requireText('NeoForge startup failure isolation', source.forgeService, [
+requireText('NeoForge startup failure isolation', source.neoForgeService, [
   'catch (RuntimeException | LinkageError error)',
   'server startup will continue',
   'return -1',
 ])
-requireText('NeoForge advancement events', source.forgeEvents, [
+requireText('NeoForge advancement events', source.neoForgeEvents, [
   'AdvancementEvent.AdvancementEarnEvent',
   'PlayerEvent.PlayerLoggedInEvent',
   'RegisterCommandsEvent',
   'service.record(',
   'service.reconcile(',
 ])
-requireText('NeoForge Base64 icon resolution', source.forgeIcons, [
+requireText('NeoForge Base64 icon resolution', source.neoForgeIcons + source.neoForgeModelInspector + source.neoForgeServerRenderer, [
   'readOverride(',
-  'readItemTexture(',
-  'resolveModelTextures(',
+  'renderFlatModel(',
+  'modelRenderer.render(blockModel)',
+  'modelRenderer.render(itemModel)',
   'readClasspath(',
   'readFromMod(',
   'fallbackPng(',
   'Base64.getEncoder().encodeToString(bytes)',
   'image/png',
 ])
-requireText('NeoForge durable queue', source.forgeQueue, [
+requireText('NeoForge durable queue', source.neoForgeQueue, [
   'queueRoot.resolve("catalog.json")',
   'queueRoot.resolve("events")',
   'Files.move(',
@@ -291,16 +423,21 @@ requireText('NeoForge durable queue', source.forgeQueue, [
   'databaseName',
   'requireString(response, "locale", expectedLocale)',
 ])
-requireText('NeoForge clean API routes', source.forgeConfig, [
+requireText('NeoForge stale event pruning', source.neoForgeQueue + source.neoForgeService, [
+  'purgeEventsExcept',
+  'allowedAchievementKeys',
+  'if (!catalog.isPlayerFacing(advancement)) return',
+])
+requireText('NeoForge clean API routes', source.neoForgeConfig, [
   '/api/game/achievements/catalog/',
   '/api/game/achievements/event/',
 ])
-rejectText('Achievement public routes', source.forgeConfig + source.frontendClient, [
+rejectText('Achievement public routes', source.neoForgeConfig + source.frontendClient, [
   '/api/game/achievements/catalog.php',
   '/api/game/achievements/event.php',
   '/api/game/achievements/player.php',
 ])
-requireText('NeoForge HMAC client', source.forgeHttp, [
+requireText('NeoForge HMAC client', source.neoForgeHttp, [
   'X-Fox-Server',
   'X-Fox-Timestamp',
   'X-Fox-Signature',
@@ -308,7 +445,7 @@ requireText('NeoForge HMAC client', source.forgeHttp, [
   'setInstanceFollowRedirects(false)',
   'unexpected Content-Type',
 ])
-requireText('NeoForge reconciliation and idempotency', source.forgeService, [
+requireText('NeoForge reconciliation and idempotency', source.neoForgeService, [
   'player.getAdvancements().getOrStartProgress(advancement)',
   'progress.isDone()',
   'UUID.nameUUIDFromBytes(eventSeed.getBytes(StandardCharsets.UTF_8))',
@@ -318,12 +455,20 @@ requireText('NeoForge reconciliation and idempotency', source.forgeService, [
 
 requireText('Achievements controller host', source.achievementsView, [
   'loadPlayerAchievementsByIdentity',
+  'loadAchievementStatistics',
+  'hasPlayerContext',
   'defineAsyncComponent',
   "() => import('@/achievements/AchievementStatisticsTree.vue')",
   'requestedIdentity.value || currentUuid.value || currentLogin.value',
   "requestedView === 'statistics'",
   "query: { view: 'statistics' }",
   'recentAchievements',
+  'categorySummaries',
+  'visibleCategorySummaries',
+  'categoryIndex',
+  'activeCategorySummary',
+  'openCategory',
+  'closeCategory',
   "runtimePageTemplate('achievements')",
   '<RuntimeTpl',
 ])
@@ -333,16 +478,37 @@ rejectText('Achievements controller host', source.achievementsView, [
 requireText('Achievements page TPL', source.achievementsTpl, [
   '<fox-page-template id="achievements"',
   'achievements-player-search',
+  'achievements-server-context',
   'achievements-metrics',
   'achievements-status-tabs',
   'achievements-grid',
+  'achievement-category-grid',
+  'achievement-category-card',
+  'achievement-category-card__icon',
+  'achievement-category-card__progress',
+  'achievement-category-card__complete',
+  'entry.completionPercent',
+  'entry.isCompleted',
+  'v-else-if="categoryIndex"',
+  '@click="openCategory(entry.id)"',
+  'entry.completedCount',
+  'entry.totalCount',
   'item.iconDataUrl',
   '<AchievementStatisticsTree',
+])
+rejectText('Achievements page category root', source.achievementsTpl, [
+  '<select v-model="category"',
 ])
 requireText('Achievement statistics controller host', source.statisticsTree, [
   'loadAchievementStatistics',
   'buildAchievementTrees',
   'AchievementTreeNode',
+  'categorySummaries',
+  'visibleCategorySummaries',
+  'categoryIndex',
+  'activeCategorySummary',
+  'openCategory',
+  'closeCategory',
   "runtimePageTemplate('achievement-statistics')",
   '<RuntimeTpl',
 ])
@@ -354,7 +520,19 @@ requireText('Achievement statistics tree TPL', source.statisticsTreeTpl, [
   'summary.playerCount',
   'summary.unlockCount',
   'achievement-statistics__metrics',
+  'achievement-category-grid',
+  'achievement-category-card',
+  'v-else-if="categoryIndex"',
+  '@click="openCategory(entry.id)"',
+  'entry.completedCount',
+  'entry.totalCount',
   '<AchievementTreeNode',
+])
+rejectText('Achievement statistics category root', source.statisticsTreeTpl, [
+  '<select v-model="category"',
+])
+requireText('Achievement category tree isolation', source.statisticsTreeModel, [
+  'parent.category === node.category',
 ])
 requireText('Achievement tree-node controller host', source.statisticsTreeNode, [
   'node.earnedCount',
@@ -418,6 +596,57 @@ requireText('Achievement profile styles', source.frontendStyles, [
   '/* Fox Achievements profile panel */',
   '.profile-achievement-card__icon',
   'image-rendering: pixelated',
+])
+
+requireText('Achievement admin backend registration', source.adminOptions, [
+  "'achievementsAdmin' => 'achievementsAdmin'",
+  "'clearAchievementServer' => 'clearAchievementServer'",
+  "'clearAchievementPlayer' => 'clearAchievementPlayer'",
+  'AdminAchievementController',
+])
+requireText('Achievement admin MariaDB-safe statistics query', source.adminAchievementController, [
+  'FROM `gameAchievements` GROUP BY `serverId`',
+  'FROM `playerAchievements` GROUP BY `serverId`',
+  'FROM `gameAchievementEvents` GROUP BY `serverId`',
+  'SELECT DISTINCT `playerUuid` FROM `playerAchievements` WHERE `serverId` = :serverId',
+  "foreach ($this->serverStats() as $row)",
+])
+rejectText('Achievement admin MariaDB-unsafe derived statistics query', source.adminAchievementController, [
+  'LEFT JOIN (',
+  'GROUP BY `tracked`.`serverId`',
+  'TABLE_NAME IN (',
+])
+
+requireText('Achievement admin destructive boundary', source.adminAchievementController, [
+  "deleteByServer('gameAchievementEvents', $serverId)",
+  "deleteByServer('playerAchievements', $serverId)",
+  "deleteByServer('gameAchievements', $serverId)",
+  "deletePlayerRows('gameAchievementEvents', $serverId, $playerUuid)",
+  "deletePlayerRows('playerAchievements', $serverId, $playerUuid)",
+  "'admin.achievements.server_cleared'",
+  "'admin.achievements.player_cleared'",
+  'transactional(function',
+])
+rejectText('Achievement admin destructive scope', source.adminAchievementController, [
+  'DELETE FROM `users`',
+  'DELETE FROM `servers`',
+])
+requireText('Achievement admin client actions', source.adminComposable, [
+  "admPanel: 'achievementsAdmin'",
+  "admPanel: 'clearAchievementServer'",
+  "admPanel: 'clearAchievementPlayer'",
+  'window.confirm',
+])
+requireText('Achievement admin view', source.adminAchievementsView, [
+  "theme.foxengine.admin.achievements.018",
+  "theme.foxengine.admin.achievements.024",
+  "emit('clearServer')",
+  "emit('clearPlayer', player)",
+])
+requireText('Achievement admin runtime destination', source.adminPanelTpl, [
+  'id="achievements" component="Achievements" tab="achievements"',
+  "activeTab === 'achievements'",
+  '<AdminAchievements',
 ])
 
 if (failures.length) {

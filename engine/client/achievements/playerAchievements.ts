@@ -10,6 +10,7 @@ export interface PlayerAchievement {
   description: string
   frameType: string
   category: string
+  categoryLabel: string
   iconDataUrl: string
   iconItem: string
   points: number
@@ -65,6 +66,7 @@ function normalizeItem(value: unknown): PlayerAchievement | null {
     description: text(source.description),
     frameType: text(source.frameType) || 'task',
     category: text(source.category) || 'general',
+    categoryLabel: text(source.categoryLabel) || text(source.category) || 'general',
     iconDataUrl: text(source.iconDataUrl),
     iconItem: text(source.iconItem),
     points: integer(source.points),
@@ -163,6 +165,7 @@ export interface AchievementStatistic {
   description: string
   frameType: 'task' | 'goal' | 'challenge'
   category: string
+  categoryLabel: string
   iconDataUrl: string
   iconItem: string
   points: number
@@ -227,6 +230,7 @@ export async function loadAchievementStatistics(
           ? 'goal'
           : 'task',
       category: String(item.category ?? ''),
+      categoryLabel: String(item.categoryLabel ?? item.category ?? ''),
       iconDataUrl: String(item.iconDataUrl ?? ''),
       iconItem: String(item.iconItem ?? ''),
       points: Math.max(0, Number(item.points) || 0),

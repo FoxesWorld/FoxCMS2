@@ -23,6 +23,7 @@ final class AdminServerController
         private UploadService $uploads,
         private AdminRequestPayload $payload,
         private AdminResponder $responder,
+        private GroupRepository $groupRepository,
         private AdminGroupListNormalizer $groupNormalizer,
     ) {
         $this->runtimeJdkCatalog = new RuntimeJdkCatalog($this->bootstrapStorageDirectory());

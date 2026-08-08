@@ -47,7 +47,7 @@ export function buildAchievementTrees(items: AchievementStatistic[]): Achievemen
   const rootsByServer = new Map<string, AchievementTreeNodeModel[]>()
   for (const node of nodes.values()) {
     const parent = node.parentKey ? nodes.get(nodeKey(node.serverId, node.parentKey)) : undefined
-    if (parent && !createsCycle(node, parent, nodes)) {
+    if (parent && parent.category === node.category && !createsCycle(node, parent, nodes)) {
       parent.children.push(node)
       continue
     }

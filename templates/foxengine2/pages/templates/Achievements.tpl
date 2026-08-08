@@ -1,4 +1,4 @@
-<fox-page-template id="achievements" schema="1" revision="1" updated-at="">
+<fox-page-template id="achievements" schema="1" revision="5" updated-at="2026-08-08T05:20:00Z">
   <fox-template-body>
 <section class="achievements-page" aria-labelledby="achievements-page-title">
     <header class="achievements-hero" :class="{ 'achievements-hero--global': statisticsMode }">
@@ -7,7 +7,7 @@
           <i class="fa-solid fa-trophy" aria-hidden="true" />
           {{ t('engine.views.achievements.001') }}
         </span>
-        <h1 id="achievements-page-title">{{ t('engine.views.achievements.002') }}</h1>
+        <h1 id="achievements-page-title">{{ t('engine.views.achievements.013') }}</h1>
         <p>{{ t('engine.views.achievements.003') }}</p>
 
         <form class="achievements-player-search" @submit.prevent="openPlayer">
@@ -46,7 +46,7 @@
         </form>
       </div>
 
-      <div v-if="!statisticsMode" class="achievements-hero__progress" aria-hidden="true">
+      <div v-if="!statisticsMode && hasPlayerContext" class="achievements-hero__progress" aria-hidden="true">
         <svg viewBox="0 0 160 160">
           <circle class="achievements-hero__progress-track" cx="80" cy="80" r="66" />
           <circle
@@ -64,7 +64,7 @@
       </div>
     </header>
 
-    <div v-if="!statisticsMode" class="achievements-metrics" :aria-label="t('engine.views.achievements.008')">
+    <div v-if="!statisticsMode && hasPlayerContext" class="achievements-metrics" :aria-label="t('engine.views.achievements.008')">
       <article class="achievement-metric achievement-metric--completed">
         <i class="fa-solid fa-circle-check" aria-hidden="true" />
         <span><small>{{ t('engine.views.achievements.009') }}</small><strong>{{ summary.completedCount }}</strong></span>
@@ -84,7 +84,7 @@
     </div>
 
     <section
-      v-if="!statisticsMode"
+      v-if="!statisticsMode && hasPlayerContext"
       class="achievements-overall-progress"
       :aria-label="t('engine.views.achievements.008')"
     >
@@ -100,33 +100,55 @@
       </span>
     </section>
 
-    <div v-if="!statisticsMode" class="achievements-workspace">
+    <div v-if="!statisticsMode" class="achievements-workspace" :class="{ 'achievements-workspace--catalog-only': !hasPlayerContext }">
       <main class="achievements-catalog">
+        <section class="achievements-server-context" :aria-label="t('engine.views.achievements.061')">
+          <span class="achievements-server-context__identity">
+            <i class="fa-solid fa-server" aria-hidden="true" />
+            <span>
+              <small>{{ t('engine.views.achievements.013') }}</small>
+              <strong>{{ server || '—' }}</strong>
+            </span>
+          </span>
+          <label class="achievements-server-context__select">
+            <small>{{ t('engine.views.achievements.061') }}</small>
+            <select
+              v-model="server"
+              :aria-label="t('engine.views.achievements.061')"
+              :disabled="servers.length <= 1"
+            >
+              <option v-for="value in servers" :key="value" :value="value">{{ value }}</option>
+            </select>
+          </label>
+        </section>
+
         <div class="achievements-toolbar">
           <div class="achievements-toolbar__heading">
             <span>
-              <small>{{ playerName }}</small>
-              <strong>{{ t('engine.views.achievements.013') }}</strong>
+              <small>{{ hasPlayerContext ? playerName : server }}</small>
+              <strong>{{ categoryIndex ? t('engine.views.achievements.064') : activeCategorySummary?.label || t('engine.views.achievements.013') }}</strong>
             </span>
-            <em>{{ t('engine.views.achievements.014', [filteredItems.length, items.length]) }}</em>
+            <em v-if="categoryIndex">{{ t('engine.views.achievements.069', [visibleCategorySummaries.length]) }}</em>
+            <em v-else>{{ t('engine.views.achievements.014', [filteredItems.length, activeCategorySummary?.totalCount || selectedItems.length]) }}</em>
           </div>
 
-          <div class="achievements-toolbar__controls">
+          <div class="achievements-toolbar__controls achievements-toolbar__controls--catalog">
+            <button
+              v-if="activeCategorySummary"
+              class="button button--ghost achievements-category-back"
+              type="button"
+              @click="closeCategory"
+            >
+              <i class="fa-solid fa-arrow-left" aria-hidden="true" />
+              {{ t('engine.views.achievements.067') }}
+            </button>
             <label class="achievements-search">
               <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />
               <input v-model="search" type="search" :placeholder="t('engine.views.achievements.015')">
             </label>
-            <select v-model="server" :aria-label="t('engine.views.achievements.016')">
-              <option value="all">{{ t('engine.views.achievements.016') }}</option>
-              <option v-for="value in servers" :key="value" :value="value">{{ value }}</option>
-            </select>
-            <select v-model="category" :aria-label="t('engine.views.achievements.017')">
-              <option value="all">{{ t('engine.views.achievements.017') }}</option>
-              <option v-for="value in categories" :key="value" :value="value">{{ value }}</option>
-            </select>
           </div>
 
-          <div class="achievements-status-tabs" role="group" :aria-label="t('engine.views.achievements.019')">
+          <div v-if="hasPlayerContext" class="achievements-status-tabs" role="group" :aria-label="t('engine.views.achievements.019')">
             <button type="button" :class="{ 'is-active': status === 'all' }" @click="status = 'all'">{{ t('engine.views.achievements.020') }}</button>
             <button type="button" :class="{ 'is-active': status === 'completed' }" @click="status = 'completed'">{{ t('engine.views.achievements.021') }}</button>
             <button type="button" :class="{ 'is-active': status === 'locked' }" @click="status = 'locked'">{{ t('engine.views.achievements.022') }}</button>
@@ -153,6 +175,61 @@
           <span>{{ t('engine.views.achievements.028') }}</span>
         </div>
 
+        <div v-else-if="categoryIndex && visibleCategorySummaries.length === 0" class="achievements-state">
+          <i class="fa-solid fa-filter-circle-xmark" aria-hidden="true" />
+          <strong>{{ t('engine.views.achievements.029') }}</strong>
+          <span>{{ t('engine.views.achievements.030') }}</span>
+          <button class="button button--ghost" type="button" @click="resetFilters">{{ t('engine.views.achievements.032') }}</button>
+        </div>
+
+        <div v-else-if="categoryIndex" class="achievement-category-grid" :aria-label="t('engine.views.achievements.017')">
+          <button
+            v-for="entry in visibleCategorySummaries"
+            :key="entry.id"
+            class="achievement-category-card"
+            :class="{ 'is-complete': entry.isCompleted }"
+            :style="{ '--category-progress': `${entry.completionPercent}%` }"
+            type="button"
+            @click="openCategory(entry.id)"
+          >
+            <span
+              v-if="entry.isCompleted"
+              class="achievement-category-card__complete"
+              :title="t('engine.views.achievements.070')"
+              :aria-label="t('engine.views.achievements.070')"
+            >
+              <i class="fa-solid fa-check" aria-hidden="true" />
+            </span>
+            <span class="achievement-category-card__icon">
+              <img
+                v-if="entry.iconDataUrl"
+                :src="entry.iconDataUrl"
+                :title="entry.iconItem || entry.label"
+                alt=""
+                loading="lazy"
+                decoding="async"
+              >
+              <i v-else class="fa-solid fa-trophy" aria-hidden="true" />
+            </span>
+            <span class="achievement-category-card__body">
+              <span class="achievement-category-card__meta">
+                <small>{{ t('engine.views.achievements.064') }}</small>
+                <b>{{ entry.completedCount }} / {{ entry.totalCount }}</b>
+              </span>
+              <strong>{{ entry.label }}</strong>
+              <span class="achievement-category-card__progress-row">
+                <span class="achievement-category-card__progress" aria-hidden="true"><i /></span>
+                <b>{{ entry.completionPercent }}%</b>
+              </span>
+              <em>{{ t('engine.views.achievements.065', [entry.completedCount, entry.totalCount]) }}</em>
+            </span>
+            <span class="achievement-category-card__action">
+              {{ t('engine.views.achievements.066') }}
+              <i class="fa-solid fa-arrow-right" aria-hidden="true" />
+            </span>
+          </button>
+        </div>
+
         <div v-else-if="filteredItems.length === 0" class="achievements-state">
           <i class="fa-solid fa-filter-circle-xmark" aria-hidden="true" />
           <strong>{{ t('engine.views.achievements.029') }}</strong>
@@ -168,7 +245,7 @@
             :class="{
               'is-completed': item.completed,
               'is-challenge': item.frameType === 'challenge',
-              'is-locked': !item.completed,
+              'is-locked': hasPlayerContext && !item.completed,
             }"
           >
             <div class="achievement-tile__top">
@@ -177,7 +254,7 @@
                 <i :class="item.completed ? 'fa-solid fa-check' : 'fa-solid fa-lock'" aria-hidden="true" />
               </span>
               <div class="achievement-tile__badges">
-                <span class="achievement-tile__state">
+                <span v-if="hasPlayerContext" class="achievement-tile__state">
                   <i :class="item.completed ? 'fa-solid fa-circle-check' : 'fa-solid fa-lock'" aria-hidden="true" />
                   {{ item.completed ? t('engine.views.achievements.021') : t('engine.views.achievements.022') }}
                 </span>
@@ -185,11 +262,11 @@
               </div>
             </div>
             <div class="achievement-tile__body">
-              <small>{{ item.category }} · {{ item.serverId }}</small>
+              <small>{{ item.categoryLabel || item.category }} · {{ item.serverId }}</small>
               <h2>{{ item.title }}</h2>
               <p>{{ item.description || t('engine.views.achievements.033') }}</p>
             </div>
-            <div class="achievement-tile__progress">
+            <div v-if="hasPlayerContext" class="achievement-tile__progress">
               <span><i :style="{ width: `${progressPercent(item)}%` }" /></span>
               <small>{{ item.progress }} / {{ item.target }}</small>
             </div>
@@ -204,7 +281,7 @@
         </div>
       </main>
 
-      <aside class="achievements-sidebar">
+      <aside v-if="hasPlayerContext" class="achievements-sidebar">
         <section class="achievements-sidebar__panel">
           <header>
             <i class="fa-solid fa-clock-rotate-left" aria-hidden="true" />

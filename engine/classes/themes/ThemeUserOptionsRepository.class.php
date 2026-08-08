@@ -24,6 +24,7 @@ final class ThemeUserOptionsRepository
         'overview' => ['component' => 'Overview', 'tab' => 'overview'],
         'logs' => ['component' => 'Logs', 'tab' => 'logs'],
         'users' => ['component' => 'Users', 'tab' => 'users'],
+        'achievements' => ['component' => 'Achievements', 'tab' => 'achievements'],
         'infobox' => ['component' => 'Catalogs', 'tab' => 'catalogs', 'catalog' => 'infobox'],
         'badges' => ['component' => 'Catalogs', 'tab' => 'catalogs', 'catalog' => 'badges'],
         'rewards' => ['component' => 'Rewards', 'tab' => 'rewards'],
@@ -36,11 +37,12 @@ final class ThemeUserOptionsRepository
         'files' => ['component' => 'FileManager', 'tab' => 'files'],
         'maintenance' => ['component' => 'Maintenance', 'tab' => 'maintenance'],
     ];
+    private const REQUIRED_ADMIN_ADAPTERS = ['runtime-options'];
     private const ALLOWED_COMPONENTS = [
         'profile-settings' => ['Suspense', 'ProfileOption', 'AppearanceOption', 'SecurityOption'],
         'admin-panel' => [
             'Suspense', 'AdminDashboard', 'AdminCategoryView', 'AdminOverview', 'AdminSiteSettings',
-            'AdminSlides', 'AdminContent', 'AdminRewards', 'AdminMaintenance', 'AdminUsers',
+            'AdminSlides', 'AdminContent', 'AdminRewards', 'AdminMaintenance', 'AdminUsers', 'AdminAchievements',
             'AdminServers', 'AdminFileManager', 'AdminLogs', 'AdminRuntimeOptions', 'AdminCatalogs',
         ],
     ];
@@ -257,8 +259,8 @@ final class ThemeUserOptionsRepository
     /** @param list<array<string,string>> $source @param array<string,array<string,mixed>> $categories @return list<array<string,mixed>> */
     private function normalizeTools(array $source, array $categories): array
     {
-        if (count($source) !== count(self::ADMIN_ADAPTERS)) {
-            throw new InvalidArgumentException('AdminPanel.tpl должен объявлять все поддерживаемые инструменты.');
+        if ($source === []) {
+            throw new InvalidArgumentException('AdminPanel.tpl должен объявлять хотя бы один поддерживаемый инструмент.');
         }
         $indexed = [];
         foreach ($source as $entry) {
@@ -292,8 +294,11 @@ final class ThemeUserOptionsRepository
             }
             $indexed[$id] = $tool;
         }
-        if (array_diff_key(self::ADMIN_ADAPTERS, $indexed) !== []) {
-            throw new InvalidArgumentException('В AdminPanel.tpl отсутствуют обязательные инструменты.');
+        $missingRequired = array_values(array_diff(self::REQUIRED_ADMIN_ADAPTERS, array_keys($indexed)));
+        if ($missingRequired !== []) {
+            throw new InvalidArgumentException(
+                'В AdminPanel.tpl отсутствуют обязательные инструменты: ' . implode(', ', $missingRequired),
+            );
         }
         foreach ($indexed as $tool) {
             if ($tool['enabled'] && !($categories[$tool['category']]['enabled'] ?? false)) {

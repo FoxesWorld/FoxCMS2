@@ -14,9 +14,27 @@ const props = defineProps<{ playerUuid: string }>()
 const loading = ref(false)
 const error = ref('')
 const items = ref<PlayerAchievement[]>([])
-const summary = ref<PlayerAchievementSummary>({ trackedCount: 0, completedCount: 0, points: 0 })
+const server = ref('')
 let controller: AbortController | null = null
 
+const servers = computed(() => [...new Set(items.value.map((item) => item.serverId).filter(Boolean))].sort())
+const selectedItems = computed(() => server.value
+  ? items.value.filter((item) => item.serverId === server.value)
+  : [])
+const summary = computed<PlayerAchievementSummary>(() => {
+  let completedCount = 0
+  let points = 0
+  for (const item of selectedItems.value) {
+    if (!item.completed) continue
+    completedCount += 1
+    points += item.points
+  }
+  return {
+    trackedCount: selectedItems.value.length,
+    completedCount,
+    points,
+  }
+})
 const completionPercent = computed(() => {
   if (summary.value.trackedCount <= 0) return 0
   return Math.min(100, Math.round((summary.value.completedCount / summary.value.trackedCount) * 100))
@@ -27,6 +45,9 @@ watch(
   (uuid) => void refresh(uuid),
   { immediate: true },
 )
+watch(servers, (values) => {
+  if (!values.includes(server.value)) server.value = values[0] ?? ''
+}, { immediate: true })
 
 onBeforeUnmount(() => controller?.abort())
 
@@ -35,15 +56,16 @@ async function refresh(uuid = props.playerUuid): Promise<void> {
   const request = new AbortController()
   controller = request
   const normalizedUuid = uuid.trim()
+  const preferredServer = server.value
   items.value = []
-  summary.value = { trackedCount: 0, completedCount: 0, points: 0 }
   error.value = ''
   if (!normalizedUuid) return
   loading.value = true
   try {
     const result = await loadPlayerAchievements(normalizedUuid, request.signal)
     items.value = result.items
-    summary.value = result.summary
+    const availableServers = [...new Set(result.items.map((item) => item.serverId).filter(Boolean))].sort()
+    server.value = availableServers.includes(preferredServer) ? preferredServer : availableServers[0] ?? ''
   } catch (reason) {
     if (reason instanceof DOMException && reason.name === 'AbortError') return
     error.value = reason instanceof Error ? reason.message : t('theme.profileachievements.010')
@@ -76,6 +98,9 @@ const runtimeTemplateContext: Record<string, unknown> = {
   loading,
   error,
   items,
+  server,
+  servers,
+  selectedItems,
   summary,
   completionPercent,
   refresh,

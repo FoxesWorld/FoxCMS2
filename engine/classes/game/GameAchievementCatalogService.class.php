@@ -115,17 +115,17 @@ final class GameAchievementCatalogService
             $statement = $this->db->prepare(
                 'INSERT INTO `gameAchievements` '
                 . '(`serverId`, `gameCode`, `achievementKey`, `achievementType`, `parentKey`, `title`, '
-                . '`description`, `frameType`, `category`, `iconBase64`, `iconMime`, `iconItem`, '
+                . '`description`, `frameType`, `category`, `categoryLabel`, `iconBase64`, `iconMime`, `iconItem`, '
                 . '`iconComponents`, `criteria`, `requirements`, `points`, `hidden`, `announceToChat`, '
                 . '`showToast`, `enabled`, `definitionHash`, `catalogRevision`, `createdAt`, `updatedAt`, `lastSeenAt`) '
                 . 'VALUES (:serverId, :gameCode, :achievementKey, :achievementType, :parentKey, :title, '
-                . ':description, :frameType, :category, :iconBase64, :iconMime, :iconItem, '
+                . ':description, :frameType, :category, :categoryLabel, :iconBase64, :iconMime, :iconItem, '
                 . ':iconComponents, :criteria, :requirements, :points, :hidden, :announceToChat, '
                 . ':showToast, 1, :definitionHash, :catalogRevision, :createdAt, :updatedAt, :lastSeenAt) '
                 . 'ON DUPLICATE KEY UPDATE '
                 . '`achievementType` = VALUES(`achievementType`), `parentKey` = VALUES(`parentKey`), '
                 . '`title` = VALUES(`title`), `description` = VALUES(`description`), '
-                . '`frameType` = VALUES(`frameType`), `category` = VALUES(`category`), '
+                . '`frameType` = VALUES(`frameType`), `category` = VALUES(`category`), `categoryLabel` = VALUES(`categoryLabel`), '
                 . '`iconBase64` = VALUES(`iconBase64`), `iconMime` = VALUES(`iconMime`), '
                 . '`iconItem` = VALUES(`iconItem`), `iconComponents` = VALUES(`iconComponents`), '
                 . '`criteria` = VALUES(`criteria`), `requirements` = VALUES(`requirements`), '
@@ -147,6 +147,7 @@ final class GameAchievementCatalogService
                     ':description' => $definition['description'],
                     ':frameType' => $definition['frameType'],
                     ':category' => $definition['category'],
+                    ':categoryLabel' => $definition['categoryLabel'],
                     ':iconBase64' => $definition['iconBase64'],
                     ':iconMime' => $definition['iconMime'],
                     ':iconItem' => $definition['iconItem'],
@@ -210,6 +211,7 @@ final class GameAchievementCatalogService
         $description = $this->text($value['description'] ?? '', 'description', 4000, true);
         $frameType = $this->shortToken($value['frameType'] ?? 'task', 'frameType', 24);
         $category = $this->text($value['category'] ?? $this->categoryFromKey($key), 'category', 100, false);
+        $categoryLabel = $this->text($value['categoryLabel'] ?? $category, 'categoryLabel', 190, false);
         $iconMime = strtolower(trim((string)($value['iconMime'] ?? 'image/png')));
         if (!in_array($iconMime, self::ICON_MIME_TYPES, true)) {
             throw new GameApiException(
@@ -279,11 +281,12 @@ final class GameAchievementCatalogService
             'description' => $description,
             'frameType' => $frameType,
             'category' => $category,
+            'categoryLabel' => $categoryLabel,
             'iconMime' => $iconMime,
             'iconBase64' => $iconBase64,
             'iconItem' => $iconItem,
-            'iconComponents' => $iconComponents,
-            'criteria' => $criteria,
+            'iconComponents' => (object)$iconComponents,
+            'criteria' => (object)$criteria,
             'requirements' => $requirements,
             'points' => $points,
             'hidden' => ($value['hidden'] ?? false) === true,
@@ -296,8 +299,8 @@ final class GameAchievementCatalogService
         ));
 
         return $canonical + [
-            'iconComponentsJson' => json_encode($iconComponents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-            'criteriaJson' => json_encode($criteria, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            'iconComponentsJson' => json_encode($canonical['iconComponents'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            'criteriaJson' => json_encode($canonical['criteria'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             'requirementsJson' => json_encode($requirements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             'definitionHash' => $definitionHash,
         ];
@@ -359,7 +362,7 @@ final class GameAchievementCatalogService
     /** @return array<string,mixed> */
     private function jsonObject(mixed $value, string $field, string $key): array
     {
-        if (!is_array($value) || array_is_list($value)) {
+        if (!is_array($value) || ($value !== [] && array_is_list($value))) {
             throw new GameApiException('achievement_field_invalid', 'Поле ' . $field . ' для ' . $key . ' должно быть объектом.', 422);
         }
         $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);

@@ -5,9 +5,9 @@ import type { SettingsTab } from '@/contracts/user-pages'
 
 export type ProfileOptionComponent = 'ProfileOption' | 'AppearanceOption' | 'SecurityOption'
 export type RuntimeAdminComponent = 'Overview' | 'SiteSettings' | 'Slides' | 'Content' | 'Rewards'
-  | 'Maintenance' | 'Users' | 'Servers' | 'FileManager' | 'Logs' | 'Catalogs' | 'RuntimeOptions'
+  | 'Maintenance' | 'Users' | 'Achievements' | 'Servers' | 'FileManager' | 'Logs' | 'Catalogs' | 'RuntimeOptions'
 export type RuntimeAdminTab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards'
-  | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
+  | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type RuntimeCatalogName = 'infobox' | 'badges' | 'groups'
 
 export interface RuntimeProfileOption {
@@ -68,6 +68,7 @@ const adminBindings = new Map<string, { component: RuntimeAdminComponent; tab: R
   ['overview', { component: 'Overview', tab: 'overview' }],
   ['logs', { component: 'Logs', tab: 'logs' }],
   ['users', { component: 'Users', tab: 'users' }],
+  ['achievements', { component: 'Achievements', tab: 'achievements' }],
   ['infobox', { component: 'Catalogs', tab: 'catalogs', catalog: 'infobox' }],
   ['badges', { component: 'Catalogs', tab: 'catalogs', catalog: 'badges' }],
   ['rewards', { component: 'Rewards', tab: 'rewards' }],

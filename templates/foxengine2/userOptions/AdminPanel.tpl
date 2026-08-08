@@ -1,4 +1,4 @@
-<fox-user-options-template id="admin-panel" schema="1" revision="2" updated-at="2026-08-06T08:55:30Z">
+<fox-user-options-template id="admin-panel" schema="1" revision="3" updated-at="2026-08-07T19:09:00Z">
   <fox-admin-categories>
     <fox-admin-category id="observability" label="Обзор и контроль" description="Состояние проекта, метрики и диагностика" icon="fa-chart-line" order="10" enabled="true" />
     <fox-admin-category id="community" label="Сообщество" description="Игроки, группы, награды и справочники" icon="fa-users" order="20" enabled="true" />
@@ -9,6 +9,7 @@
     <fox-admin-tool id="overview" component="Overview" tab="overview" category="observability" label="Обзор" description="Сводка проекта и данные об оборудовании" icon="fa-chart-line" order="10" enabled="true" />
     <fox-admin-tool id="logs" component="Logs" tab="logs" category="observability" label="Журналы" description="Запросы, ошибки и диагностический контекст" icon="fa-rectangle-list" order="20" enabled="true" />
     <fox-admin-tool id="users" component="Users" tab="users" category="community" label="Пользователи" description="Профили, группы, баланс и награды" icon="fa-users" order="10" enabled="true" />
+    <fox-admin-tool id="achievements" component="Achievements" tab="achievements" category="community" label="Достижения" description="Каталог достижений, прогресс игроков и административная очистка" icon="fa-trophy" order="15" enabled="true" />
     <fox-admin-tool id="infobox" component="Catalogs" tab="catalogs" category="community" label="InfoBox" description="Информационные блоки и справочные записи" icon="fa-circle-info" order="20" enabled="true" catalog="infobox" />
     <fox-admin-tool id="badges" component="Catalogs" tab="catalogs" category="community" label="Бейджи" description="Каталог визуальных знаков профиля" icon="fa-award" order="30" enabled="true" catalog="badges" />
     <fox-admin-tool id="rewards" component="Rewards" tab="rewards" category="community" label="Награды" description="Композиции из бейджа и/или валюты, ключи и история выдачи" icon="fa-coins" order="40" enabled="true" />
@@ -228,6 +229,21 @@
             @save="saveUser"
             @grant-badge="grantUserBadge"
             @revoke-badge="revokeUserBadge"
+          />
+          <AdminAchievements
+            v-else-if="activeTab === 'achievements'"
+            :available="achievementAvailable"
+            :servers="achievementServers"
+            :players="achievementPlayers"
+            :server-id="achievementServerId"
+            :search="achievementPlayerSearch"
+            :loading="loading"
+            @select-server="selectAchievementServer"
+            @update:search="setAchievementPlayerSearch"
+            @search="searchAchievementPlayers"
+            @reload="loadAchievementAdmin"
+            @clear-server="clearAchievementServer"
+            @clear-player="clearAchievementPlayer"
           />
           <AdminServers
             v-else-if="activeTab === 'servers'"

@@ -43,7 +43,15 @@ final class GameApiApplication
                 default => throw new \GameApiException('route_not_found', 'API route not found.', 404),
             };
         } catch (\GameApiException $error) {
-            JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode());
+            JsonResponse::error(
+                $error->errorCode(),
+                $error->getMessage(),
+                $error->statusCode(),
+                headers: [
+                    'X-Fox-Error-Code' => $error->errorCode(),
+                    'X-Fox-Server-Time' => (string)time(),
+                ],
+            );
         } catch (HttpException $error) {
             JsonResponse::error($error->errorCode(), $error->getMessage(), $error->statusCode(), $error->details());
         } catch (Throwable $error) {

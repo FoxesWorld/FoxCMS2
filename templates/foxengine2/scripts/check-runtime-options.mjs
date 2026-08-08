@@ -46,6 +46,7 @@ const profileBindings = new Map([
 ])
 const adminBindings = new Map([
   ['overview', ['Overview', 'overview']], ['logs', ['Logs', 'logs']], ['users', ['Users', 'users']],
+  ['achievements', ['Achievements', 'achievements']],
   ['infobox', ['Catalogs', 'catalogs', 'infobox']], ['badges', ['Catalogs', 'catalogs', 'badges']],
   ['rewards', ['Rewards', 'rewards']], ['groups', ['Catalogs', 'catalogs', 'groups']],
   ['content', ['Content', 'content']], ['slides', ['Slides', 'slides']], ['settings', ['SiteSettings', 'settings']],
@@ -74,7 +75,7 @@ if (admin) {
   }
   const protectedTool = admin.tools.find((entry) => entry.id === 'runtime-options')
   if (protectedTool?.enabled !== 'true' || protectedTool?.protected !== 'true') failures.push('runtime-options TPL tool must remain enabled/protected')
-  for (const token of ['class="admin-breadcrumbs"', '<AdminDashboard', '<AdminCategoryView', '<AdminRuntimeOptions']) {
+  for (const token of ['class="admin-breadcrumbs"', '<AdminDashboard', '<AdminCategoryView', '<AdminAchievements', '<AdminRuntimeOptions']) {
     requireText(admin.body, token, `AdminPanel.tpl body is missing ${token}`)
   }
 }

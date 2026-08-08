@@ -16,7 +16,7 @@ import {
   type RuntimePageTemplatesDocument,
 } from '@/runtime/pageTemplates'
 
-export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
+export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type CatalogName = 'infobox' | 'badges' | 'groups'
 export type AdminToolId = Exclude<Tab, 'catalogs'> | 'infobox' | 'badges' | 'groups'
 export type AdminSection = 'home' | AdminToolId
@@ -420,6 +420,28 @@ export interface UserRow extends JsonRow {
   badges?: unknown
   serversOnline?: unknown
 }
+export interface AchievementAdminServer {
+  serverId: string
+  definitions: number
+  progressRows: number
+  players: number
+  events: number
+}
+export interface AchievementAdminPlayer {
+  uuid: string
+  login: string
+  realname: string
+  progressRows: number
+  completedCount: number
+  events: number
+}
+export interface AchievementAdminResponse {
+  available: boolean
+  servers: AchievementAdminServer[]
+  players: AchievementAdminPlayer[]
+  selectedServerId: string
+  message?: string
+}
 export interface ServerRow extends JsonRow {
   id?: number | string
   serverName: string
@@ -535,6 +557,11 @@ export function useAdminPanel() {
   const users = ref<UserRow[]>([])
   const userSearch = ref('')
   const selectedUser = ref<UserRow | null>(null)
+  const achievementAvailable = ref(true)
+  const achievementServers = ref<AchievementAdminServer[]>([])
+  const achievementPlayers = ref<AchievementAdminPlayer[]>([])
+  const achievementServerId = ref('')
+  const achievementPlayerSearch = ref('')
   const userDraft = shallowReactive<UserDraft>({
     login: '',
     realname: '',
@@ -1116,6 +1143,67 @@ export function useAdminPanel() {
     applySelectedUserBadges(userUuid, response.badges)
   }
 
+  async function loadAchievementAdmin(): Promise<void> {
+    const response = await run(() => foxesApi.post<AchievementAdminResponse>({
+      admPanel: 'achievementsAdmin',
+      serverId: achievementServerId.value,
+      search: achievementPlayerSearch.value,
+      limit: 100,
+    }))
+    if (!response) return
+    achievementAvailable.value = response.available !== false
+    achievementServers.value = Array.isArray(response.servers) ? response.servers.map((entry) => ({
+      serverId: String(entry.serverId ?? ''),
+      definitions: Math.max(0, Number(entry.definitions) || 0),
+      progressRows: Math.max(0, Number(entry.progressRows) || 0),
+      players: Math.max(0, Number(entry.players) || 0),
+      events: Math.max(0, Number(entry.events) || 0),
+    })) : []
+    achievementPlayers.value = Array.isArray(response.players) ? response.players.map((entry) => ({
+      uuid: String(entry.uuid ?? ''),
+      login: String(entry.login ?? ''),
+      realname: String(entry.realname ?? ''),
+      progressRows: Math.max(0, Number(entry.progressRows) || 0),
+      completedCount: Math.max(0, Number(entry.completedCount) || 0),
+      events: Math.max(0, Number(entry.events) || 0),
+    })) : []
+    achievementServerId.value = String(response.selectedServerId ?? '')
+    if (response.message) feedback.value = { type: response.available === false ? 'warning' : 'success', message: response.message }
+  }
+  async function selectAchievementServer(serverId: string): Promise<void> {
+    achievementServerId.value = serverId.trim()
+    achievementPlayerSearch.value = ''
+    await loadAchievementAdmin()
+  }
+  function setAchievementPlayerSearch(value: string): void {
+    achievementPlayerSearch.value = value
+  }
+  async function searchAchievementPlayers(): Promise<void> {
+    await loadAchievementAdmin()
+  }
+  async function clearAchievementServer(): Promise<void> {
+    const server = achievementServers.value.find((entry) => entry.serverId === achievementServerId.value)
+    if (!server || loading.value) return
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.053', [server.serverId, server.definitions, server.progressRows, server.events]))) return
+    const response = await run(() => foxesApi.post<Feedback>({
+      admPanel: 'clearAchievementServer', serverId: server.serverId,
+    }))
+    if (!response) return
+    feedback.value = response
+    await loadAchievementAdmin()
+  }
+  async function clearAchievementPlayer(player: AchievementAdminPlayer): Promise<void> {
+    if (!achievementServerId.value || !player.uuid || loading.value) return
+    const label = player.login || player.uuid
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.054', [label, achievementServerId.value, player.progressRows, player.events]))) return
+    const response = await run(() => foxesApi.post<Feedback>({
+      admPanel: 'clearAchievementPlayer', serverId: achievementServerId.value, playerUuid: player.uuid,
+    }))
+    if (!response) return
+    feedback.value = response
+    await loadAchievementAdmin()
+  }
+
   async function loadServers(): Promise<void> {
     const response = await run(() => foxesApi.post<{
       items: ServerRow[]
@@ -1367,6 +1455,7 @@ export function useAdminPanel() {
     if (tool.tab === 'rewards') await loadRewards()
     if (tool.tab === 'maintenance') await loadMaintenance()
     if (tool.tab === 'users') await loadUsers()
+    if (tool.tab === 'achievements') await loadAchievementAdmin()
     if (tool.tab === 'servers') { await loadServers(); if (!selectedServer.value) newServer() }
     if (tool.tab === 'files') await loadFiles()
     if (tool.tab === 'logs') await loadLogs()
@@ -1389,7 +1478,7 @@ export function useAdminPanel() {
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
     maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
-    users, userSearch, selectedUser, userDraft, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
+    users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp, runtimeUserOptionsRevision,
@@ -1397,7 +1486,7 @@ export function useAdminPanel() {
     loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, moveSlide, uploadSlideImage, saveSlides,
     loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, savePageTemplate, saveBadgePage, deleteBadgePage,
-    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
+    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,

@@ -61,6 +61,7 @@ Apply migrations using the normal deployment process. The relevant migration is:
 
 ```text
 database/migrations/025_game_achievements.sql
+database/migrations/026_game_achievement_category_labels.sql
 ```
 
 It creates:
@@ -100,18 +101,30 @@ The signature is HMAC-SHA256 over:
 timestamp\nHTTP_METHOD\nREQUEST_PATH\nSHA256(body)
 ```
 
-## Building the Forge mod
+## Versioned mod projects
 
-Module:
+All Minecraft implementations live under:
 
 ```text
-C:\Users\Aiden\Documents\Repos\FoxesCraft\fox-achievements-forge-1.7.10
+C:\Users\Aiden\Documents\Repos\FoxesCraft\fox-achievements
 ```
 
-Build:
+The current projects are:
+
+```text
+fox-achievements/
+├─ forge-1.7.10/
+└─ neoforge-1.21.1/
+```
+
+`fox-achievements/versions.json` is the machine-readable version catalog.
+
+### Forge 1.7.10
+
+Requires a **JDK 8** installation.
 
 ```bat
-cd C:\Users\Aiden\Documents\Repos\FoxesCraft\fox-achievements-forge-1.7.10
+cd C:\Users\Aiden\Documents\Repos\FoxesCraft\fox-achievements\forge-1.7.10
 gradlew.bat clean build
 ```
 
@@ -121,17 +134,13 @@ Output:
 build/libs/fox-achievements-1.7.10-0.1.4.jar
 ```
 
-Install the JAR only on the dedicated server. `acceptableRemoteVersions="*"` means players do not need a client-side copy.
-
-## Forge server configuration
-
-Start the server once to generate:
+The 1.7.10 implementation is server-side only (`acceptableRemoteVersions="*"`). Its configuration is generated at:
 
 ```text
 config/foxachievements.cfg
 ```
 
-Then configure:
+Example:
 
 ```text
 general {
@@ -145,15 +154,32 @@ general {
 }
 ```
 
-For production, prefer the process environment instead of storing the secret in the file:
+### NeoForge 1.21.1
+
+Requires **Java/JDK 21**.
+
+```bat
+cd C:\Users\Aiden\Documents\Repos\FoxesCraft\fox-achievements\neoforge-1.21.1
+gradlew.bat clean build
+```
+
+Output:
 
 ```text
-FOX_ACHIEVEMENTS_SECRET=<generated-secret>
+build/libs/fox-achievements-neoforge-1.21.1-0.2.9.jar
 ```
+
+Its configuration is generated at:
+
+```text
+config/foxachievements-common.toml
+```
+
+Both implementations accept `FOX_ACHIEVEMENTS_SECRET`; NeoForge also supports `FOX_ACHIEVEMENTS_LOCALE`.
 
 ## Catalog synchronization
 
-The complete catalog is synchronized after the server reaches `FMLServerStartedEvent`.
+The complete catalog is synchronized after the corresponding server-start lifecycle event for the selected loader.
 
 Manual rescan:
 
@@ -165,6 +191,7 @@ Queue status:
 
 ```text
 /foxachievements status
+/foxachievements push
 ```
 
 Definitions missing from the latest catalog revision are disabled instead of deleted. Historical player records therefore retain referential integrity while removed mod achievements disappear from the active catalog.
@@ -178,12 +205,14 @@ Every achievement stored in `gameAchievements` has:
 - `iconItem`;
 - `iconComponents` containing damage, display name, stack size and NBT.
 
-PNG resolution order:
+PNG resolution order on NeoForge 1.21.1:
 
-1. achievement override under `config/fox-achievements/icons`;
-2. item override under the same directory;
-3. item or block texture extracted from the owning mod JAR/resource directory;
-4. deterministic generated PNG fallback.
+1. achievement/item override under `config/fox-achievements/icons`;
+2. inherited flat item model layers for genuinely 2D GUI items;
+3. dedicated-server software rendering of vanilla-style JSON `elements[]` / block models with GUI transforms;
+4. deterministic server-side fallback for `builtin/entity` or custom Java model loaders that cannot exist on a dedicated server.
+
+Fox Achievements is **server-only**. It does not register client payloads, does not require installation on players, and catalog delivery is never blocked waiting for a client-side renderer. Complex custom-rendered items are represented by a server fallback or an explicit server override; raw UV/model texture sheets are never sent as the achievement icon.
 
 Override paths are based on the achievement or item registry identifier. For example:
 
@@ -192,7 +221,27 @@ config/fox-achievements/icons/examplemod/achievement/first_machine-<hash>.png
 config/fox-achievements/icons/examplemod/copper_gear.png
 ```
 
+For item icons, flat `item/generated`/`item/handheld` models keep their composed texture layers. When the same registry ID exposes a real volumetric block model, Fox Achievements resolves blockstate variants and the full block-model parent chain and renders that geometry server-side instead of uploading the flat inventory sprite. Zero-thickness cross/sprite geometry remains flat. Stateful vanilla block models are supported by bundling the matching `assets/minecraft/blockstates` resources into the server mod.
+
 This guarantees a valid Base64 PNG even when a server has no client renderer or when a mod uses a custom item renderer.
+
+
+
+## Localization overlays and literal advancement text
+
+The server-side language resolver loads each mod's own language namespace first and then applies cross-namespace overlays from resource-only localization mods. This allows Azurine Russian Localization to override `assets/<foreign_namespace>/lang/ru_ru.json` without modifying third-party JARs.
+
+Mods that embed literal display text directly in advancement JSON cannot be localized through ordinary Minecraft translation keys. Fox Achievements therefore supports an optional resource owned by a localization mod:
+
+```text
+assets/<localization_mod_id>/fox-achievements/advancements/<locale>.json
+```
+
+The JSON object is keyed by the FoxCMS `achievementKey` (`namespace:advancement/path`) and may provide `title` and `description`. Matching overrides take precedence for that locale; normal translated components remain the default path.
+
+## Player-facing advancement filter
+
+Fox Achievements exports only advancements that define Minecraft `display` metadata. Internal recipe unlock records (`*/recipes/*`) and other bookkeeping advancements have no display definition, are not achievements shown to players, and are excluded from both the catalog and unlock-event delivery. During catalog synchronization, durable queued events whose keys are no longer present in the player-facing catalog are pruned so legacy recipe events cannot block the delivery queue after an upgrade.
 
 ## Delivery reliability
 
@@ -222,6 +271,19 @@ The response includes the complete enabled catalog for the selected player:
 - hidden achievements only after completion.
 
 The FoxEngine profile page consumes this endpoint through `ProfileAchievements.vue`.
+
+## Administrative maintenance
+
+FoxCMS exposes a dedicated **Achievements** destination in the administrator panel. It shows per-server counts for catalog definitions, player progress, tracked players and ingestion events, plus a searchable list of players for the selected `serverId`.
+
+Two destructive operations are available:
+
+- **Clear server** removes `gameAchievementEvents`, `playerAchievements` and `gameAchievements` for the selected achievement `serverId`. It does not remove the configured FoxCMS server record.
+- **Clear player** removes `gameAchievementEvents` and `playerAchievements` for one player on the selected server. It does not remove the FoxCMS user account or the server catalog.
+
+Both operations are protected by the normal AdminPanel administrator/CSRF boundary, execute transactionally and write warning-level audit events. The UI displays the affected row counts before confirmation.
+
+A running Fox Achievements instance can repopulate cleared data. A later catalog `push` restores the server catalog, while player login reconciliation or later achievement events can restore player progress. Stop or disable delivery on the game server first when the intended reset must remain empty.
 
 ## Delivery acknowledgement
 

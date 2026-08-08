@@ -17,6 +17,7 @@ const loadAdminContent = () => import('@theme/foxEngine/admin/Content.vue')
 const loadAdminRewards = () => import('@theme/foxEngine/admin/Rewards.vue')
 const loadAdminMaintenance = () => import('@theme/foxEngine/admin/Maintenance.vue')
 const loadAdminUsers = () => import('@theme/foxEngine/admin/Users.vue')
+const loadAdminAchievements = () => import('@theme/foxEngine/admin/Achievements.vue')
 const loadAdminServers = () => import('@theme/foxEngine/admin/Servers.vue')
 const loadAdminFileManager = () => import('@theme/foxEngine/admin/FileManager.vue')
 const loadAdminLogs = () => import('@theme/foxEngine/admin/Logs.vue')
@@ -30,6 +31,7 @@ const AdminContent = defineAsyncComponent(loadAdminContent)
 const AdminRewards = defineAsyncComponent(loadAdminRewards)
 const AdminMaintenance = defineAsyncComponent(loadAdminMaintenance)
 const AdminUsers = defineAsyncComponent(loadAdminUsers)
+const AdminAchievements = defineAsyncComponent(loadAdminAchievements)
 const AdminServers = defineAsyncComponent(loadAdminServers)
 const AdminFileManager = defineAsyncComponent(loadAdminFileManager)
 const AdminLogs = defineAsyncComponent(loadAdminLogs)
@@ -44,6 +46,7 @@ const adminToolLoaders = {
   rewards: loadAdminRewards,
   maintenance: loadAdminMaintenance,
   users: loadAdminUsers,
+  achievements: loadAdminAchievements,
   servers: loadAdminServers,
   files: loadAdminFileManager,
   logs: loadAdminLogs,
@@ -62,12 +65,12 @@ const router = useRouter()
 const adminPanel = useAdminPanel()
 const {
   isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-  maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft,
+  maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch,
   servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
   logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, groupedTabs, catalogKey,
   runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimeUserOptionsRevision,
   formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance, saveMaintenance, addSlide, removeSlide, moveSlide,
-  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
+  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
 } = adminPanel
@@ -149,6 +152,7 @@ const adminTemplateComponents = markRaw({
   AdminRewards,
   AdminMaintenance,
   AdminUsers,
+  AdminAchievements,
   AdminServers,
   AdminFileManager,
   AdminLogs,

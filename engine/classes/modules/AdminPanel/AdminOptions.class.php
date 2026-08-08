@@ -7,6 +7,7 @@ if (!defined('ADMIN')) {
 }
 
 require_once __DIR__ . '/AdminFailurePresenter.class.php';
+require_once __DIR__ . '/AdminAchievementController.class.php';
 
 final class AdminOptions {
     private const LOG_FILES = ['lastlog', 'error', 'access'];
@@ -20,6 +21,9 @@ final class AdminOptions {
         'updateUser' => 'updateUser',
         'grantUserBadge' => 'grantUserBadge',
         'revokeUserBadge' => 'revokeUserBadge',
+        'achievementsAdmin' => 'achievementsAdmin',
+        'clearAchievementServer' => 'clearAchievementServer',
+        'clearAchievementPlayer' => 'clearAchievementPlayer',
         'servers' => 'servers',
         'saveServer' => 'saveServer',
         'deleteServer' => 'deleteServer',
@@ -65,6 +69,7 @@ final class AdminOptions {
     private AdminServerController $serverController;
     private AdminCatalogController $catalogController;
     private AdminUserController $userController;
+    private AdminAchievementController $achievementController;
     private UploadService $uploads;
     private AdminFileManager $fileManager;
     private ThemeSlidesRepository $slidesRepository;
@@ -114,6 +119,7 @@ final class AdminOptions {
             $this->uploads,
             $this->payload,
             $this->responder,
+            $this->groupRepository,
             $this->groupNormalizer,
         );
         $this->rewardController = new AdminRewardController(
@@ -134,6 +140,13 @@ final class AdminOptions {
             $this->payload,
             $this->responder,
             $badgeOptions,
+        );
+        $this->achievementController = new AdminAchievementController(
+            $db,
+            $request,
+            $session,
+            $logger,
+            $this->responder,
         );
         $site = is_array($config['siteSettings'] ?? null) ? $config['siteSettings'] : [];
         $this->slidesRepository = new ThemeSlidesRepository(
@@ -305,6 +318,21 @@ final class AdminOptions {
     private function revokeUserBadge(): void
     {
         $this->userController->revokeUserBadge();
+    }
+
+    private function achievementsAdmin(): void
+    {
+        $this->achievementController->overview();
+    }
+
+    private function clearAchievementServer(): void
+    {
+        $this->achievementController->clearServer();
+    }
+
+    private function clearAchievementPlayer(): void
+    {
+        $this->achievementController->clearPlayer();
     }
 
     private function servers(): void

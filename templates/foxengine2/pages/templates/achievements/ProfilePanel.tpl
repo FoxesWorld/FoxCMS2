@@ -1,4 +1,4 @@
-<fox-page-template id="achievement-profile-panel" schema="1" revision="1" updated-at="">
+<fox-page-template id="achievement-profile-panel" schema="1" revision="3" updated-at="2026-08-08T05:20:00Z">
   <fox-template-body>
 <section class="profile-panel profile-achievements" :aria-label="t('theme.profileachievements.001')">
     <header class="profile-achievements__header">
@@ -10,15 +10,28 @@
         <strong>{{ t('theme.profileachievements.001') }}</strong>
         <span>{{ t('theme.profileachievements.003') }}</span>
       </span>
-      <button
-        class="profile-achievements__refresh"
-        type="button"
-        :disabled="loading"
-        :aria-label="t('theme.profileachievements.004')"
-        @click="refresh()"
-      >
-        <i class="fa-solid fa-rotate" :class="{ 'profile-achievements__spin': loading }" aria-hidden="true" />
-      </button>
+      <span class="profile-achievements__actions">
+        <label class="profile-achievements__server-select">
+          <i class="fa-solid fa-server" aria-hidden="true" />
+          <select
+            v-model="server"
+            :aria-label="t('engine.views.achievements.061')"
+            :title="t('engine.views.achievements.061')"
+            :disabled="servers.length <= 1"
+          >
+            <option v-for="value in servers" :key="value" :value="value">{{ value }}</option>
+          </select>
+        </label>
+        <button
+          class="profile-achievements__refresh"
+          type="button"
+          :disabled="loading"
+          :aria-label="t('theme.profileachievements.004')"
+          @click="refresh()"
+        >
+          <i class="fa-solid fa-rotate" :class="{ 'profile-achievements__spin': loading }" aria-hidden="true" />
+        </button>
+      </span>
     </header>
 
     <div v-if="loading && items.length === 0" class="profile-achievements__state">
@@ -54,7 +67,7 @@
 
       <div class="profile-achievements__list">
         <article
-          v-for="item in items"
+          v-for="item in selectedItems"
           :key="`${item.serverId}:${item.achievementKey}`"
           class="profile-achievement-card"
           :class="{
@@ -70,7 +83,7 @@
             decoding="async"
           >
           <span class="profile-achievement-card__content">
-            <small>{{ item.category }} · {{ item.serverId }}</small>
+            <small>{{ item.categoryLabel || item.category }} · {{ item.serverId }}</small>
             <strong>{{ item.title }}</strong>
             <span>{{ item.description || t('theme.profileachievements.015') }}</span>
             <span class="profile-achievement-card__progress" aria-hidden="true">

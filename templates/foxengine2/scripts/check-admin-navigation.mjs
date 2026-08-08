@@ -67,8 +67,10 @@ for (const [file, token, message] of [
   ['catalogs', "'update:name'", 'Shared editor can desynchronize route state through update:name.'],
 ]) forbidToken(file, token, message)
 
-const expectedTools = ['overview', 'logs', 'users', 'infobox', 'badges', 'rewards', 'groups', 'content', 'slides', 'settings', 'runtime-options', 'servers', 'files', 'maintenance']
+const expectedTools = ['overview', 'logs', 'users', 'achievements', 'infobox', 'badges', 'rewards', 'groups', 'content', 'slides', 'settings', 'runtime-options', 'servers', 'files', 'maintenance']
 for (const tool of expectedTools) if (runtimeTools.filter((entry) => entry.id === tool).length !== 1) failures.push(`Admin tool ${tool} must belong to exactly one semantic category and view.`)
+const achievementsTool = runtimeTools.find((entry) => entry.id === 'achievements')
+if (!achievementsTool || achievementsTool.component !== 'Achievements' || achievementsTool.tab !== 'achievements' || achievementsTool.category !== 'community') failures.push('Achievements admin tool must be a direct Community destination.')
 for (const category of ['observability', 'community', 'content', 'infrastructure']) if (!runtimeCategories.some((entry) => entry.id === category)) failures.push(`Admin category ${category} is missing.`)
 for (const tool of ['infobox', 'badges', 'groups', 'rewards']) {
   const definition = runtimeTools.find((entry) => entry.id === tool)

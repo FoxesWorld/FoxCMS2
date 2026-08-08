@@ -21,17 +21,6 @@ final class ContentApiApplication
         private readonly ApplicationContext $context,
         private readonly Request $request,
     ) {
-        $context->requireEngine(
-            'classes/syslib/database.php',
-            'classes/themes/ThemeContentRepository.class.php',
-            'classes/themes/ThemeRuntimeTplDocument.class.php',
-            'classes/themes/ThemeRuntimeTplCompiler.class.php',
-            'classes/themes/ThemeUserOptionsRepository.class.php',
-            'classes/themes/ThemePageTemplateRepository.class.php',
-            'classes/themes/ThemeEmoticonRepository.class.php',
-            'classes/themes/BadgeSlug.class.php',
-            'classes/themes/ThemeBadgePageRepository.class.php',
-        );
     }
 
     public function run(): never
@@ -39,21 +28,23 @@ final class ContentApiApplication
         $registry = 'unknown';
         try {
             $this->request->requireMethod('GET', 'HEAD');
+            $registry = trim((string)$this->request->query('registry'));
+            $this->requireRegistryDependencies($registry);
+
             $site = is_array($this->context->config()['siteSettings'] ?? null)
                 ? $this->context->config()['siteSettings']
                 : [];
             $themeName = (string)($site['siteTpl'] ?? '');
-            $contentRepository = new \ThemeContentRepository(TEMPLATE_DIR, $themeName);
-            $badgeRepository = new \ThemeBadgePageRepository(TEMPLATE_DIR, $themeName);
-            $registry = trim((string)$this->request->query('registry'));
 
             match ($registry) {
-                'project-pages', 'static-pages' => $this->projectPages($contentRepository),
+                'project-pages', 'static-pages' => $this->projectPages(
+                    new \ThemeContentRepository(TEMPLATE_DIR, $themeName),
+                ),
                 'user-options' => $this->respond((new \ThemeUserOptionsRepository(TEMPLATE_DIR, $themeName))->read(false)),
                 'page-templates' => $this->respond((new \ThemePageTemplateRepository(TEMPLATE_DIR, $themeName))->read(false)),
                 'emoticons' => $this->respond((new \ThemeEmoticonRepository(TEMPLATE_DIR, $themeName))->catalog()),
-                'badges' => $this->badges($badgeRepository),
-                'badge' => $this->badge($badgeRepository),
+                'badges' => $this->badges(new \ThemeBadgePageRepository(TEMPLATE_DIR, $themeName)),
+                'badge' => $this->badge(new \ThemeBadgePageRepository(TEMPLATE_DIR, $themeName)),
                 default => throw new HttpException(404, 'content_registry_not_found', 'Content registry not found.'),
             };
         } catch (HttpException $error) {
@@ -68,6 +59,40 @@ final class ContentApiApplication
                 $requestId,
                 ['registry' => $registry],
             );
+        }
+    }
+
+    private function requireRegistryDependencies(string $registry): void
+    {
+        $files = match ($registry) {
+            'project-pages', 'static-pages' => [
+                'classes/themes/ThemePageStorage.class.php',
+                'classes/themes/ThemeContentRepository.class.php',
+            ],
+            'user-options' => [
+                'classes/themes/ThemeRuntimeTplDocument.class.php',
+                'classes/themes/ThemeRuntimeTplCompiler.class.php',
+                'classes/themes/ThemeUserOptionsRepository.class.php',
+            ],
+            'page-templates' => [
+                'classes/themes/ThemePageStorage.class.php',
+                'classes/themes/ThemeRuntimeTplDocument.class.php',
+                'classes/themes/ThemeRuntimeTplCompiler.class.php',
+                'classes/themes/ThemePageTemplateRepository.class.php',
+            ],
+            'emoticons' => [
+                'classes/themes/ThemeEmoticonRepository.class.php',
+            ],
+            'badges', 'badge' => [
+                'classes/syslib/database.php',
+                'classes/themes/BadgeSlug.class.php',
+                'classes/themes/ThemeBadgePageRepository.class.php',
+            ],
+            default => [],
+        };
+
+        if ($files !== []) {
+            $this->context->requireEngine(...$files);
         }
     }
 
