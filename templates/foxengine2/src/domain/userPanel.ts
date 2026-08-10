@@ -49,7 +49,7 @@ function firstEndpoint(bootstrap: FoxesCraftBootstrap, names: readonly string[],
 export function resolveUserPanelState(bootstrap: FoxesCraftBootstrap): UserPanelState {
   return {
     messagesUrl: firstEndpoint(bootstrap, ['messages', 'messenger', 'messagesPage'], '/go/messenger'),
-    notificationsUrl: firstEndpoint(bootstrap, ['notifications', 'notificationsPage'], '/#/notifications'),
+    notificationsUrl: firstEndpoint(bootstrap, ['notifications', 'notificationsPage'], '/notifications'),
     messagesUnread: firstUnreadCount(bootstrap, MESSAGE_COUNTER_KEYS),
     notificationsUnread: firstUnreadCount(bootstrap, NOTIFICATION_COUNTER_KEYS),
   }

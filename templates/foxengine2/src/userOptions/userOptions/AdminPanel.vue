@@ -12,6 +12,7 @@ import AdminCategoryView from '@theme/foxEngine/admin/Category.vue'
 
 const loadAdminOverview = () => import('@theme/foxEngine/admin/Overview.vue')
 const loadAdminSiteSettings = () => import('@theme/foxEngine/admin/SiteSettings.vue')
+const loadAdminMail = () => import('@theme/foxEngine/admin/Mail.vue')
 const loadAdminSlides = () => import('@theme/foxEngine/admin/Slides.vue')
 const loadAdminContent = () => import('@theme/foxEngine/admin/Content.vue')
 const loadAdminRewards = () => import('@theme/foxEngine/admin/Rewards.vue')
@@ -26,6 +27,7 @@ const loadAdminRuntimeOptions = () => import('@theme/foxEngine/admin/RuntimeOpti
 
 const AdminOverview = defineAsyncComponent(loadAdminOverview)
 const AdminSiteSettings = defineAsyncComponent(loadAdminSiteSettings)
+const AdminMail = defineAsyncComponent(loadAdminMail)
 const AdminSlides = defineAsyncComponent(loadAdminSlides)
 const AdminContent = defineAsyncComponent(loadAdminContent)
 const AdminRewards = defineAsyncComponent(loadAdminRewards)
@@ -41,6 +43,7 @@ const AdminRuntimeOptions = defineAsyncComponent(loadAdminRuntimeOptions)
 const adminToolLoaders = {
   overview: loadAdminOverview,
   settings: loadAdminSiteSettings,
+  mail: loadAdminMail,
   slides: loadAdminSlides,
   content: loadAdminContent,
   rewards: loadAdminRewards,
@@ -65,11 +68,11 @@ const router = useRouter()
 const adminPanel = useAdminPanel()
 const {
   isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-  maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch,
+  mailSettings, mailSettingsUpdatedAt, mailSettingsStorageReady, mailTestStatus, maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch,
   servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
   logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, groupedTabs, catalogKey,
   runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimeUserOptionsRevision,
-  formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance, saveMaintenance, addSlide, removeSlide, reorderSlide,
+  formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMailSettings, saveMailSettings, testMailSettings, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance, saveMaintenance, addSlide, removeSlide, reorderSlide,
   uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
@@ -147,6 +150,7 @@ const adminTemplateComponents = markRaw({
   AdminCategoryView,
   AdminOverview,
   AdminSiteSettings,
+  AdminMail,
   AdminSlides,
   AdminContent,
   AdminRewards,

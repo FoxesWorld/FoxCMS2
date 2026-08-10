@@ -142,6 +142,8 @@ const architectureFiles = {
   adminFacade: await readFile(join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminOptions.class.php'), 'utf8'),
   actionDispatcher: await readFile(join(repositoryRoot, 'src', 'FoxCMS', 'Shared', 'Routing', 'ActionDispatcher.php'), 'utf8'),
   apiExecutionBoundary: await readFile(join(repositoryRoot, 'api', 'src', 'FoxCMS', 'Api', 'Core', 'ApiExecutionBoundary.php'), 'utf8'),
+  siteSettingsRepository: await readFile(join(repositoryRoot, 'engine', 'classes', 'repositories', 'SiteSettingsRepository.class.php'), 'utf8'),
+  applicationContextFactory: await readFile(join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Application', 'ApplicationContextFactory.php'), 'utf8'),
 }
 const sourceLines = (source) => source.split(/\r?\n/).length
 if (sourceLines(architectureFiles.systemFacade) > 180) {
@@ -167,6 +169,16 @@ for (const token of ['final class ActionDispatcher', 'Closure::fromCallable(', '
 }
 for (const token of ['final class ApiExecutionBoundary', 'catch (HttpException $error)', 'catch (Throwable $error)', 'FatalResponse::send(', 'RequestId::create()']) {
   if (!architectureFiles.apiExecutionBoundary.includes(token)) failures.push(`Shared API execution boundary is missing ${token}`)
+}
+
+for (const token of ['file_put_contents(', 'JSON_PRETTY_PRINT', '.site-settings-', 'public function save(', 'public function current(']) {
+  if (!architectureFiles.siteSettingsRepository.includes(token)) failures.push(`File-backed site settings repository is missing ${token}`)
+}
+for (const token of ['SELECT `settings`', 'UPDATE `site_settings`', 'CREATE TABLE IF NOT EXISTS `site_settings`', 'private db $db']) {
+  if (architectureFiles.siteSettingsRepository.includes(token)) failures.push(`Site settings repository regained database responsibility: ${token}`)
+}
+for (const token of ['site-settings.json', 'LegacySiteSettingsMigrator', 'SiteSettingsRepository']) {
+  if (!architectureFiles.applicationContextFactory.includes(token)) failures.push(`Application context is missing file-backed site settings bootstrap: ${token}`)
 }
 
 if (failures.length) {

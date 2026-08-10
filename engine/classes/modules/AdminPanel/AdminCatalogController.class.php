@@ -321,7 +321,7 @@ final class AdminCatalogController
             'success',
         );
         $this->responder->send([
-            'message' => 'Бейдж сохранён. URL страницы: /#/badges/' . (string)$newSlug,
+            'message' => 'Бейдж сохранён. URL страницы: /badges/' . (string)$newSlug,
             'type' => 'success',
             'pageSlug' => $newSlug,
         ]);

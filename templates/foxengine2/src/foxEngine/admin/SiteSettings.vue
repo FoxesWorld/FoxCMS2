@@ -58,6 +58,32 @@ const canonicalPreview = computed(() => props.settings.canonicalUrl || t('theme.
         </div>
       </section>
 
+      <section class="site-settings-card site-settings-card--wide site-settings-social-links">
+        <header>
+          <span class="site-settings-card__icon"><i class="fa-solid fa-share-nodes" /></span>
+          <div><h3>{{ t('theme.foxengine.admin.sitesettings.075') }}</h3><p>{{ t('theme.foxengine.admin.sitesettings.076') }}</p></div>
+        </header>
+        <div class="site-settings-fields site-settings-fields--two">
+          <label>
+            <span><i class="fa-brands fa-telegram" aria-hidden="true" /> {{ t('theme.foxengine.admin.sitesettings.077') }}</span>
+            <input v-model.trim="settings.telegramLink" type="url" maxlength="2048" placeholder="https://t.me/foxescraft">
+          </label>
+          <label>
+            <span><i class="fa-brands fa-github" aria-hidden="true" /> {{ t('theme.foxengine.admin.sitesettings.078') }}</span>
+            <input v-model.trim="settings.githubLink" type="url" maxlength="2048" placeholder="https://github.com/FoxesCraft">
+          </label>
+          <label>
+            <span><i class="fa-brands fa-youtube" aria-hidden="true" /> {{ t('theme.foxengine.admin.sitesettings.079') }}</span>
+            <input v-model.trim="settings.youtubeLink" type="url" maxlength="2048" placeholder="https://youtube.com/@FoxesCraft">
+          </label>
+          <label>
+            <span><i class="fa-brands fa-discord" aria-hidden="true" /> {{ t('theme.foxengine.admin.sitesettings.080') }}</span>
+            <input v-model.trim="settings.discordLink" type="url" maxlength="2048" placeholder="https://discord.gg/foxescraft">
+          </label>
+          <small class="site-settings-field--full">{{ t('theme.foxengine.admin.sitesettings.081') }}</small>
+        </div>
+      </section>
+
       <section class="site-settings-card">
         <header>
           <span class="site-settings-card__icon"><i class="fa-solid fa-newspaper" /></span>

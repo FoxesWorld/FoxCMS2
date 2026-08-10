@@ -1,5 +1,5 @@
 import { t } from '@/i18n'
-import { createRouter, createWebHashHistory, type RouteLocationRaw, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationRaw, type RouteRecordRaw } from 'vue-router'
 import { defineComponent, h } from 'vue'
 import { appBootstrap } from '@/app/context'
 import type { FrontendRouteDefinition, LegacyRouteDefinition } from '@/domain/bootstrap'
@@ -8,6 +8,7 @@ const discoveredViewModules = {
   ...import.meta.glob('../views/*View.vue'),
   ...import.meta.glob('../../classes/modules/*/client/views/*View.vue'),
 }
+
 const viewModules = new Map<string, () => Promise<unknown>>()
 for (const [path, loader] of Object.entries(discoveredViewModules)) {
   const match = path.match(/\/([^/]+View)\.vue$/)
@@ -24,17 +25,60 @@ const EngineUnavailableView = defineComponent({
   ]),
 })
 
+/**
+ * Migrates URLs produced by the previous Vue hash-history router:
+ *
+ *   /#/news/15                -> /news/15
+ *   /#/badges/developer       -> /badges/developer
+ *   /#/server/Azurine         -> /server/Azurine
+ *
+ * This runs before Vue Router is created so its initial navigation observes
+ * the canonical HTML5-history location immediately. Existing outer query
+ * parameters are preserved unless the hash route already defines the same key.
+ */
+function migrateHashHistoryUrl(): void {
+  const hash = window.location.hash
+  if (!hash.startsWith('#/')) return
+
+  try {
+    const destination = new URL(hash.slice(1), window.location.origin)
+    const outerQuery = new URLSearchParams(window.location.search)
+
+    for (const [key, value] of outerQuery.entries()) {
+      if (!destination.searchParams.has(key)) {
+        destination.searchParams.append(key, value)
+      }
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${destination.pathname}${destination.search}${destination.hash}`,
+    )
+  } catch (error) {
+    console.warn('[FoxesCraft] Failed to migrate hash-history URL.', error)
+  }
+}
+
+migrateHashHistoryUrl()
+
 function routeRecord(definition: FrontendRouteDefinition): RouteRecordRaw {
   const base = {
     path: definition.path,
     name: definition.name,
     meta: { title: definition.title ?? '', layout: definition.layout ?? 'standard' },
   }
+
   if (definition.redirect) return { ...base, redirect: definition.redirect }
 
   const component = definition.view ? viewModules.get(definition.view) : undefined
   if (!component) throw new Error(t('engine.router.index.002', [definition.view]))
-  return { ...base, component, props: definition.props as RouteRecordRaw['props'] }
+
+  return {
+    ...base,
+    component,
+    props: definition.props as RouteRecordRaw['props'],
+  }
 }
 
 const engineRoutes = appBootstrap.frontend.routes.map(routeRecord)
@@ -89,7 +133,6 @@ if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'devices')
   }
 }
 
-
 if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'achievements')) {
   const component = viewModules.get('AchievementsView')
   if (component) {
@@ -105,7 +148,7 @@ if (engineRoutes.length > 0 && !routes.some((route) => route.name === 'achieveme
 }
 
 export const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory('/'),
   routes,
   scrollBehavior: () => ({ top: 0, behavior: 'smooth' }),
 })
@@ -116,13 +159,30 @@ function resolveLegacy(alias: LegacyRouteDefinition, rawValue: string, legacyQue
 
   const sourceQuery = new URLSearchParams(legacyQuery)
   const query: Record<string, string> = {}
+
   for (const [source, target] of Object.entries(alias.query ?? {})) {
     const value = sourceQuery.get(source)
     if (value) query[target] = value
   }
-  return { name: alias.route, params, query }
+
+  return {
+    name: alias.route,
+    params,
+    query,
+  }
 }
 
+/**
+ * Migrates the pre-Vue FoxCMS hash format, for example:
+ *
+ *   #page/rules             -> /rules
+ *   #page/info              -> /about
+ *   #server/Industrial      -> /server/Industrial
+ *   #badge/developer        -> /badges/developer
+ *
+ * Hashes beginning with #/ are intentionally ignored here because they are
+ * handled by migrateHashHistoryUrl() before router creation.
+ */
 function normalizeLegacyHash(): void {
   const raw = window.location.hash.replace(/^#/, '')
   if (!raw || raw.startsWith('/')) return
@@ -130,14 +190,32 @@ function normalizeLegacyHash(): void {
   const [kind, ...parts] = raw.split('/')
   const joined = parts.join('/')
   const [value, legacyQuery = ''] = joined.split('?')
+
   const alias = appBootstrap.frontend.legacy.find((entry) =>
     entry.kind === kind && (entry.value === undefined || entry.value === value),
   )
   if (!alias) return
 
-  const target = resolveLegacy(alias, value, legacyQuery)
-  const href = router.resolve(target).href
-  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${href}`)
+  try {
+    const target = resolveLegacy(alias, value, legacyQuery)
+    const href = router.resolve(target).href
+    const destination = new URL(href, window.location.origin)
+    const outerQuery = new URLSearchParams(window.location.search)
+
+    for (const [key, queryValue] of outerQuery.entries()) {
+      if (!destination.searchParams.has(key)) {
+        destination.searchParams.append(key, queryValue)
+      }
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${destination.pathname}${destination.search}${destination.hash}`,
+    )
+  } catch (error) {
+    console.warn('[FoxesCraft] Failed to migrate legacy URL.', error)
+  }
 }
 
 normalizeLegacyHash()
@@ -146,10 +224,12 @@ router.afterEach((route) => {
   const title = typeof route.meta.title === 'string' ? route.meta.title : ''
   const siteTitle = appBootstrap.site.title || 'FoxesCraft'
   const isHome = route.name === 'home' || route.path === '/'
+
   if (isHome || !title || title === siteTitle) {
     document.title = appBootstrap.site.homeTitle || siteTitle
     return
   }
+
   const template = appBootstrap.site.titleTemplate || '%page% — %site%'
   document.title = template
     .replaceAll('%page%', title)

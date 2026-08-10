@@ -6,6 +6,7 @@ import { foxesApi } from '@/api'
 import { bootstrapBoolean, bootstrapString, type NavigationDefinition } from '@/domain/bootstrap'
 import { queuePayloadToast } from '@/notifications/toasts'
 import { normalizeBalanceMatrix } from '@/domain/userBalance'
+import { resolveSocialLinks } from '@/shell/socialLinks'
 
 export function useEngineShell() {
   const router = useRouter()
@@ -55,6 +56,7 @@ export function useEngineShell() {
     serviceVersion: appBootstrap.engine.version,
     primaryItems: computed(() => navigation('header').filter((item) => item.intent !== 'admin')),
     footerItems: computed(() => navigation('footer')),
+    socialLinks: computed(() => resolveSocialLinks(appBootstrap)),
     guestItems: computed(() => navigation('guest')),
     accountItems: computed(() => appBootstrap.frontend.navigation
       .filter((item) => item.area === 'account' || item.intent === 'admin')

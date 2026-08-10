@@ -65,7 +65,7 @@ final class LostPassword
                 [
                     'username' => (string)$user['login'],
                     'mail' => (string)$user['email'],
-                    'resetToken' => $baseUrl . '/#/reset-password?token=' . rawurlencode($token),
+                    'resetToken' => $baseUrl . '/reset-password?token=' . rawurlencode($token),
                 ],
             );
             $this->logger->event(

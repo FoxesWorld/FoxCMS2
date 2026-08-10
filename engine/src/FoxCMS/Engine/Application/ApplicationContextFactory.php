@@ -22,7 +22,9 @@ final class ApplicationContextFactory
         $siteDefaults = is_array($config['siteSettings'] ?? null)
             ? $config['siteSettings']
             : [];
-        $siteState = (new \SiteSettingsRepository($db))->current($siteDefaults);
+        $siteSettings = new \SiteSettingsRepository(ENGINE_DIR . 'data' . DIRECTORY_SEPARATOR . 'site-settings.json');
+        (new \LegacySiteSettingsMigrator($db, $siteSettings))->migrateIfNeeded($siteDefaults);
+        $siteState = $siteSettings->current($siteDefaults);
         $siteOverrides = is_array($siteState['settings'] ?? null) ? $siteState['settings'] : [];
         $config['siteSettings'] = array_replace($siteDefaults, $siteOverrides);
 

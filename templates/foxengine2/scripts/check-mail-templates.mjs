@@ -19,7 +19,7 @@ try {
   failures.push(`legacy theme mail directory still exists: ${relative(repositoryRoot, legacyDirectory)}`)
 } catch { /* Expected. */ }
 
-for (const template of ['welcome.html', 'lostpass.html']) {
+for (const template of ['welcome.html', 'lostpass.html', 'smtp-test.html']) {
   try {
     const content = await readFile(join(mailDirectory, template), 'utf8')
     if (!content.includes('<html') || !content.includes('</html>')) failures.push(`invalid mail HTML template: ${template}`)

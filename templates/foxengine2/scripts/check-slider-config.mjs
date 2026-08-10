@@ -25,9 +25,23 @@ else {
 }
 
 const slider = await readFile(join(themeRoot, 'src', 'Slider.vue'), 'utf8')
-for (const required of ['appBootstrap.theme.settings.slider', 'data/slides.json', "cache: 'no-store'", 'loadRuntimeSettings', 'resolveImage', 'onPointerDown', 'onPointerMove', 'finishPointer', 'draggable="false"', '@dragstart.prevent', '@selectstart.prevent', 'legacy-slide-next']) {
+const sliderSettings = await readFile(join(themeRoot, 'src', 'slider', 'sliderSettings.ts'), 'utf8')
+const sliderRepository = await readFile(join(themeRoot, 'src', 'slider', 'sliderRuntimeRepository.ts'), 'utf8')
+const sliderController = await readFile(join(themeRoot, 'src', 'slider', 'useHeroCarousel.ts'), 'utf8')
+const runtimeJson = await readFile(join(repositoryRoot, 'engine', 'client', 'runtime', 'runtimeJson.ts'), 'utf8')
+for (const required of ['appBootstrap.theme.settings.slider', 'loadRuntimeSettings', 'resolveImage', 'loadSliderRuntimeSettings', 'draggable="false"', '@dragstart.prevent', '@selectstart.prevent']) {
   if (!slider.includes(required)) failures.push(`Slider.vue missing ${required}`)
 }
+for (const required of ['sliderRuntimeDataUrl', 'data/slides.json']) {
+  if (!sliderSettings.includes(required)) failures.push(`Slider settings domain missing ${required}`)
+}
+for (const required of ['loadRuntimeJson', 'normalizeSliderSettings']) {
+  if (!sliderRepository.includes(required)) failures.push(`Slider runtime repository missing ${required}`)
+}
+for (const required of ['onPointerDown', 'onPointerMove', 'finishPointer', 'legacy-slide-next']) {
+  if (!sliderController.includes(required)) failures.push(`Hero carousel controller missing ${required}`)
+}
+if (!runtimeJson.includes("cache: 'no-store'")) failures.push("Runtime JSON transport missing cache: 'no-store'")
 for (const forbidden of ['const slides: Slide[] = [', "title: 'Добро пожаловать в Лисий Мир'"]) {
   if (slider.includes(forbidden)) failures.push(`Slider.vue contains hardcoded slide data: ${forbidden}`)
 }

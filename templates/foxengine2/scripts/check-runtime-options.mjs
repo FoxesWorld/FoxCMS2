@@ -49,7 +49,7 @@ const adminBindings = new Map([
   ['achievements', ['Achievements', 'achievements']],
   ['infobox', ['Catalogs', 'catalogs', 'infobox']], ['badges', ['Catalogs', 'catalogs', 'badges']],
   ['rewards', ['Rewards', 'rewards']], ['groups', ['Catalogs', 'catalogs', 'groups']],
-  ['content', ['Content', 'content']], ['slides', ['Slides', 'slides']], ['settings', ['SiteSettings', 'settings']],
+  ['content', ['Content', 'content']], ['slides', ['Slides', 'slides']], ['settings', ['SiteSettings', 'settings']], ['mail', ['Mail', 'mail']],
   ['runtime-options', ['RuntimeOptions', 'runtime-options']], ['servers', ['Servers', 'servers']],
   ['files', ['FileManager', 'files']], ['maintenance', ['Maintenance', 'maintenance']],
 ])
@@ -133,7 +133,7 @@ const chunksDirectory = resolve(themeRoot, 'assets/runtime/chunks')
 try {
   await access(chunksDirectory)
   const chunks = await readdir(chunksDirectory)
-  for (const prefix of ['ProfileOption-', 'AppearanceOption-', 'SecurityOption-', 'RuntimeOptions-', 'Users-', 'Servers-', 'Content-', 'FileManager-']) {
+  for (const prefix of ['ProfileOption-', 'AppearanceOption-', 'SecurityOption-', 'RuntimeOptions-', 'Users-', 'Servers-', 'Content-', 'FileManager-', 'Mail-']) {
     if (!chunks.some((name) => name.startsWith(prefix) && name.endsWith('.js'))) failures.push(`production implementation chunk is missing: ${prefix}*.js`)
   }
   const adminChunk = chunks.find((name) => name.startsWith('AdminView-') && name.endsWith('.js'))

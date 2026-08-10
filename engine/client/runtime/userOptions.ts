@@ -4,9 +4,9 @@ import { loadContentRegistry } from '@/content/contentData'
 import type { SettingsTab } from '@/contracts/user-pages'
 
 export type ProfileOptionComponent = 'ProfileOption' | 'AppearanceOption' | 'SecurityOption'
-export type RuntimeAdminComponent = 'Overview' | 'SiteSettings' | 'Slides' | 'Content' | 'Rewards'
+export type RuntimeAdminComponent = 'Overview' | 'SiteSettings' | 'Mail' | 'Slides' | 'Content' | 'Rewards'
   | 'Maintenance' | 'Users' | 'Achievements' | 'Servers' | 'FileManager' | 'Logs' | 'Catalogs' | 'RuntimeOptions'
-export type RuntimeAdminTab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards'
+export type RuntimeAdminTab = 'overview' | 'settings' | 'mail' | 'slides' | 'content' | 'rewards'
   | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type RuntimeCatalogName = 'infobox' | 'badges' | 'groups'
 
@@ -76,6 +76,7 @@ const adminBindings = new Map<string, { component: RuntimeAdminComponent; tab: R
   ['content', { component: 'Content', tab: 'content' }],
   ['slides', { component: 'Slides', tab: 'slides' }],
   ['settings', { component: 'SiteSettings', tab: 'settings' }],
+  ['mail', { component: 'Mail', tab: 'mail' }],
   ['runtime-options', { component: 'RuntimeOptions', tab: 'runtime-options' }],
   ['servers', { component: 'Servers', tab: 'servers' }],
   ['files', { component: 'FileManager', tab: 'files' }],

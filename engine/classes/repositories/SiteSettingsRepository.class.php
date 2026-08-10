@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 final class SiteSettingsRepository
 {
-    private const DEFAULT_TITLE_TEMPLATE = '%page% — %site%';
+    private const SCHEMA = 1;
+    private const DEFAULT_TITLE_TEMPLATE = '%page% - %site%';
     private const ROBOTS = [
         'index,follow',
         'index,nofollow',
@@ -12,50 +13,48 @@ final class SiteSettingsRepository
         'noindex,nofollow',
     ];
     private const TWITTER_CARDS = ['summary', 'summary_large_image'];
+    private const MAIL_METHODS = ['smtp', 'mail'];
+    private const SMTP_SECURITY = ['', 'ssl', 'tls'];
 
-    public function __construct(private db $db)
+    public function __construct(private string $path)
     {
+        $this->path = trim($this->path);
+        if ($this->path === '') {
+            throw new InvalidArgumentException('Site settings path must not be empty.');
+        }
+    }
+
+    public function exists(): bool
+    {
+        return is_file($this->path);
     }
 
     /**
      * @param array<string, mixed> $fallback
      * @return array<string, mixed>
      */
-    public function current(array $fallback, bool $ensureSchema = false): array
+    public function current(array $fallback): array
     {
-        if ($ensureSchema) {
-            $this->ensureSchema();
-        }
-
         $stored = [];
         $updatedAt = '';
         $updatedByUuid = '';
-        $storageReady = false;
 
-        try {
-            $statement = $this->db->prepare(
-                'SELECT `settings`, `updatedAt`, `updatedByUuid` FROM `site_settings` WHERE `id` = 1 LIMIT 1'
-            );
-            $statement->execute();
-            $row = $statement->fetch(PDO::FETCH_ASSOC);
-            $storageReady = true;
-            if (is_array($row)) {
-                $decoded = json_decode((string)($row['settings'] ?? '{}'), true);
-                if (is_array($decoded)) {
-                    $stored = $decoded;
-                }
-                $updatedAt = (string)($row['updatedAt'] ?? '');
-                $updatedByUuid = (string)($row['updatedByUuid'] ?? '');
+        if ($this->exists()) {
+            try {
+                $document = $this->readDocument();
+                $stored = is_array($document['settings'] ?? null) ? $document['settings'] : [];
+                $updatedAt = trim((string)($document['updatedAt'] ?? ''));
+                $updatedByUuid = trim((string)($document['updatedByUuid'] ?? ''));
+            } catch (Throwable) {
+                // Keep the site bootable with normalized defaults if the runtime file is damaged.
             }
-        } catch (Throwable) {
-            $storageReady = false;
         }
 
         return [
             'settings' => $this->normalize(array_replace($fallback, $stored), $fallback),
-            'updatedAt' => $updatedAt,
-            'updatedByUuid' => $updatedByUuid,
-            'storageReady' => $storageReady,
+            'updatedAt' => $updatedAt !== '' ? $updatedAt : $this->fileTimestamp(),
+            'updatedByUuid' => Uuid::isValid($updatedByUuid) ? Uuid::canonical($updatedByUuid) : '',
+            'storageReady' => $this->storageReady(),
         ];
     }
 
@@ -66,40 +65,134 @@ final class SiteSettingsRepository
      */
     public function save(array $input, array $fallback, string $updatedByUuid): array
     {
-        $this->ensureSchema();
         $settings = $this->normalize(array_replace($fallback, $input), $fallback);
         $updatedByUuid = Uuid::isValid($updatedByUuid) ? Uuid::canonical($updatedByUuid) : '';
+        $updatedAt = gmdate('c');
 
-        $statement = $this->db->prepare(
-            'UPDATE `site_settings` SET `settings` = :settings, `updatedByUuid` = :updatedByUuid, '
-            . '`updatedAt` = CURRENT_TIMESTAMP(4) WHERE `id` = 1'
-        );
-        $statement->execute([
-            ':settings' => json_encode(
-                $settings,
-                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
-            ),
-            ':updatedByUuid' => $updatedByUuid === '' ? null : $updatedByUuid,
+        $this->writeDocument([
+            'schema' => self::SCHEMA,
+            'updatedAt' => $updatedAt,
+            'updatedByUuid' => $updatedByUuid,
+            'settings' => $settings,
         ]);
 
-        return $this->current($fallback);
+        return [
+            'settings' => $settings,
+            'updatedAt' => $updatedAt,
+            'updatedByUuid' => $updatedByUuid,
+            'storageReady' => true,
+        ];
     }
 
-    public function ensureSchema(): void
+    /** @return array<string, mixed> */
+    private function readDocument(): array
     {
-        $this->db->exec(
-            'CREATE TABLE IF NOT EXISTS `site_settings` ('
-            . '`id` TINYINT UNSIGNED NOT NULL, '
-            . '`settings` LONGTEXT NOT NULL, '
-            . '`updatedAt` DATETIME(4) NOT NULL DEFAULT CURRENT_TIMESTAMP(4) ON UPDATE CURRENT_TIMESTAMP(4), '
-            . '`updatedByUuid` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL, '
-            . 'PRIMARY KEY (`id`)'
-            . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-        );
-        $statement = $this->db->prepare(
-            'INSERT IGNORE INTO `site_settings` (`id`, `settings`) VALUES (1, :settings)'
-        );
-        $statement->execute([':settings' => '{}']);
+        error_clear_last();
+        $json = @file_get_contents($this->path);
+        if (!is_string($json)) {
+            throw new RuntimeException(
+                'Unable to read the site settings file: ' . $this->path . '. ' . $this->lastFilesystemError()
+            );
+        }
+
+        $decoded = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($decoded) || array_is_list($decoded)) {
+            throw new RuntimeException('The site settings file must contain a JSON object.');
+        }
+
+        return $decoded;
+    }
+
+    /** @param array<string, mixed> $document */
+    private function writeDocument(array $document): void
+    {
+        $directory = dirname($this->path);
+        if (!is_dir($directory)) {
+            error_clear_last();
+            if (!mkdir($directory, 0755, true) && !is_dir($directory)) {
+                throw new RuntimeException(
+                    'Unable to create the site settings directory: ' . $directory . '. ' . $this->lastFilesystemError()
+                );
+            }
+        }
+
+        clearstatcache(true, $directory);
+        if (!is_writable($directory)) {
+            throw new RuntimeException('The site settings directory is not writable: ' . $directory);
+        }
+
+        $encoded = json_encode(
+            $document,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
+        ) . PHP_EOL;
+
+        $temporary = $directory . DIRECTORY_SEPARATOR . '.site-settings-' . bin2hex(random_bytes(12)) . '.tmp';
+        $backup = null;
+
+        try {
+            error_clear_last();
+            $written = @file_put_contents($temporary, $encoded, LOCK_EX);
+            if ($written !== strlen($encoded)) {
+                throw new RuntimeException(
+                    'Unable to write the temporary site settings file: ' . $temporary . '. ' . $this->lastFilesystemError()
+                );
+            }
+            @chmod($temporary, 0640);
+
+            if ($this->exists()) {
+                $backup = $directory . DIRECTORY_SEPARATOR . '.site-settings-backup-' . bin2hex(random_bytes(12)) . '.tmp';
+                error_clear_last();
+                if (!@rename($this->path, $backup)) {
+                    throw new RuntimeException(
+                        'Unable to prepare replacement of the site settings file: ' . $this->path . '. ' . $this->lastFilesystemError()
+                    );
+                }
+            }
+
+            error_clear_last();
+            if (!@rename($temporary, $this->path)) {
+                $replaceError = $this->lastFilesystemError();
+                if (is_string($backup) && is_file($backup)) {
+                    @rename($backup, $this->path);
+                }
+                throw new RuntimeException(
+                    'Unable to replace the site settings file: ' . $this->path . '. ' . $replaceError
+                );
+            }
+
+            @chmod($this->path, 0640);
+            if (is_string($backup) && is_file($backup)) {
+                @unlink($backup);
+            }
+        } catch (Throwable $error) {
+            if (is_file($temporary)) {
+                @unlink($temporary);
+            }
+            if (!is_file($this->path) && is_string($backup) && is_file($backup)) {
+                @rename($backup, $this->path);
+            }
+            throw $error;
+        }
+    }
+
+    private function storageReady(): bool
+    {
+        if ($this->exists()) {
+            return is_readable($this->path) && is_writable($this->path);
+        }
+
+        $directory = dirname($this->path);
+        return is_dir($directory) && is_writable($directory);
+    }
+
+    private function fileTimestamp(): string
+    {
+        if (!$this->exists()) {
+            return '';
+        }
+
+        $timestamp = @filemtime($this->path);
+        return is_int($timestamp) ? gmdate('c', $timestamp) : '';
     }
 
     /**
@@ -134,9 +227,21 @@ final class SiteSettingsRepository
             'twitterCard' => $this->enum((string)($values['twitterCard'] ?? 'summary_large_image'), self::TWITTER_CARDS, 'summary_large_image'),
             'twitterSite' => $this->socialHandle((string)($values['twitterSite'] ?? '')),
             'twitterCreator' => $this->socialHandle((string)($values['twitterCreator'] ?? '')),
+            'discordLink' => $this->absoluteUrl((string)($values['discordLink'] ?? $fallback['discordLink'] ?? ''), ''),
+            'telegramLink' => $this->absoluteUrl((string)($values['telegramLink'] ?? $fallback['telegramLink'] ?? ''), ''),
+            'githubLink' => $this->absoluteUrl((string)($values['githubLink'] ?? $fallback['githubLink'] ?? ''), ''),
+            'youtubeLink' => $this->absoluteUrl((string)($values['youtubeLink'] ?? $fallback['youtubeLink'] ?? ''), ''),
             'googleVerification' => $this->token((string)($values['googleVerification'] ?? '')),
             'yandexVerification' => $this->token((string)($values['yandexVerification'] ?? '')),
             'bingVerification' => $this->token((string)($values['bingVerification'] ?? '')),
+            'mailMethod' => $this->enum((string)($values['mailMethod'] ?? $fallback['mailMethod'] ?? 'smtp'), self::MAIL_METHODS, 'smtp'),
+            'mailFromAddress' => $this->email((string)($values['mailFromAddress'] ?? $fallback['mailFromAddress'] ?? '')),
+            'mailFromName' => $this->text($values['mailFromName'] ?? $fallback['mailFromName'] ?? 'FoxesCraft', 120, 'FoxesCraft'),
+            'smtpHost' => $this->hostname((string)($values['smtpHost'] ?? $fallback['smtpHost'] ?? 'smtp.mail.ru'), 'smtp.mail.ru'),
+            'smtpPort' => (string)$this->port($values['smtpPort'] ?? $fallback['smtpPort'] ?? 465, 465),
+            'smtpSecurity' => $this->enum((string)($values['smtpSecurity'] ?? $fallback['smtpSecurity'] ?? 'ssl'), self::SMTP_SECURITY, 'ssl'),
+            'smtpUsername' => $this->email((string)($values['smtpUsername'] ?? $fallback['smtpUsername'] ?? '')),
+            'smtpPassword' => $this->secret((string)($values['smtpPassword'] ?? $fallback['smtpPassword'] ?? '')),
         ];
     }
 
@@ -153,10 +258,10 @@ final class SiteSettingsRepository
     {
         $value = $this->text($value, 180, self::DEFAULT_TITLE_TEMPLATE);
         if (!str_contains($value, '%site%')) {
-            $value .= ' — %site%';
+            $value .= ' - %site%';
         }
         if (!str_contains($value, '%page%')) {
-            $value = '%page% — ' . $value;
+            $value = '%page% - ' . $value;
         }
         return mb_substr($value, 0, 180, 'UTF-8');
     }
@@ -240,5 +345,42 @@ final class SiteSettingsRepository
             return '';
         }
         return $value;
+    }
+
+    private function email(string $value): string
+    {
+        $value = trim($value);
+        return $value !== '' && filter_var($value, FILTER_VALIDATE_EMAIL) !== false
+            ? mb_substr($value, 0, 254, 'UTF-8')
+            : '';
+    }
+
+    private function hostname(string $value, string $fallback): string
+    {
+        $value = strtolower(trim($value));
+        return preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/D', $value) === 1
+            ? $value
+            : $fallback;
+    }
+
+    private function port(mixed $value, int $fallback): int
+    {
+        $port = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+        return is_int($port) ? $port : $fallback;
+    }
+
+    private function secret(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '' || strlen($value) > 512 || preg_match('/[\x00-\x1F\x7F]/', $value) === 1) return '';
+        return $value;
+    }
+
+    private function lastFilesystemError(): string
+    {
+        $error = error_get_last();
+        return is_array($error) && is_string($error['message'] ?? null)
+            ? trim((string)$error['message'])
+            : 'Filesystem did not provide a detailed error.';
     }
 }

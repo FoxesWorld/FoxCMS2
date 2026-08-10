@@ -284,6 +284,13 @@
   line-height: 1.45;
 }
 
+.site-footer__links {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
 .footer-nav {
   align-items: center;
   gap: 7px;
@@ -329,6 +336,47 @@
 .footer-nav button:focus-visible::after {
   opacity: 1;
   transform: scaleX(1);
+}
+
+.footer-socials {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.footer-socials__button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  border: 1px solid rgba(232, 213, 195, .16);
+  border-radius: 12px;
+  color: var(--color-footer-text);
+  background: rgba(255, 248, 239, .055);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035);
+  font-size: .78rem;
+  font-weight: 850;
+  text-decoration: none;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.footer-socials__button > i {
+  width: 18px;
+  color: #efb685;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.footer-socials__button:hover,
+.footer-socials__button:focus-visible {
+  border-color: rgba(239, 182, 133, .38);
+  color: #fff8f1;
+  background: rgba(239, 182, 133, .11);
+  box-shadow: 0 8px 20px rgba(15, 9, 6, .16);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .site-footer__status {
@@ -433,9 +481,14 @@
     padding: 24px;
   }
 
-  .footer-nav {
+  .site-footer__links {
     grid-column: 1 / -1;
     grid-row: 2;
+    justify-items: start;
+  }
+
+  .footer-nav,
+  .footer-socials {
     justify-content: flex-start;
   }
 
@@ -484,9 +537,15 @@
     flex-basis: 44px;
   }
 
-  .footer-nav {
+  .site-footer__links {
     grid-column: auto;
     grid-row: auto;
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .footer-nav,
+  .footer-socials {
     justify-content: flex-start;
     gap: 6px;
   }
@@ -520,13 +579,15 @@
     display: none;
   }
 
-  .footer-nav {
+  .footer-nav,
+  .footer-socials {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
 
-  .footer-nav button {
+  .footer-nav button,
+  .footer-socials__button {
     width: 100%;
     justify-content: flex-start;
     text-align: left;

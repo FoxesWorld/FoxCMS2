@@ -111,6 +111,12 @@
   letter-spacing: .035em;
 }
 
+.site-settings-social-links label > span > i {
+  width: 18px;
+  color: var(--accent-color, #8db69a);
+  text-align: center;
+}
+
 .site-settings-fields input,
 .site-settings-fields textarea,
 .site-settings-fields select {

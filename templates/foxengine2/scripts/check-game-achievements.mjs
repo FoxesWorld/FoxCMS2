@@ -226,7 +226,7 @@ requireText('Achievement completion point award', source.eventService, [
   "'pointAwarded' => $pointAwarded",
   "'achievement.game_unlocked'",
   "'Новое достижение'",
-  "'/#/achievements/'",
+  "'/achievements/'",
   "очков доступны для обмена на Units",
 ])
 requireText('Achievement point exchange service', source.economyService, [

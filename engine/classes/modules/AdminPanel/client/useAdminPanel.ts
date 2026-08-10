@@ -16,7 +16,7 @@ import {
   type RuntimePageTemplatesDocument,
 } from '@/runtime/pageTemplates'
 
-export type Tab = 'overview' | 'settings' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
+export type Tab = 'overview' | 'settings' | 'mail' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type CatalogName = 'infobox' | 'badges' | 'groups'
 export type AdminToolId = Exclude<Tab, 'catalogs'> | 'infobox' | 'badges' | 'groups'
 export type AdminSection = 'home' | AdminToolId
@@ -189,9 +189,31 @@ export interface SiteSettings {
   twitterCard: 'summary' | 'summary_large_image'
   twitterSite: string
   twitterCreator: string
+  discordLink: string
+  telegramLink: string
+  githubLink: string
+  youtubeLink: string
   googleVerification: string
   yandexVerification: string
   bingVerification: string
+}
+
+export interface MailSettings {
+  mailMethod: 'smtp' | 'mail'
+  mailFromAddress: string
+  mailFromName: string
+  smtpHost: string
+  smtpPort: number
+  smtpSecurity: '' | 'ssl' | 'tls'
+  smtpUsername: string
+  smtpPassword: string
+  passwordConfigured: boolean
+}
+export interface MailTestStatus {
+  success: boolean
+  message: string
+  checkedAt: string
+  testMessageSent?: boolean
 }
 
 export interface SlideRouteOption {
@@ -539,6 +561,10 @@ export function useAdminPanel() {
     twitterCard: 'summary_large_image',
     twitterSite: '',
     twitterCreator: '',
+    discordLink: bootstrapString(appBootstrap, 'discordLink'),
+    telegramLink: bootstrapString(appBootstrap, 'telegramLink'),
+    githubLink: bootstrapString(appBootstrap, 'githubLink'),
+    youtubeLink: bootstrapString(appBootstrap, 'youtubeLink'),
     googleVerification: '',
     yandexVerification: '',
     bingVerification: '',
@@ -547,6 +573,20 @@ export function useAdminPanel() {
   const siteSettingsStorageReady = ref(false)
   const siteSocialImageUploading = ref(false)
   const siteSocialImageError = ref('')
+  const mailSettings = reactive<MailSettings>({
+    mailMethod: 'smtp',
+    mailFromAddress: '',
+    mailFromName: 'FoxesCraft',
+    smtpHost: 'smtp.mail.ru',
+    smtpPort: 465,
+    smtpSecurity: 'ssl',
+    smtpUsername: '',
+    smtpPassword: '',
+    passwordConfigured: false,
+  })
+  const mailSettingsUpdatedAt = ref('')
+  const mailSettingsStorageReady = ref(false)
+  const mailTestStatus = ref<MailTestStatus | null>(null)
   const maintenance = reactive<MaintenanceSettings>({
     enabled: false,
     allowedGroups: ['admin'],
@@ -781,6 +821,57 @@ export function useAdminPanel() {
     Object.assign(siteSettings, response.settings)
     siteSettingsUpdatedAt.value = response.updatedAt || ''
     siteSettingsStorageReady.value = response.storageReady
+  }
+  async function loadMailSettings(): Promise<void> {
+    const response = await run(() => foxesApi.post<{
+      settings: MailSettings
+      updatedAt: string
+      storageReady: boolean
+    }>({ admPanel: 'mailSettings' }))
+    if (!response) return
+    Object.assign(mailSettings, response.settings, { smtpPassword: '' })
+    mailSettingsUpdatedAt.value = response.updatedAt || ''
+    mailSettingsStorageReady.value = response.storageReady
+    mailTestStatus.value = null
+  }
+  async function saveMailSettings(): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & {
+      settings: MailSettings
+      updatedAt: string
+      storageReady: boolean
+    }>({
+      admPanel: 'saveMailSettings',
+      entry: JSON.stringify({
+        mailMethod: mailSettings.mailMethod,
+        mailFromAddress: mailSettings.mailFromAddress,
+        mailFromName: mailSettings.mailFromName,
+        smtpHost: mailSettings.smtpHost,
+        smtpPort: mailSettings.smtpPort,
+        smtpSecurity: mailSettings.smtpSecurity,
+        smtpUsername: mailSettings.smtpUsername,
+        smtpPassword: mailSettings.smtpPassword,
+      }),
+    }))
+    if (!response) return
+    feedback.value = response
+    Object.assign(mailSettings, response.settings, { smtpPassword: '' })
+    mailSettingsUpdatedAt.value = response.updatedAt || ''
+    mailSettingsStorageReady.value = response.storageReady
+    mailTestStatus.value = null
+  }
+  async function testMailSettings(recipient = ''): Promise<void> {
+    const response = await run(() => foxesApi.post<Feedback & MailTestStatus>({
+      admPanel: 'testMailSettings',
+      entry: JSON.stringify({ recipient }),
+    }))
+    if (!response) return
+    feedback.value = response
+    mailTestStatus.value = {
+      success: response.success,
+      message: response.message || '',
+      checkedAt: response.checkedAt || '',
+      testMessageSent: response.testMessageSent === true,
+    }
   }
   async function loadUserOptionsEditor(): Promise<void> {
     const response = await run(() => foxesApi.post<{
@@ -1521,6 +1612,7 @@ export function useAdminPanel() {
     if (tool.catalog) catalogName.value = tool.catalog
     if (tool.tab === 'overview') await loadOverview()
     if (tool.tab === 'settings') await loadSiteSettings()
+    if (tool.tab === 'mail') await loadMailSettings()
     if (tool.tab === 'slides') await loadSlides()
     if (tool.tab === 'content') await loadContent()
     if (tool.tab === 'rewards') await loadRewards()
@@ -1548,13 +1640,13 @@ export function useAdminPanel() {
 
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-    maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
+    mailSettings, mailSettingsUpdatedAt, mailSettingsStorageReady, mailTestStatus, maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
     users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch, achievementEconomy, achievementEconomyStats, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp, runtimeUserOptionsRevision,
     runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimePageTemplatesDraft, runtimePageTemplatesStorageReady,
-    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
+    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMailSettings, saveMailSettings, testMailSettings, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, reorderSlide, uploadSlideImage, saveSlides,
     loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, savePageTemplate, saveBadgePage, deleteBadgePage,
     loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, saveAchievementEconomy, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,

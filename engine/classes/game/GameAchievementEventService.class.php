@@ -228,7 +228,7 @@ final class GameAchievementEventService
                         'pointAwarded' => ($result['pointAwarded'] ?? false) === true,
                         'completedAt' => (int)$result['completedAt'],
                     ],
-                    '/#/achievements/' . rawurlencode((string)$result['playerUuid']),
+                    '/achievements/' . rawurlencode((string)$result['playerUuid']),
                     'game-achievement:' . $serverId . ':' . $achievementKey,
                     (int)$result['completedAt'],
                 );

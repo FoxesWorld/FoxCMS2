@@ -11,10 +11,10 @@ templates/<active-theme>/data/badges/<slug>.html
 Examples:
 
 ```text
-EarlyUser            -> earlyuser.html            -> /#/badges/earlyuser
-Раннее Возрождение   -> rannee-vozrozhdenie.html -> /#/badges/rannee-vozrozhdenie
-Подсвинок             -> podsvinok.html            -> /#/badges/podsvinok
-LGBTQ+                -> lgbtq.html                -> /#/badges/lgbtq
+EarlyUser            -> earlyuser.html            -> /badges/earlyuser
+Раннее Возрождение   -> rannee-vozrozhdenie.html -> /badges/rannee-vozrozhdenie
+Подсвинок             -> podsvinok.html            -> /badges/podsvinok
+LGBTQ+                -> lgbtq.html                -> /badges/lgbtq
 ```
 
 `badgeName` is display text and accepts printable Unicode, including Cyrillic, whitespace, emoji and punctuation. URL restrictions apply only to the generated slug. Symbols are treated as separators and Cyrillic letters are transliterated. If a name produces no Latin or numeric characters, the stable fallback is `badge-<database id>`. Colliding transliterations receive the database ID suffix.

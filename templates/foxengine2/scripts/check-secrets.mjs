@@ -13,7 +13,7 @@ const ignoredDirectories = new Set([
   'uploads',
   'files',
 ])
-const ignoredFiles = new Set(['.env.example', 'package-lock.json'])
+const ignoredFiles = new Set(['.env.example', 'package-lock.json', 'site-settings.json'])
 const extensions = new Set(['.php', '.js', '.mjs', '.cjs', '.ts', '.vue', '.json', '.yml', '.yaml', '.xml', '.ini'])
 const findings = []
 

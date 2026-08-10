@@ -9,7 +9,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "audit:legacy": "node scripts/audit-legacy.mjs",
     "audit:legacy:baseline": "node scripts/audit-legacy.mjs --write-baseline",
-    "check": "npm run check:utf8 && npm run check:i18n && npm run typecheck && npm run build && npm run check:csp-runtime && npm run check:assets && npm run check:emoticons && npm run check:runtime-options && npm run check:page-templates && npm run check:server-page && npm run check:server-storage && npm run check:ui && npm run check:admin-users && npm run check:admin-navigation && npm run check:admin-errors && npm run check:icons && npm run check:boundary && npm run check:frontend-registry && npm run check:contracts && npm run check:news && npm run check:observability && npm run check:balance && npm run check:rewards && npm run check:auth && npm run check:sessions && npm run check:achievements && npm run check:bootstrap-hardware && npm run check:admin-hardware && npm run check:php && npm run check:php-architecture && npm run check:uploads && npm run check:slides && npm run check:mail && npm run check:runtime-jdks && npm run check:content && npm run check:groups && npm run check:identity && npm run check:maintenance && npm run check:secrets && npm run check:security-boundaries && npm run check:removed-runtime && npm run audit:legacy && npm run check:bundle",
+    "check": "npm run check:utf8 && npm run check:i18n && npm run typecheck && npm run build && npm run check:csp-runtime && npm run check:assets && npm run check:emoticons && npm run check:runtime-options && npm run check:page-templates && npm run check:server-page && npm run check:server-storage && npm run check:ui && npm run check:admin-users && npm run check:admin-navigation && npm run check:admin-errors && npm run check:icons && npm run check:boundary && npm run check:frontend-registry && npm run check:frontend-architecture && npm run check:contracts && npm run check:news && npm run check:observability && npm run check:balance && npm run check:rewards && npm run check:auth && npm run check:sessions && npm run check:achievements && npm run check:bootstrap-hardware && npm run check:admin-hardware && npm run check:php && npm run check:php-architecture && npm run check:uploads && npm run check:slides && npm run check:mail && npm run check:runtime-jdks && npm run check:content && npm run check:groups && npm run check:identity && npm run check:maintenance && npm run check:secrets && npm run check:security-boundaries && npm run check:removed-runtime && npm run audit:legacy && npm run check:bundle",
     "check:assets": "node scripts/check-assets.mjs",
     "check:boundary": "node scripts/check-modern-boundary.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
@@ -51,7 +51,8 @@
     "check:page-templates": "node scripts/check-page-templates.mjs",
     "build:runtime-templates": "node scripts/compile-runtime-templates.mjs",
     "check:csp-runtime": "node scripts/check-csp-runtime.mjs",
-    "build:runtime-template-compiler": "node scripts/build-runtime-template-compiler.mjs"
+    "build:runtime-template-compiler": "node scripts/build-runtime-template-compiler.mjs",
+    "check:frontend-architecture": "node scripts/check-frontend-architecture.mjs"
   },
   "dependencies": {
     "@pqina/pintura": "^8.99.0",

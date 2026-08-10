@@ -146,7 +146,10 @@ final class ThemeRenderer
             'siteStatus' => (string)($site['siteStatus'] ?? ''),
             'siteDesc' => (string)($site['siteDesc'] ?? ''),
             'serviceVersion' => (string)($site['ServiceVersion'] ?? ''),
-            'discordLink' => (string)($other['discordLink'] ?? ''),
+            'discordLink' => (string)($site['discordLink'] ?? ''),
+            'telegramLink' => (string)($site['telegramLink'] ?? ''),
+            'githubLink' => (string)($site['githubLink'] ?? ''),
+            'youtubeLink' => (string)($site['youtubeLink'] ?? ''),
             'vkLink' => (string)($other['vkLink'] ?? ''),
         ]);
 

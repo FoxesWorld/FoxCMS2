@@ -221,7 +221,7 @@ function saveSelectedPageTemplate(): void {
       <form v-if="selectedProject" class="admin-badge-html-editor admin-project-html-editor" @submit.prevent="emit('saveProjectPages')">
         <header class="admin-content-form__title">
           <div><span class="eyebrow">{{ t('theme.foxengine.admin.content.006') }}</span><h3>{{ selectedProject.title }}</h3><p><code>pages/content/{{ selectedProject.id }}.html</code></p></div>
-          <a class="button button--ghost" :href="`/#/${selectedProject.id}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
+          <a class="button button--ghost" :href="`/${selectedProject.id}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
         </header>
 
         <div class="admin-content-form__grid">
@@ -402,11 +402,11 @@ function saveSelectedPageTemplate(): void {
         <form v-else class="admin-badge-html-editor" @submit.prevent="emit('saveBadgePage', selectedBadgePage)">
           <div class="admin-content-form__grid">
             <label><span>{{ t('theme.foxengine.admin.content.032') }}</span><input :value="selectedBadgePage.badgeName" type="text" readonly></label>
-            <label><span>{{ t('theme.foxengine.admin.content.033') }}</span><input :value="`data/badges/${selectedBadgePage.slug}.html`" type="text" readonly><small><code>/#/badges/{{ selectedBadgePage.slug }}</code></small></label>
+            <label><span>{{ t('theme.foxengine.admin.content.033') }}</span><input :value="`data/badges/${selectedBadgePage.slug}.html`" type="text" readonly><small><code>/badges/{{ selectedBadgePage.slug }}</code></small></label>
           </div>
 
           <div class="admin-badge-html-editor__actions">
-            <a class="button button--ghost" :href="`/#/badges/${selectedBadgePage.slug}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
+            <a class="button button--ghost" :href="`/badges/${selectedBadgePage.slug}`" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up" aria-hidden="true" /><span>{{ t('theme.foxengine.admin.content.008') }}</span></a>
           </div>
 
           <div class="admin-html-workbench__tabs" role="tablist" :aria-label="t('theme.foxengine.admin.content.036')">

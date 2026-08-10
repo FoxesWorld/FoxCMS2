@@ -138,7 +138,7 @@ final class NotificationService
             'С возвращением, ' . trim($login),
             'Вы снова с нами после ' . $days . ' дн. отсутствия. Рады видеть вас в FoxesCraft.',
             ['absenceDays' => $days],
-            '/#/',
+            '/',
             'welcome-back:' . $loginAt,
             $loginAt,
         );
@@ -164,7 +164,7 @@ final class NotificationService
             'Пароль изменён',
             $message,
             array_merge($context, ['source' => $source]),
-            '/#/settings/profile',
+            '/settings/profile',
         );
     }
 
@@ -186,7 +186,7 @@ final class NotificationService
                 'image' => trim((string)($badge['image'] ?? $badge['img'] ?? '')),
                 'source' => $source,
             ],
-            '/#/badges',
+            '/badges',
         );
     }
 
@@ -222,7 +222,7 @@ final class NotificationService
                 'source' => $source,
                 'reason' => $reason,
             ],
-            '/#/badges',
+            '/badges',
         );
     }
 
@@ -249,7 +249,7 @@ final class NotificationService
             'Получена награда',
             implode(' · ', $parts) . '.',
             ['reward' => $reward, 'badge' => $badge, 'currency' => $currency],
-            '/#/badges',
+            '/badges',
         );
     }
 

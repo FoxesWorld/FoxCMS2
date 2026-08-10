@@ -17,37 +17,70 @@ final class FoxMail
     public array $bcc = [];
     public bool $keepalive = false;
 
-    public function __construct(bool $isHtml = false)
+    public function __construct(bool $isHtml = false, ?array $settingsOverride = null)
     {
         global $config;
 
+        if (!defined('FoxMail')) {
+            define('FoxMail', true);
+        }
         require_once __DIR__ . '/Mailer.class.php';
         $this->mail = new PHPMailer();
         $this->html = $isHtml;
         $this->mail->CharSet = 'UTF-8';
         $this->mail->Encoding = 'base64';
 
-        $settings = $config['siteSettings'] ?? [];
-        $sender = (string)($settings['admin_mail'] ?? $settings['contactEmail'] ?? '');
-        $title = (string)($settings['mail_title'] ?? 'FoxesCraft');
-        $this->mail->setFrom($sender, $title);
+        $settings = is_array($settingsOverride) ? $settingsOverride : ($config['siteSettings'] ?? []);
+        $username = trim((string)($settings['smtpUsername'] ?? $settings['admin_mail'] ?? ''));
+        $sender = trim((string)($settings['mailFromAddress'] ?? $settings['admin_mail'] ?? $settings['contactEmail'] ?? $username));
+        if ($sender === '') {
+            $sender = $username;
+        }
+        $title = trim((string)($settings['mailFromName'] ?? $settings['mail_title'] ?? 'FoxesCraft'));
+        if (filter_var($sender, FILTER_VALIDATE_EMAIL) !== false) {
+            $this->mail->setFrom($sender, $title !== '' ? $title : 'FoxesCraft');
+        }
 
-        if (($settings['mail_metod'] ?? '') === 'smtp') {
+        if (($settings['mailMethod'] ?? $settings['mail_metod'] ?? '') === 'smtp') {
             $this->mail->isSMTP();
             $this->mail->Timeout = 10;
-            $this->mail->Host = (string)($settings['smtp_host'] ?? 'localhost');
-            $this->mail->Port = (int)($settings['smtp_port'] ?? 465);
-            $this->mail->SMTPSecure = (string)($settings['smtp_secure'] ?? 'ssl');
+            $this->mail->Host = (string)($settings['smtpHost'] ?? $settings['smtp_host'] ?? 'smtp.mail.ru');
+            $this->mail->Port = (int)($settings['smtpPort'] ?? $settings['smtp_port'] ?? 465);
+            $this->mail->SMTPSecure = (string)($settings['smtpSecurity'] ?? $settings['smtp_secure'] ?? 'ssl');
             $this->mail->SMTPAuth = true;
-            $this->mail->Username = $sender;
-            $this->mail->Password = (string)($settings['smtp_pass'] ?? '');
-            $this->mail->From = $sender;
-            $this->mail->Sender = $sender;
+            $this->mail->Username = $username;
+            $this->mail->Password = (string)($settings['smtpPassword'] ?? $settings['smtp_pass'] ?? '');
+            if (filter_var($sender, FILTER_VALIDATE_EMAIL) !== false) {
+                $this->mail->From = $sender;
+                $this->mail->Sender = $sender;
+            }
         }
 
         $this->mail->XMailer = 'FoxesCraft';
         if ($isHtml) {
             $this->mail->isHTML();
+        }
+    }
+
+    /** @return array{success:bool,message:string} */
+    public function testConnection(): array
+    {
+        if ($this->mail->Mailer !== 'smtp') {
+            return ['success' => false, 'message' => 'SMTP transport is disabled.'];
+        }
+        if ($this->mail->Host === '' || $this->mail->Username === '' || $this->mail->Password === '') {
+            return ['success' => false, 'message' => 'SMTP host, username and password are required.'];
+        }
+        try {
+            $success = (bool)$this->mail->smtpConnect();
+            $message = $success
+                ? 'SMTP connection and authentication succeeded.'
+                : ($this->mail->ErrorInfo ?: 'SMTP connection failed.');
+            $this->mail->smtpClose();
+            return ['success' => $success, 'message' => $message];
+        } catch (Throwable $error) {
+            $this->mail->smtpClose();
+            return ['success' => false, 'message' => $error->getMessage()];
         }
     }
 

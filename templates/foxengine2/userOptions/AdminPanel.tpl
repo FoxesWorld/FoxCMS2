@@ -1,4 +1,4 @@
-<fox-user-options-template id="admin-panel" schema="1" revision="5" updated-at="2026-08-08T05:45:00Z">
+<fox-user-options-template id="admin-panel" schema="1" revision="6" updated-at="2026-08-10T04:52:00Z">
   <fox-admin-categories>
     <fox-admin-category id="observability" label="Обзор и контроль" description="Состояние проекта, метрики и диагностика" icon="fa-chart-line" order="10" enabled="true" />
     <fox-admin-category id="community" label="Сообщество" description="Игроки, группы, награды и справочники" icon="fa-users" order="20" enabled="true" />
@@ -20,6 +20,7 @@
     <fox-admin-tool id="runtime-options" component="RuntimeOptions" tab="runtime-options" category="content" label="Runtime-опции" description="Композиция профиля и административных инструментов без пересборки frontend chunks." icon="fa-puzzle-piece" order="40" enabled="true" protected="true" />
     <fox-admin-tool id="servers" component="Servers" tab="servers" category="infrastructure" label="Серверы" description="Игровая сеть, runtime JDK и параметры запуска" icon="fa-server" order="10" enabled="true" />
     <fox-admin-tool id="files" component="FileManager" tab="files" category="infrastructure" label="Файлы" description="Хранилище uploads, загрузка и каталоги" icon="fa-folder-open" order="20" enabled="true" />
+    <fox-admin-tool id="mail" component="Mail" tab="mail" category="infrastructure" label="Почта" description="SMTP, корпоративные адреса и диагностика доставки" icon="fa-envelope" order="25" enabled="true" />
     <fox-admin-tool id="maintenance" component="Maintenance" tab="maintenance" category="infrastructure" label="Обслуживание" description="Технический режим и доступ групп" icon="fa-screwdriver-wrench" order="30" enabled="true" />
   </fox-admin-tools>
   <fox-template-body>
@@ -163,6 +164,16 @@
             @upload-image="uploadSiteSocialImage"
             @clear-image="clearSiteSocialImage"
             @save="saveSiteSettings"
+          />
+          <AdminMail
+            v-else-if="activeTab === 'mail'"
+            :settings="mailSettings"
+            :status="mailTestStatus"
+            :loading="loading"
+            :updated-at="mailSettingsUpdatedAt"
+            :storage-ready="mailSettingsStorageReady"
+            @save="saveMailSettings"
+            @test="testMailSettings"
           />
           <AdminSlides
             v-else-if="activeTab === 'slides'"

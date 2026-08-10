@@ -67,7 +67,7 @@ for (const [file, token, message] of [
   ['catalogs', "'update:name'", 'Shared editor can desynchronize route state through update:name.'],
 ]) forbidToken(file, token, message)
 
-const expectedTools = ['overview', 'logs', 'users', 'achievements', 'infobox', 'badges', 'rewards', 'groups', 'content', 'slides', 'settings', 'runtime-options', 'servers', 'files', 'maintenance']
+const expectedTools = ['overview', 'logs', 'users', 'achievements', 'infobox', 'badges', 'rewards', 'groups', 'content', 'slides', 'settings', 'runtime-options', 'servers', 'files', 'mail', 'maintenance']
 for (const tool of expectedTools) if (runtimeTools.filter((entry) => entry.id === tool).length !== 1) failures.push(`Admin tool ${tool} must belong to exactly one semantic category and view.`)
 const achievementsTool = runtimeTools.find((entry) => entry.id === 'achievements')
 if (!achievementsTool || achievementsTool.component !== 'Achievements' || achievementsTool.tab !== 'achievements' || achievementsTool.category !== 'community') failures.push('Achievements admin tool must be a direct Community destination.')
@@ -80,6 +80,8 @@ for (const [tool, catalog] of Object.entries({ infobox: 'infobox', badges: 'badg
   const definition = runtimeTools.find((entry) => entry.id === tool)
   if (!definition || definition.tab !== 'catalogs' || definition.catalog !== catalog) failures.push(`${tool} must directly map to the shared editor for ${catalog}.`)
 }
+const mailTool = runtimeTools.find((entry) => entry.id === 'mail')
+if (!mailTool || mailTool.component !== 'Mail' || mailTool.tab !== 'mail' || mailTool.category !== 'infrastructure') failures.push('Mail admin tool must be a direct Infrastructure destination.')
 const protectedRuntimeTool = runtimeTools.find((entry) => entry.id === 'runtime-options')
 if (protectedRuntimeTool?.enabled !== 'true' || protectedRuntimeTool?.protected !== 'true') failures.push('Runtime options editor must remain a protected direct destination.')
 

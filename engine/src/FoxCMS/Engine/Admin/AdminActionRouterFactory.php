@@ -28,7 +28,7 @@ final class AdminActionRouterFactory
         $groups = new \GroupRepository($db);
         $groupNormalizer = new \AdminGroupListNormalizer($groups);
         $maintenance = new \MaintenanceModeRepository($db);
-        $siteSettings = new \SiteSettingsRepository($db);
+        $siteSettings = new \SiteSettingsRepository(ENGINE_DIR . 'data' . DIRECTORY_SEPARATOR . 'site-settings.json');
 
         $server = new \AdminServerController(
             $db,
@@ -100,6 +100,14 @@ final class AdminActionRouterFactory
             $responder,
             $groupNormalizer,
         );
+        $mail = new AdminMailController(
+            $config,
+            $siteSettings,
+            $session,
+            $logger,
+            $payload,
+            $responder,
+        );
         $system = new AdminSystemController(
             $db,
             $logger,
@@ -120,6 +128,9 @@ final class AdminActionRouterFactory
         $router->register('overview', [$system, 'overview'], ['handler' => 'AdminSystemController::overview']);
         $router->register('siteSettings', [$system, 'siteSettings'], ['handler' => 'AdminSystemController::siteSettings']);
         $router->register('saveSiteSettings', [$system, 'saveSiteSettings'], ['handler' => 'AdminSystemController::saveSiteSettings']);
+        $router->register('mailSettings', [$mail, 'settings'], ['handler' => 'AdminMailController::settings']);
+        $router->register('saveMailSettings', [$mail, 'save'], ['handler' => 'AdminMailController::save']);
+        $router->register('testMailSettings', [$mail, 'test'], ['handler' => 'AdminMailController::test']);
         $router->register('userOptions', [$runtimeOptions, 'userOptions'], ['handler' => 'AdminRuntimeOptionsController::userOptions']);
         $router->register('saveUserOptions', [$runtimeOptions, 'saveUserOptions'], ['handler' => 'AdminRuntimeOptionsController::saveUserOptions']);
         $router->register('users', [$user, 'users'], ['handler' => 'AdminUserController::users']);

@@ -130,6 +130,7 @@ onBeforeUnmount(() => {
       :site-title="shell.siteTitle"
       :service-version="shell.serviceVersion"
       :items="shell.footerItems.value"
+      :social-links="shell.socialLinks.value"
       @activate="shell.activate"
     />
     <ToastViewport />

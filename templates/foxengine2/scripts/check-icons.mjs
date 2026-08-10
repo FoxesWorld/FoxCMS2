@@ -11,7 +11,7 @@ const fontAwesome = await readFile(fontAwesomePath, 'utf8')
 const mainSource = await readFile(join(themeRoot, 'src', 'main.ts'), 'utf8')
 const iconStyles = `${fonts}\n${fontAwesome}`
 const defined = new Set([...iconStyles.matchAll(/\.(fa-[a-z0-9-]+):{1,2}before\b/g)].map((match) => match[1]))
-const ignored = new Set(['fa-solid', 'fa-fw'])
+const ignored = new Set(['fa-solid', 'fa-regular', 'fa-brands', 'fa-fw'])
 const used = new Map()
 
 async function walk(directory) {

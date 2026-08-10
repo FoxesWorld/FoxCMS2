@@ -1,0 +1,2 @@
+import{Bt as e,W as t,tt as n}from"./runtime-dom.esm-bundler-CcRVt9LH.js";import{t as r}from"./NewsFeed-BJjzvocW.js";var i=n({__name:`NewsListView`,setup(n){return(n,i)=>(e(),t(r,{archive:``}))}});export{i as default};
+//# sourceMappingURL=NewsListView-B2bPXwAG.js.map

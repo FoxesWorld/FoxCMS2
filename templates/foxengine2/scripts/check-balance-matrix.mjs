@@ -12,7 +12,7 @@ const files = {
   adminApi: join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'AdminUserController.class.php'),
   normalizer: join(repositoryRoot, 'engine', 'client', 'domain', 'userBalance.ts'),
   shell: join(repositoryRoot, 'engine', 'client', 'shell', 'useEngineShell.ts'),
-  userBlock: join(themeRoot, 'src', 'UserBlock.vue'),
+  profilePopover: join(themeRoot, 'src', 'user-panel', 'ProfilePopover.vue'),
   profileView: join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'client', 'views', 'ProfileView.vue'),
   profileShell: join(themeRoot, 'src', 'userOptions', 'userOptions', 'Profile.vue'),
   profileSection: join(themeRoot, 'src', 'userOptions', 'userOptions', 'profile', 'ProfileDataSection.vue'),
@@ -43,7 +43,7 @@ for (const [name, tokens] of Object.entries({
   adminApi: ['BalanceMatrix::normalize', 'BalanceMatrix::encode'],
   normalizer: ["code: 'units' | 'crystals'", 'normalizeBalanceMatrix', 'balanceCurrencyIconPath', 'formatBalanceAmount', 'Object.entries(entry)'],
   shell: ['normalizeBalanceMatrix(appBootstrap.user.balance)', 'balance,'],
-  userBlock: ['profile-dropdown__item--balance', 'balanceCurrencies', 'themeAsset(appBootstrap, balanceCurrencyIconPath(currency.code))', '<img :src="currency.icon"'],
+  profilePopover: ['profile-dropdown__item--balance', 'balanceCurrencies', 'themeAsset(appBootstrap, balanceCurrencyIconPath(currency.code))', '<img :src="currency.icon"'],
   profileView: ['themeAsset(appBootstrap, balanceCurrencyIconPath(currency.code))', 'kind: currency.code'],
   profileShell: ['variant="balance"', ':entries="balances"'],
   profileSection: ['profile-data-section--balance', 'profile-balance-grid', 'profile-balance-footer', 'profile-data-grid__entry--icon', 'entry.kind'],
@@ -68,7 +68,7 @@ for (const [name, relativePath] of Object.entries({
   }
 }
 
-if (source.userBlock.includes('fa-gem') || source.userBlock.includes('fa-coins')
+if (source.profilePopover.includes('fa-gem') || source.profilePopover.includes('fa-coins')
     || source.adminEditor.includes('fa-gem') || source.adminEditor.includes('fa-coins')) {
   failures.push('Currency UI must use project PNG icons instead of Font Awesome placeholders')
 }
@@ -94,7 +94,7 @@ if (source.migration.includes("TRIM(`balance`) IN")) {
 for (const token of ['units_fallback_text', 'JSON_VALID(`balance_text`)', '$[0].crystals', '$[1].units']) {
   if (!source.migration.includes(token)) failures.push(`Legacy balance staging contract is missing ${token}`)
 }
-if (!source.userBlock.includes('role="menuitem"') || !source.userBlock.includes('aria-disabled="true"')) {
+if (!source.profilePopover.includes('role="menuitem"') || !source.profilePopover.includes('aria-disabled="true"')) {
   failures.push('Static balance panel must preserve menu accessibility semantics')
 }
 

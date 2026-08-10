@@ -15,10 +15,14 @@ const files = {
   application: join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Application', 'UserSessionSynchronizer.php'),
   health: join(repositoryRoot, 'engine', 'classes', 'services', 'HealthCheckService.class.php'),
   manifest: join(themeRoot, 'frontend.json'),
-  userBlock: join(themeRoot, 'src', 'UserBlock.vue'),
+  userBlock: join(themeRoot, 'src', 'user-panel', 'ProfilePopover.vue'),
   router: join(repositoryRoot, 'engine', 'client', 'router', 'index.ts'),
   client: join(repositoryRoot, 'engine', 'client', 'sessions', 'userSessions.ts'),
   view: join(repositoryRoot, 'engine', 'client', 'views', 'DevicesView.vue'),
+  devicesController: join(repositoryRoot, 'engine', 'client', 'devices', 'useDevicesCenter.ts'),
+  devicesHero: join(repositoryRoot, 'engine', 'client', 'devices', 'DevicesHero.vue'),
+  currentSessionBanner: join(repositoryRoot, 'engine', 'client', 'devices', 'CurrentSessionBanner.vue'),
+  deviceCard: join(repositoryRoot, 'engine', 'client', 'devices', 'DeviceSessionCard.vue'),
 }
 const values = await Promise.all(Object.values(files).map((path) => readFile(path, 'utf8')))
 const source = Object.fromEntries(Object.keys(files).map((key, index) => [key, values[index]]))
@@ -156,14 +160,16 @@ requireText('Device sessions client', source.client, [
   'export async function revokeUserSession',
   'revokingSessionUuid',
 ])
-requireText('My devices page', source.view, [
+const devicesUi = [source.view, source.devicesController, source.devicesHero, source.currentSessionBanner, source.deviceCard].join('\n')
+requireText('My devices page', devicesUi, [
   'Мои устройства',
   'Текущее устройство',
   'Последняя активность',
   'Действует до',
   'session.remembered',
   'userSessions.activeCount',
-  'deactivateSession(session)',
+  'async function deactivateSession(',
+  '@revoke="deactivateSession"',
   'device-session-card__revoke',
   'userSessions.revokingSessionUuid',
 ])

@@ -48,7 +48,11 @@ final class AdminSystemController
         $fallback = is_array($this->config['siteSettings'] ?? null)
             ? $this->config['siteSettings']
             : [];
-        $this->responder->send($this->siteSettings->current($fallback));
+        $state = $this->siteSettings->current($fallback);
+        if (is_array($state['settings'] ?? null)) {
+            unset($state['settings']['smtpPassword']);
+        }
+        $this->responder->send($state);
     }
 
     public function saveSiteSettings(): never
@@ -69,6 +73,9 @@ final class AdminSystemController
             'INFO',
             'success',
         );
+        if (is_array($state['settings'] ?? null)) {
+            unset($state['settings']['smtpPassword']);
+        }
         $this->responder->send(array_merge($state, [
             'message' => 'Настройки сайта и SEO сохранены. Публичные метатеги обновятся при следующей загрузке страницы.',
             'type' => 'success',
