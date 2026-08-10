@@ -7,6 +7,7 @@ import RegisterPage from '@theme/userOptions/content/guest/Reg.vue'
 import { foxesApi, foxesApiFailureFeedback } from '@/api'
 import { queuePayloadToast, showToast, toastFeedback } from '@/notifications/toasts'
 import { focusFormField } from '@/forms/focusFormField'
+import { hcaptchaRequired } from '@/security/hcaptcha'
 
 interface RegisterResponse {
   type: 'success' | 'error' | 'warning' | 'warn' | string
@@ -80,8 +81,12 @@ function localValidationFailure(): LocalValidationFailure | null {
   return null
 }
 
-async function submit(): Promise<void> {
+async function submit(hcaptchaToken = ''): Promise<void> {
   feedback.value = null
+  if (hcaptchaRequired('registration') && !hcaptchaToken) {
+    feedback.value = toastFeedback({ type: 'error', message: t('engine.security.hcaptcha.003') })
+    return
+  }
   if (!form.acceptRules || !form.dataProcessing) {
     feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.registerview.017') })
     return
@@ -102,6 +107,7 @@ async function submit(): Promise<void> {
       email: form.email.trim(),
       password1: form.password1,
       password2: form.password2,
+      hcaptchaToken,
     })
     feedback.value = response
     if (response.type === 'success') {

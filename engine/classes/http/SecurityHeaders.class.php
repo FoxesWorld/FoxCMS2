@@ -18,7 +18,8 @@ final class SecurityHeaders
         header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()');
         header('X-Permitted-Cross-Domain-Policies: none');
 
-        $connectSources = ["'self'"];
+        $hcaptchaSources = ['https://hcaptcha.com', 'https://*.hcaptcha.com'];
+        $connectSources = array_merge(["'self'"], $hcaptchaSources);
         if ($development) {
             $connectSources[] = 'ws:';
             $connectSources[] = 'wss:';
@@ -30,8 +31,9 @@ final class SecurityHeaders
             "frame-ancestors 'none'",
             "form-action 'self'",
             "object-src 'none'",
-            "script-src 'self'",
-            "style-src 'self'",
+            "script-src 'self' " . implode(' ', $hcaptchaSources),
+            "style-src 'self' " . implode(' ', $hcaptchaSources),
+            'frame-src ' . implode(' ', $hcaptchaSources),
             "img-src 'self' data: blob:",
             "font-src 'self' data:",
             "media-src 'self'",

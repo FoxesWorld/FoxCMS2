@@ -34,8 +34,19 @@ const pageRepository = await readRepository('engine/classes/themes/ThemePageTemp
 const optionsRepository = await readRepository('engine/classes/themes/ThemeUserOptionsRepository.class.php')
 const vite = await readFile(join(themeRoot, 'vite.config.ts'), 'utf8')
 
-if (!security.includes('"script-src \'self\'"')) failures.push('CSP must keep script-src limited to self')
+for (const token of [
+  "$hcaptchaSources = ['https://hcaptcha.com', 'https://*.hcaptcha.com']",
+  "\"script-src 'self' \" . implode(' ', $hcaptchaSources)",
+  "\"style-src 'self' \" . implode(' ', $hcaptchaSources)",
+  "'frame-src ' . implode(' ', $hcaptchaSources)",
+  "'connect-src ' . implode(' ', $connectSources)",
+]) {
+  if (!security.includes(token)) failures.push(`CSP hCaptcha allowlist is missing ${token}`)
+}
 if (security.includes('unsafe-eval') || security.includes('unsafe-inline')) failures.push('CSP must not be weakened for runtime templates')
+if (security.includes("script-src https:") || security.includes("frame-src https:") || security.includes("connect-src https:")) {
+  failures.push('CSP must not allow arbitrary HTTPS origins for hCaptcha')
+}
 if (!vite.includes('vue.runtime.esm-bundler.js')) failures.push('Vite must use the runtime-only Vue build')
 if (vite.includes("vue.esm-bundler.js'")) failures.push('Vite still references the browser template compiler build')
 for (const token of [

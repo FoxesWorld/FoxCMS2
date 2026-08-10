@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import PassResetPage from '@theme/userOptions/content/guest/PassReset.vue'
 import { foxesApi } from '@/api'
 import { toastFeedback } from '@/notifications/toasts'
+import { hcaptchaRequired } from '@/security/hcaptcha'
 
 interface ApiResponse { type: 'success' | 'error' | string; message: string }
 const route = useRoute()
@@ -15,8 +16,12 @@ const form = reactive({ password: '', confirmation: '' })
 const submitting = ref(false)
 const feedback = ref<ApiResponse | null>(null)
 
-async function submit(): Promise<void> {
+async function submit(hcaptchaToken = ''): Promise<void> {
   feedback.value = null
+  if (hcaptchaRequired('passwordReset') && !hcaptchaToken) {
+    feedback.value = toastFeedback({ type: 'error', message: t('engine.security.hcaptcha.003') })
+    return
+  }
   if (!token.value) { feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.resetpasswordview.001') }); return }
   if (form.password !== form.confirmation) { feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.resetpasswordview.002') }); return }
   if (form.password.length < 10 || /[А-Яа-яЁё]/u.test(form.password)) { feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.resetpasswordview.003') }); return }
@@ -28,6 +33,7 @@ async function submit(): Promise<void> {
       token: token.value,
       new_password: form.password,
       confirm_password: form.confirmation,
+      hcaptchaToken,
     })
     if (feedback.value.type === 'success') window.setTimeout(() => void router.push({ name: 'auth' }), 1000)
   } catch (error) {

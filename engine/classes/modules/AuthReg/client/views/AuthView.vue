@@ -7,6 +7,7 @@ import AuthPage from '@theme/userOptions/content/guest/Auth.vue'
 import { foxesApi, foxesApiFailureFeedback } from '@/api'
 import { queuePayloadToast, toastFeedback } from '@/notifications/toasts'
 import { focusFormField } from '@/forms/focusFormField'
+import { hcaptchaRequired } from '@/security/hcaptcha'
 
 interface AuthResponse {
   type: 'success' | 'error' | 'warning' | 'warn' | string
@@ -22,8 +23,12 @@ const form = reactive({ login: '', password: '', rememberMe: true })
 const submitting = ref(false)
 const feedback = ref<AuthResponse | null>(null)
 
-async function submit(): Promise<void> {
+async function submit(hcaptchaToken = ''): Promise<void> {
   feedback.value = null
+  if (hcaptchaRequired('login') && !hcaptchaToken) {
+    feedback.value = toastFeedback({ type: 'error', message: t('engine.security.hcaptcha.003') })
+    return
+  }
   const login = form.login.trim()
   if (!login) {
     feedback.value = toastFeedback({ type: 'error', message: t('modules.authreg.authview.001') })
@@ -51,6 +56,7 @@ async function submit(): Promise<void> {
       login,
       password: form.password,
       rememberMe: form.rememberMe ? 1 : 0,
+      hcaptchaToken,
     })
     feedback.value = response
     if (response.type === 'success') {

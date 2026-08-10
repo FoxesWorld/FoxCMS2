@@ -1,8 +1,9 @@
-<fox-user-options-template id="admin-panel" schema="1" revision="6" updated-at="2026-08-10T04:52:00Z">
+<fox-user-options-template id="admin-panel" schema="1" revision="7" updated-at="2026-08-10T06:34:00Z">
   <fox-admin-categories>
     <fox-admin-category id="observability" label="Обзор и контроль" description="Состояние проекта, метрики и диагностика" icon="fa-chart-line" order="10" enabled="true" />
     <fox-admin-category id="community" label="Сообщество" description="Игроки, группы, награды и справочники" icon="fa-users" order="20" enabled="true" />
     <fox-admin-category id="content" label="Контент и оформление" description="Страницы, слайды, SEO и параметры сайта" icon="fa-layer-group" order="30" enabled="true" />
+    <fox-admin-category id="security" label="Безопасность" description="Антибот-защита, доступ и защитные механизмы" icon="fa-shield-halved" order="35" enabled="true" />
     <fox-admin-category id="infrastructure" label="Инфраструктура" description="Серверы, хранилище и режим обслуживания" icon="fa-server" order="40" enabled="true" />
   </fox-admin-categories>
   <fox-admin-tools>
@@ -17,6 +18,7 @@
     <fox-admin-tool id="content" component="Content" tab="content" category="content" label="Страницы" description="HTML-содержимое, runtime-шаблоны страниц и страницы бейджей" icon="fa-newspaper" order="10" enabled="true" />
     <fox-admin-tool id="slides" component="Slides" tab="slides" category="content" label="Слайды" description="Главный слайдер, изображения и переходы" icon="fa-images" order="20" enabled="true" />
     <fox-admin-tool id="settings" component="SiteSettings" tab="settings" category="content" label="Настройки сайта" description="Title, SEO, метаданные и оформление" icon="fa-sliders" order="30" enabled="true" />
+    <fox-admin-tool id="hcaptcha" component="HCaptcha" tab="hcaptcha" category="security" label="hCaptcha" description="Site Key, Secret Key и защита публичных форм" icon="fa-shield" order="10" enabled="true" />
     <fox-admin-tool id="runtime-options" component="RuntimeOptions" tab="runtime-options" category="content" label="Runtime-опции" description="Композиция профиля и административных инструментов без пересборки frontend chunks." icon="fa-puzzle-piece" order="40" enabled="true" protected="true" />
     <fox-admin-tool id="servers" component="Servers" tab="servers" category="infrastructure" label="Серверы" description="Игровая сеть, runtime JDK и параметры запуска" icon="fa-server" order="10" enabled="true" />
     <fox-admin-tool id="files" component="FileManager" tab="files" category="infrastructure" label="Файлы" description="Хранилище uploads, загрузка и каталоги" icon="fa-folder-open" order="20" enabled="true" />
@@ -163,6 +165,14 @@
             :image-error="siteSocialImageError"
             @upload-image="uploadSiteSocialImage"
             @clear-image="clearSiteSocialImage"
+            @save="saveSiteSettings"
+          />
+          <AdminHCaptcha
+            v-else-if="activeTab === 'hcaptcha'"
+            :settings="siteSettings"
+            :loading="loading"
+            :updated-at="siteSettingsUpdatedAt"
+            :storage-ready="siteSettingsStorageReady"
             @save="saveSiteSettings"
           />
           <AdminMail

@@ -12,6 +12,7 @@ import AdminCategoryView from '@theme/foxEngine/admin/Category.vue'
 
 const loadAdminOverview = () => import('@theme/foxEngine/admin/Overview.vue')
 const loadAdminSiteSettings = () => import('@theme/foxEngine/admin/SiteSettings.vue')
+const loadAdminHCaptcha = () => import('@theme/foxEngine/admin/HCaptcha.vue')
 const loadAdminMail = () => import('@theme/foxEngine/admin/Mail.vue')
 const loadAdminSlides = () => import('@theme/foxEngine/admin/Slides.vue')
 const loadAdminContent = () => import('@theme/foxEngine/admin/Content.vue')
@@ -27,6 +28,7 @@ const loadAdminRuntimeOptions = () => import('@theme/foxEngine/admin/RuntimeOpti
 
 const AdminOverview = defineAsyncComponent(loadAdminOverview)
 const AdminSiteSettings = defineAsyncComponent(loadAdminSiteSettings)
+const AdminHCaptcha = defineAsyncComponent(loadAdminHCaptcha)
 const AdminMail = defineAsyncComponent(loadAdminMail)
 const AdminSlides = defineAsyncComponent(loadAdminSlides)
 const AdminContent = defineAsyncComponent(loadAdminContent)
@@ -43,6 +45,7 @@ const AdminRuntimeOptions = defineAsyncComponent(loadAdminRuntimeOptions)
 const adminToolLoaders = {
   overview: loadAdminOverview,
   settings: loadAdminSiteSettings,
+  hcaptcha: loadAdminHCaptcha,
   mail: loadAdminMail,
   slides: loadAdminSlides,
   content: loadAdminContent,
@@ -150,6 +153,7 @@ const adminTemplateComponents = markRaw({
   AdminCategoryView,
   AdminOverview,
   AdminSiteSettings,
+  AdminHCaptcha,
   AdminMail,
   AdminSlides,
   AdminContent,

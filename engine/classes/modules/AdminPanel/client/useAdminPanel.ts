@@ -16,7 +16,7 @@ import {
   type RuntimePageTemplatesDocument,
 } from '@/runtime/pageTemplates'
 
-export type Tab = 'overview' | 'settings' | 'mail' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
+export type Tab = 'overview' | 'settings' | 'hcaptcha' | 'mail' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type CatalogName = 'infobox' | 'badges' | 'groups'
 export type AdminToolId = Exclude<Tab, 'catalogs'> | 'infobox' | 'badges' | 'groups'
 export type AdminSection = 'home' | AdminToolId
@@ -196,6 +196,14 @@ export interface SiteSettings {
   googleVerification: string
   yandexVerification: string
   bingVerification: string
+  hcaptchaEnabled: boolean
+  hcaptchaSiteKey: string
+  hcaptchaSecret: string
+  hcaptchaSecretConfigured: boolean
+  hcaptchaProtectLogin: boolean
+  hcaptchaProtectRegistration: boolean
+  hcaptchaProtectPasswordRecovery: boolean
+  hcaptchaProtectPasswordReset: boolean
 }
 
 export interface MailSettings {
@@ -574,6 +582,14 @@ export function useAdminPanel() {
     googleVerification: '',
     yandexVerification: '',
     bingVerification: '',
+    hcaptchaEnabled: false,
+    hcaptchaSiteKey: '',
+    hcaptchaSecret: '',
+    hcaptchaSecretConfigured: false,
+    hcaptchaProtectLogin: true,
+    hcaptchaProtectRegistration: true,
+    hcaptchaProtectPasswordRecovery: true,
+    hcaptchaProtectPasswordReset: true,
   })
   const siteSettingsUpdatedAt = ref('')
   const siteSettingsStorageReady = ref(false)
@@ -785,7 +801,7 @@ export function useAdminPanel() {
       storageReady: boolean
     }>({ admPanel: 'siteSettings' }))
     if (!response) return
-    Object.assign(siteSettings, response.settings)
+    Object.assign(siteSettings, response.settings, { hcaptchaSecret: '' })
     siteSettingsUpdatedAt.value = response.updatedAt || ''
     siteSettingsStorageReady.value = response.storageReady
     siteSocialImageError.value = ''
@@ -824,7 +840,7 @@ export function useAdminPanel() {
     }))
     if (!response) return
     feedback.value = response
-    Object.assign(siteSettings, response.settings)
+    Object.assign(siteSettings, response.settings, { hcaptchaSecret: '' })
     siteSettingsUpdatedAt.value = response.updatedAt || ''
     siteSettingsStorageReady.value = response.storageReady
   }
@@ -1623,7 +1639,7 @@ export function useAdminPanel() {
     activeTab.value = tool.tab
     if (tool.catalog) catalogName.value = tool.catalog
     if (tool.tab === 'overview') await loadOverview()
-    if (tool.tab === 'settings') await loadSiteSettings()
+    if (tool.tab === 'settings' || tool.tab === 'hcaptcha') await loadSiteSettings()
     if (tool.tab === 'mail') await loadMailSettings()
     if (tool.tab === 'slides') await loadSlides()
     if (tool.tab === 'content') await loadContent()

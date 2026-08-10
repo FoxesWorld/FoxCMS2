@@ -65,15 +65,35 @@ final class SiteSettingsRepository
      */
     public function save(array $input, array $fallback, string $updatedByUuid): array
     {
-        $settings = $this->normalize(array_replace($fallback, $input), $fallback);
+        $stored = [];
+        if ($this->exists()) {
+            try {
+                $document = $this->readDocument();
+                $stored = is_array($document['settings'] ?? null) ? $document['settings'] : [];
+            } catch (Throwable) {
+                $stored = [];
+            }
+        }
+
+        // Password-like settings are write-only in the admin UI. An empty submitted
+        // value means "keep the currently configured secret", not "erase it".
+        if (array_key_exists('hcaptchaSecret', $input) && trim((string)$input['hcaptchaSecret']) === '') {
+            unset($input['hcaptchaSecret']);
+        }
+
+        $settings = $this->normalize(array_replace($fallback, $stored, $input), $fallback);
         $updatedByUuid = Uuid::isValid($updatedByUuid) ? Uuid::canonical($updatedByUuid) : '';
         $updatedAt = gmdate('c');
+
+        // hCaptcha is fully admin-managed. The normalized values, including the
+        // write-only secret, are persisted exclusively in site-settings.json.
+        $persistedSettings = $settings;
 
         $this->writeDocument([
             'schema' => self::SCHEMA,
             'updatedAt' => $updatedAt,
             'updatedByUuid' => $updatedByUuid,
-            'settings' => $settings,
+            'settings' => $persistedSettings,
         ]);
 
         return [
@@ -234,6 +254,13 @@ final class SiteSettingsRepository
             'googleVerification' => $this->token((string)($values['googleVerification'] ?? '')),
             'yandexVerification' => $this->token((string)($values['yandexVerification'] ?? '')),
             'bingVerification' => $this->token((string)($values['bingVerification'] ?? '')),
+            'hcaptchaEnabled' => $this->boolean($values['hcaptchaEnabled'] ?? $fallback['hcaptchaEnabled'] ?? false),
+            'hcaptchaSiteKey' => $this->hcaptchaSiteKey((string)($values['hcaptchaSiteKey'] ?? $fallback['hcaptchaSiteKey'] ?? '')),
+            'hcaptchaSecret' => $this->secret((string)($values['hcaptchaSecret'] ?? $fallback['hcaptchaSecret'] ?? '')),
+            'hcaptchaProtectLogin' => $this->boolean($values['hcaptchaProtectLogin'] ?? $fallback['hcaptchaProtectLogin'] ?? true),
+            'hcaptchaProtectRegistration' => $this->boolean($values['hcaptchaProtectRegistration'] ?? $fallback['hcaptchaProtectRegistration'] ?? true),
+            'hcaptchaProtectPasswordRecovery' => $this->boolean($values['hcaptchaProtectPasswordRecovery'] ?? $fallback['hcaptchaProtectPasswordRecovery'] ?? true),
+            'hcaptchaProtectPasswordReset' => $this->boolean($values['hcaptchaProtectPasswordReset'] ?? $fallback['hcaptchaProtectPasswordReset'] ?? true),
             'mailMethod' => $this->enum((string)($values['mailMethod'] ?? $fallback['mailMethod'] ?? 'smtp'), self::MAIL_METHODS, 'smtp'),
             'mailFromAddress' => $this->email((string)($values['mailFromAddress'] ?? $fallback['mailFromAddress'] ?? '')),
             'mailFromName' => $this->text($values['mailFromName'] ?? $fallback['mailFromName'] ?? 'FoxesCraft', 120, 'FoxesCraft'),
@@ -345,6 +372,20 @@ final class SiteSettingsRepository
             return '';
         }
         return $value;
+    }
+
+    private function boolean(mixed $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function hcaptchaSiteKey(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        return preg_match('/^[A-Za-z0-9_-]{10,180}$/D', $value) === 1 ? $value : '';
     }
 
     private function email(string $value): string

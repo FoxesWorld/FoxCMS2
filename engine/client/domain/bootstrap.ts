@@ -58,6 +58,16 @@ export interface FoxesCraftBootstrap {
     locale: string
     themeColor: string
     ogImage: string
+    hcaptcha: {
+      enabled: boolean
+      siteKey: string
+      forms: {
+        login: boolean
+        registration: boolean
+        passwordRecovery: boolean
+        passwordReset: boolean
+      }
+    }
   }
   user: Record<string, BootstrapValue>
   frontend: {
@@ -90,6 +100,11 @@ function emptyBootstrap(): FoxesCraftBootstrap {
       locale: 'ru_RU',
       themeColor: '#152019',
       ogImage: '',
+      hcaptcha: {
+        enabled: false,
+        siteKey: '',
+        forms: { login: true, registration: true, passwordRecovery: true, passwordReset: true },
+      },
     },
     user: { isLogged: false, groupTag: 'guest', login: 'anonymous' },
     frontend: { routes: [], navigation: [], legacy: [], capabilities: [], endpoints: {} },
@@ -143,6 +158,20 @@ export function readBootstrap(): FoxesCraftBootstrap {
         locale: typeof site.locale === 'string' ? site.locale : fallback.site.locale,
         themeColor: typeof site.themeColor === 'string' ? site.themeColor : fallback.site.themeColor,
         ogImage: typeof site.ogImage === 'string' ? site.ogImage : '',
+        hcaptcha: (() => {
+          const captcha = record(site.hcaptcha)
+          const forms = record(captcha.forms)
+          return {
+            enabled: captcha.enabled === true,
+            siteKey: typeof captcha.siteKey === 'string' ? captcha.siteKey : '',
+            forms: {
+              login: forms.login !== false,
+              registration: forms.registration !== false,
+              passwordRecovery: forms.passwordRecovery !== false,
+              passwordReset: forms.passwordReset !== false,
+            },
+          }
+        })(),
       },
       user: record(value.user),
       frontend: {

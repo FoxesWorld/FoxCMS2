@@ -178,6 +178,18 @@ final class ThemeRenderer
                 'locale' => (string)($site['locale'] ?? 'ru_RU'),
                 'themeColor' => (string)($site['themeColor'] ?? '#152019'),
                 'ogImage' => (string)($site['ogImage'] ?? ''),
+                'hcaptcha' => [
+                    'enabled' => (bool)($site['hcaptchaEnabled'] ?? false)
+                        && trim((string)($site['hcaptchaSiteKey'] ?? '')) !== ''
+                        && trim((string)($site['hcaptchaSecret'] ?? '')) !== '',
+                    'siteKey' => (string)($site['hcaptchaSiteKey'] ?? ''),
+                    'forms' => [
+                        'login' => (bool)($site['hcaptchaProtectLogin'] ?? true),
+                        'registration' => (bool)($site['hcaptchaProtectRegistration'] ?? true),
+                        'passwordRecovery' => (bool)($site['hcaptchaProtectPasswordRecovery'] ?? true),
+                        'passwordReset' => (bool)($site['hcaptchaProtectPasswordReset'] ?? true),
+                    ],
+                ],
             ],
             'user' => $safeUser,
             'frontend' => $this->frontend,

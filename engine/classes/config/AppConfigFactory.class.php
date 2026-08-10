@@ -6,7 +6,8 @@ final class AppConfigFactory
 {
     /**
      * Build and validate the compatibility configuration array consumed by
-     * current modules. Environment variables remain the only secret source.
+     * current modules. Runtime site settings are loaded separately from the
+     * admin-managed engine/data/site-settings.json document.
      *
      * @return array<string, mixed>
      */
@@ -23,8 +24,6 @@ final class AppConfigFactory
             throw new RuntimeException('Invalid FOXESCRAFT_TIMEZONE value.', 0, $exception);
         }
 
-        $recaptchaPublicKey = trim(foxEnv('FOXESCRAFT_RECAPTCHA_PUBLIC_KEY', '') ?? '');
-        $recaptchaSecretKey = trim(foxEnv('FOXESCRAFT_RECAPTCHA_SECRET_KEY', '') ?? '');
         $publicBaseUrl = rtrim(foxEnv('FOXESCRAFT_PUBLIC_BASE_URL', '') ?? '', '/');
         if ($publicBaseUrl !== '' && filter_var($publicBaseUrl, FILTER_VALIDATE_URL) === false) {
             throw new RuntimeException('FOXESCRAFT_PUBLIC_BASE_URL must be an absolute URL.');
@@ -115,11 +114,6 @@ final class AppConfigFactory
                 'sessionSeconds' => max(300, foxEnvInt('FOXESCRAFT_LAUNCHER_SESSION_SECONDS', 900)),
             ],
             'securitySetings' => [
-                'reCaptchaCheck' => foxEnvBool('FOXESCRAFT_RECAPTCHA_ENABLED', false)
-                    && $recaptchaPublicKey !== ''
-                    && $recaptchaSecretKey !== '',
-                'reCaptchaSecret' => $recaptchaSecretKey,
-                'reCaptchaWebsite' => $recaptchaPublicKey,
                 'bantime' => (string)max(1, foxEnvInt('FOXESCRAFT_AUTH_BAN_MINUTES', 20)),
                 'maxLoginAttempts' => (string)max(1, foxEnvInt('FOXESCRAFT_AUTH_MAX_ATTEMPTS', 5)),
                 'attemptWindowSeconds' => max(60, foxEnvInt('FOXESCRAFT_AUTH_ATTEMPT_WINDOW_SECONDS', 900)),

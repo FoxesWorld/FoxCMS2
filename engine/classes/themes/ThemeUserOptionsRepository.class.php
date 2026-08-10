@@ -32,6 +32,7 @@ final class ThemeUserOptionsRepository
         'content' => ['component' => 'Content', 'tab' => 'content'],
         'slides' => ['component' => 'Slides', 'tab' => 'slides'],
         'settings' => ['component' => 'SiteSettings', 'tab' => 'settings'],
+        'hcaptcha' => ['component' => 'HCaptcha', 'tab' => 'hcaptcha'],
         'mail' => ['component' => 'Mail', 'tab' => 'mail'],
         'runtime-options' => ['component' => 'RuntimeOptions', 'tab' => 'runtime-options'],
         'servers' => ['component' => 'Servers', 'tab' => 'servers'],
@@ -42,7 +43,7 @@ final class ThemeUserOptionsRepository
     private const ALLOWED_COMPONENTS = [
         'profile-settings' => ['Suspense', 'ProfileOption', 'AppearanceOption', 'SecurityOption'],
         'admin-panel' => [
-            'Suspense', 'AdminDashboard', 'AdminCategoryView', 'AdminOverview', 'AdminSiteSettings', 'AdminMail',
+            'Suspense', 'AdminDashboard', 'AdminCategoryView', 'AdminOverview', 'AdminSiteSettings', 'AdminHCaptcha', 'AdminMail',
             'AdminSlides', 'AdminContent', 'AdminRewards', 'AdminMaintenance', 'AdminUsers', 'AdminAchievements',
             'AdminServers', 'AdminFileManager', 'AdminLogs', 'AdminRuntimeOptions', 'AdminCatalogs',
         ],

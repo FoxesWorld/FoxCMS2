@@ -49,9 +49,7 @@ final class AdminSystemController
             ? $this->config['siteSettings']
             : [];
         $state = $this->siteSettings->current($fallback);
-        if (is_array($state['settings'] ?? null)) {
-            unset($state['settings']['smtpPassword']);
-        }
+        $this->sanitizeSiteSettingsState($state);
         $this->responder->send($state);
     }
 
@@ -61,6 +59,21 @@ final class AdminSystemController
         $fallback = is_array($this->config['siteSettings'] ?? null)
             ? $this->config['siteSettings']
             : [];
+        if (filter_var($entry['hcaptchaEnabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $current = $this->siteSettings->current($fallback);
+            $currentSettings = is_array($current['settings'] ?? null) ? $current['settings'] : [];
+            $siteKey = trim((string)($entry['hcaptchaSiteKey'] ?? $currentSettings['hcaptchaSiteKey'] ?? ''));
+            $secret = trim((string)($entry['hcaptchaSecret'] ?? ''));
+            if ($secret === '') {
+                $secret = trim((string)($currentSettings['hcaptchaSecret'] ?? ''));
+            }
+            if ($siteKey === '' || $secret === '') {
+                $this->responder->send([
+                    'message' => 'Для включения hCaptcha укажите Site Key и Secret Key в настройках сайта.',
+                    'type' => 'error',
+                ], 422);
+            }
+        }
         $state = $this->siteSettings->save($entry, $fallback, $this->session->uuid());
         $this->logger->event(
             'admin.site_settings.updated',
@@ -73,9 +86,7 @@ final class AdminSystemController
             'INFO',
             'success',
         );
-        if (is_array($state['settings'] ?? null)) {
-            unset($state['settings']['smtpPassword']);
-        }
+        $this->sanitizeSiteSettingsState($state);
         $this->responder->send(array_merge($state, [
             'message' => 'Настройки сайта и SEO сохранены. Публичные метатеги обновятся при следующей загрузке страницы.',
             'type' => 'success',
@@ -188,6 +199,17 @@ final class AdminSystemController
             );
         }
         $this->responder->send($result);
+    }
+
+    /** @param array<string, mixed> $state */
+    private function sanitizeSiteSettingsState(array &$state): void
+    {
+        if (!is_array($state['settings'] ?? null)) {
+            return;
+        }
+        $settings =& $state['settings'];
+        $settings['hcaptchaSecretConfigured'] = trim((string)($settings['hcaptchaSecret'] ?? '')) !== '';
+        unset($settings['smtpPassword'], $settings['hcaptchaSecret']);
     }
 
     private function scalar(string $sql, array $params = []): mixed

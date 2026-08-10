@@ -308,3 +308,7 @@
   font-size: .68rem;
   line-height: 1.45;
 }
+
+.site-settings-security .ui-checkbox { align-self: start; }
+.site-settings-captcha-scopes { display:grid; gap:10px; padding-top:4px; }
+.site-settings-captcha-scopes > strong { font-size:.82rem; }

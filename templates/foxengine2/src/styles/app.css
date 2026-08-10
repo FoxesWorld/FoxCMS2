@@ -360,3 +360,9 @@
 
 .notification-spinner { animation:notification-spin .9s linear infinite; }
 @keyframes notification-spin { to { transform:rotate(360deg); } }
+
+.hcaptcha-field { display:grid; gap:8px; max-width:100%; overflow:hidden; }
+.hcaptcha-field__widget { min-height:78px; }
+.hcaptcha-field__hint,.hcaptcha-field__error { font-size:.78rem; color:var(--color-text-muted); }
+.hcaptcha-field__error { color:var(--color-danger); }
+.hcaptcha-field[aria-disabled="true"] { opacity:.72; pointer-events:none; }

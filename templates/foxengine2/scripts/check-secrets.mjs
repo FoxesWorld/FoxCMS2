@@ -17,7 +17,7 @@ const ignoredFiles = new Set(['.env.example', 'package-lock.json', 'site-setting
 const extensions = new Set(['.php', '.js', '.mjs', '.cjs', '.ts', '.vue', '.json', '.yml', '.yaml', '.xml', '.ini'])
 const findings = []
 
-const contextualSecret = /(?:dbPass|db_pass|smtp_pass|smtpPassword|reCaptchaSecret|secretKey|accessToken|secureKey|apiToken|apiKey)\s*(?:=>|:|=)\s*["']([^"']{8,})["']/gi
+const contextualSecret = /(?:dbPass|db_pass|smtp_pass|smtpPassword|hcaptchaSecret|secretKey|accessToken|secureKey|apiToken|apiKey)\s*(?:=>|:|=)\s*["']([^"']{8,})["']/gi
 const privateKey = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g
 const credentialUrl = /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@/gi
 

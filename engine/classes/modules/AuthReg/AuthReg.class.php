@@ -94,6 +94,12 @@ final class AuthManager extends Module
             );
         }
 
+        if ($action === 'auth') {
+            $this->assertHCaptcha('login');
+        } elseif ($action === 'register') {
+            $this->assertHCaptcha('registration');
+        }
+
         $maintenance = (new MaintenanceModeRepository($this->db))->current();
         if (MaintenanceModePolicy::isEnabled($maintenance)
             && !MaintenanceModePolicy::allows($maintenance, $this->session)
@@ -135,6 +141,42 @@ final class AuthManager extends Module
                 auditContext: ['action' => mb_substr($action, 0, 64)],
             ),
         };
+    }
+
+    private function assertHCaptcha(string $scope): void
+    {
+        if (!HCaptchaPolicy::required($this->config, $scope)) {
+            return;
+        }
+        $result = HCaptchaPolicy::verify($this->config, $this->request);
+        if (!$result['configured']) {
+            throw new AuthFailure(
+                'hCaptcha включена, но ключи сервиса не настроены.',
+                'hcaptcha_not_configured',
+                503,
+                severity: 'critical',
+            );
+        }
+        if ($result['transportError']) {
+            throw new AuthFailure(
+                'Сервис hCaptcha временно недоступен. Повторите попытку позже.',
+                'hcaptcha_unavailable',
+                503,
+                severity: 'warning',
+            );
+        }
+        if (!$result['success']) {
+            throw new AuthFailure(
+                'Подтвердите, что вы не робот, и повторите отправку формы.',
+                'hcaptcha_verification_failed',
+                422,
+                'hcaptchaToken',
+                severity: 'notice',
+                expected: ['hcaptchaVerified' => true],
+                actual: ['hcaptchaVerified' => false, 'errorCodes' => $result['errorCodes']],
+                auditContext: ['component' => 'security', 'scope' => $scope],
+            );
+        }
     }
 
     private function authenticate(array $maintenance): never

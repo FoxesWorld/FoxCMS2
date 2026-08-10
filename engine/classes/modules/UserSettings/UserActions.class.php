@@ -133,6 +133,23 @@ final class UserActions
         };
     }
 
+    private function assertHCaptcha(string $scope): void
+    {
+        if (!HCaptchaPolicy::required($this->config, $scope)) {
+            return;
+        }
+        $result = HCaptchaPolicy::verify($this->config, $this->request);
+        if (!$result['configured']) {
+            $this->responder->send(['type' => 'error', 'code' => 'hcaptcha_not_configured', 'message' => 'hCaptcha включена, но ключи сервиса не настроены.'], 503);
+        }
+        if ($result['transportError']) {
+            $this->responder->send(['type' => 'error', 'code' => 'hcaptcha_unavailable', 'message' => 'Сервис hCaptcha временно недоступен. Повторите попытку позже.'], 503);
+        }
+        if (!$result['success']) {
+            $this->responder->send(['type' => 'error', 'code' => 'hcaptcha_verification_failed', 'field' => 'hcaptchaToken', 'message' => 'Подтвердите, что вы не робот, и повторите отправку формы.'], 422);
+        }
+    }
+
     private function editUser(): never
     {
         require_once __DIR__ . '/actions/EditUser.class.php';
@@ -152,6 +169,7 @@ final class UserActions
 
     private function lostPassword(): never
     {
+        $this->assertHCaptcha('passwordRecovery');
         require_once __DIR__ . '/actions/lostpassword.class.php';
         (new LostPassword($this->db, $this->logger, $this->config))->resetPass(
             $this->request->string('email'),
@@ -160,6 +178,7 @@ final class UserActions
 
     private function resetPassword(): never
     {
+        $this->assertHCaptcha('passwordReset');
         require_once __DIR__ . '/actions/resetpassword.class.php';
         (new ResetPassword($this->db, $this->logger, $this->request))->reset(
             $this->request->string('token'),
