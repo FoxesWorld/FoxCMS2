@@ -72,8 +72,19 @@ final class AdminMailController
         $state = $this->currentState();
         $settings = is_array($state['settings'] ?? null) ? $state['settings'] : [];
 
+        if (($settings['mailMethod'] ?? 'smtp') === 'smtp' && !defined('OPENSSL_ALGO_SHA1')) {
+            $this->responder->send([
+                'success' => false,
+                'message' => 'PHP OpenSSL extension is not enabled.',
+                'type' => 'error',
+                'checkedAt' => gmdate('c'),
+                'code' => 'tls_extension_missing',
+                'hint' => $this->diagnosticHint('tls_extension_missing'),
+            ], 500);
+        }
+
         \UtilityLoader::load('FoxMail', '1.0.0');
-        $mailer = new \FoxMail(true, $settings);
+        $mailer = new \FoxMail(true, $settings, true);
         $diagnostic = $mailer->testConnection();
 
         if (!($diagnostic['success'] ?? false)) {
@@ -93,6 +104,12 @@ final class AdminMailController
                 'message' => (string)($diagnostic['message'] ?? 'SMTP diagnostic failed.'),
                 'type' => 'error',
                 'checkedAt' => gmdate('c'),
+                'code' => (string)($diagnostic['code'] ?? 'smtp_failed'),
+                'hint' => $this->diagnosticHint((string)($diagnostic['code'] ?? 'smtp_failed')),
+                'detail' => (string)($diagnostic['detail'] ?? ''),
+                'smtpCode' => (string)($diagnostic['smtpCode'] ?? ''),
+                'smtpReply' => (string)($diagnostic['smtpReply'] ?? ''),
+                'library' => (string)($diagnostic['library'] ?? ''),
             ], 400);
         }
 
@@ -150,7 +167,20 @@ final class AdminMailController
             'type' => 'success',
             'checkedAt' => gmdate('c'),
             'testMessageSent' => $sent === true,
+            'code' => 'ok',
+            'library' => (string)($diagnostic['library'] ?? ''),
         ]);
+    }
+
+    private function diagnosticHint(string $code): string
+    {
+        return match ($code) {
+            'authentication_failed' => 'For VK WorkSpace use the full mailbox address as the login and an application password, not the regular web-mail password.',
+            'tls_extension_missing' => 'Enable the PHP OpenSSL extension for the web-server PHP runtime before using SMTP over SSL/TLS.',
+            'tls_failed' => 'Check the server CA bundle/OpenSSL configuration and use smtp.mail.ru:465 with SSL/TLS.',
+            'connection_failed' => 'Check outbound TCP access to smtp.mail.ru:465, DNS resolution and firewall rules.',
+            default => 'Check the SMTP host, port, encryption mode, full mailbox login and application password.',
+        };
     }
 
     /** @return array<string,mixed> */

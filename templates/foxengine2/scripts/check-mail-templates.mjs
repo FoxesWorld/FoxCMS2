@@ -6,6 +6,8 @@ const failures = []
 const mailDirectory = join(themeRoot, 'data', 'mail')
 const legacyDirectory = join(themeRoot, 'mail')
 const foxMailPath = join(repositoryRoot, 'engine', 'classes', 'utils', 'FoxMail', '1.0.0', 'FoxMail.class.php')
+const legacyMailerPath = join(repositoryRoot, 'engine', 'classes', 'utils', 'FoxMail', '1.0.0', 'Mailer.class.php')
+const phpmailerPath = join(repositoryRoot, 'engine', 'classes', 'utils', 'FoxMail', '1.0.0', 'vendor', 'PHPMailer', 'PHPMailer.php')
 
 try {
   const directoryStat = await stat(mailDirectory)
@@ -33,6 +35,19 @@ for (const entry of entries) {
   if (!entry.isFile() || !/^[A-Za-z0-9_-]+\.html$/.test(entry.name)) {
     failures.push(`unsupported mail data entry: ${entry.name}`)
   }
+}
+
+
+try {
+  await access(legacyMailerPath)
+  failures.push('obsolete PHPMailer 5 monolith still exists: engine/classes/utils/FoxMail/1.0.0/Mailer.class.php')
+} catch { /* Expected after PHPMailer 7 migration. */ }
+
+try {
+  const phpmailer = await readFile(phpmailerPath, 'utf8')
+  if (!phpmailer.includes("const VERSION = '7.1.1';")) failures.push('bundled PHPMailer runtime must be 7.1.1')
+} catch {
+  failures.push('bundled PHPMailer 7.1.1 runtime is missing')
 }
 
 const foxMail = await readFile(foxMailPath, 'utf8')

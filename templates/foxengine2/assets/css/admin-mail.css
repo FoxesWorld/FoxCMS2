@@ -300,3 +300,12 @@
     width: 100%;
   }
 }
+
+.mail-diagnostic__hint {
+  margin-top: 6px;
+  opacity: .78;
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.mail-diagnostic__technical { display: block; margin-top: 8px; overflow-wrap: anywhere; white-space: pre-wrap; font-size: 12px; opacity: .82; }

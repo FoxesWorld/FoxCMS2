@@ -214,6 +214,12 @@ export interface MailTestStatus {
   message: string
   checkedAt: string
   testMessageSent?: boolean
+  code?: string
+  hint?: string
+  detail?: string
+  smtpCode?: string
+  smtpReply?: string
+  library?: string
 }
 
 export interface SlideRouteOption {
@@ -871,6 +877,12 @@ export function useAdminPanel() {
       message: response.message || '',
       checkedAt: response.checkedAt || '',
       testMessageSent: response.testMessageSent === true,
+      code: response.code || '',
+      hint: response.hint || '',
+      detail: response.detail || '',
+      smtpCode: response.smtpCode || '',
+      smtpReply: response.smtpReply || '',
+      library: response.library || '',
     }
   }
   async function loadUserOptionsEditor(): Promise<void> {

@@ -182,7 +182,9 @@ const passwordPlaceholder = computed(() => props.settings.passwordConfigured
           <div>
             <strong>{{ status.success ? t('theme.foxengine.admin.mail.033') : t('theme.foxengine.admin.mail.034') }}</strong>
             <p>{{ status.message }}</p>
-            <small>{{ status.checkedAt }}</small>
+            <p v-if="status.hint" class="mail-diagnostic__hint">{{ status.hint }}</p>
+            <code v-if="status.detail || status.smtpCode || status.smtpReply" class="mail-diagnostic__technical">{{ [status.detail, status.smtpCode, status.smtpReply].filter(Boolean).join(' / ') }}</code>
+            <small>{{ [status.library, status.checkedAt].filter(Boolean).join(' / ') }}</small>
           </div>
         </div>
       </section>
