@@ -1,8 +1,8 @@
-<fox-user-options-template id="profile-settings" schema="1" revision="1" updated-at="">
+<fox-user-options-template id="profile-settings" schema="1" revision="2" updated-at="2026-08-10T15:30:00Z">
   <fox-profile-options>
-    <fox-profile-option id="profile" component="ProfileOption" label="Профиль" description="Основные данные учётной записи." icon="fa-user" order="10" enabled="true" />
-    <fox-profile-option id="appearance" component="AppearanceOption" label="Оформление" description="Аватар, цвет интерфейса, скин и плащ." icon="fa-palette" order="20" enabled="true" />
-    <fox-profile-option id="security" component="SecurityOption" label="Безопасность" description="Пароль и параметры защиты аккаунта." icon="fa-shield-halved" order="30" enabled="true" />
+    <fox-profile-option id="profile" component="ProfileOption" label="i18n:theme.runtime.profile.option.profile.label" description="i18n:theme.runtime.profile.option.profile.description" icon="fa-user" order="10" enabled="true" />
+    <fox-profile-option id="appearance" component="AppearanceOption" label="i18n:theme.runtime.profile.option.appearance.label" description="i18n:theme.runtime.profile.option.appearance.description" icon="fa-palette" order="20" enabled="true" />
+    <fox-profile-option id="security" component="SecurityOption" label="i18n:theme.runtime.profile.option.security.label" description="i18n:theme.runtime.profile.option.security.description" icon="fa-shield-halved" order="30" enabled="true" />
   </fox-profile-options>
   <fox-template-body>
 <article class="content-surface settings-page" :style="{ '--settings-accent': accent }">
@@ -17,7 +17,7 @@
     </div>
     <div v-else-if="runtimeUserOptionsState.error" class="system-message system-message--error" role="alert">
       <strong>{{ t('theme.useroptions.useroptions.profilesettings.011') }}</strong>
-      <p>{{ runtimeUserOptionsState.error }}</p>
+      <p>{{ t('theme.useroptions.useroptions.profilesettings.013') }}</p>
     </div>
     <template v-else>
       <nav class="settings-tabs" :aria-label="t('theme.useroptions.useroptions.profilesettings.004')">

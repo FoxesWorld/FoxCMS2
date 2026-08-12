@@ -45,7 +45,7 @@ void loadRuntimePageTemplates().catch((error: unknown) => {
 <template>
   <div v-if="runtimePageTemplatesState.error" class="system-message system-message--error" role="alert">
     <strong>{{ t('engine.runtime.pagetemplates.003') }}</strong>
-    <p>{{ runtimePageTemplatesState.error }}</p>
+    <p>{{ t('engine.runtime.pagetemplates.004') }}</p>
   </div>
   <RuntimeTpl
     v-else-if="pageTemplate"

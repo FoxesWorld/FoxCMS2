@@ -1844,7 +1844,8 @@ html:has(.admin-workspace) {
 }
 
 .admin-achievements__hero,
-.admin-achievements__context,
+.admin-achievements__context-card,
+.admin-achievements__mods,
 .admin-achievements__danger-card,
 .admin-achievements__players {
   border: 1px solid var(--color-border);
@@ -1913,6 +1914,130 @@ html:has(.admin-workspace) {
 }
 .admin-achievements__context select { padding: 0 11px; }
 
+
+.admin-achievements__context-card,
+.admin-achievements__mods {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  padding: 17px;
+}
+.admin-achievements__context-card > header,
+.admin-achievements__section-header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.admin-achievements__context-card h3,
+.admin-achievements__mods h3,
+.admin-achievements__context-card p,
+.admin-achievements__mods p { margin: 0; }
+.admin-achievements__context-card h3,
+.admin-achievements__mods h3 { margin-top: 2px; }
+.admin-achievements__context-card p,
+.admin-achievements__mods p { margin-top: 5px; color: var(--color-text-muted); font-size: .72rem; line-height: 1.5; }
+.admin-achievements__section-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.admin-achievements__context-card .admin-achievements__context {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.admin-achievements__mods {
+  border-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
+  background: var(--color-surface-soft);
+}
+.admin-achievements__mod-picker {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-achievements__mod-picker label { min-width: min(520px, 100%); display: grid; gap: 6px; }
+.admin-achievements__mod-picker label > span { color: var(--color-text-muted); font-size: .68rem; font-weight: 850; }
+.admin-achievements__mod-picker select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.admin-achievements__mod-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, #bd8d39 30%, var(--color-border));
+  border-radius: 999px;
+  color: #bd8d39;
+  background: color-mix(in srgb, #bd8d39 7%, var(--color-surface));
+  font-size: .66rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.admin-achievements__mod-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.admin-achievements__mod-metrics article {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-surface);
+}
+.admin-achievements__mod-metrics article.is-ledger {
+  border-color: color-mix(in srgb, #bd8d39 24%, var(--color-border));
+  background: color-mix(in srgb, #bd8d39 4%, var(--color-surface));
+}
+.admin-achievements__mod-metrics small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: .58rem;
+  font-weight: 850;
+  letter-spacing: .025em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+.admin-achievements__mod-metrics strong { font-size: 1.05rem; }
+.admin-achievements__mod-actions,
+.admin-achievements__mod-ledger-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 22%, var(--color-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-danger) 4%, var(--color-surface));
+}
+.admin-achievements__mod-actions strong,
+.admin-achievements__mod-ledger-note strong { font-size: .78rem; }
+.admin-achievements__mod-actions p,
+.admin-achievements__mod-ledger-note p { margin: 4px 0 0; }
+.admin-achievements__mod-ledger-note {
+  grid-template-columns: 32px minmax(0, 1fr);
+  border-color: color-mix(in srgb, #bd8d39 24%, var(--color-border));
+  background: color-mix(in srgb, #bd8d39 5%, var(--color-surface));
+}
+.admin-achievements__mod-ledger-note > i { color: #bd8d39; text-align: center; }
+.admin-achievements__danger-button--mod { width: auto; white-space: nowrap; }
+
 .admin-achievements__metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1955,13 +2080,6 @@ html:has(.admin-workspace) {
 .admin-achievements__notice i { padding-top: 2px; color: var(--color-warning); }
 .admin-achievements__notice p { margin: 0; color: var(--color-text-muted); font-size: .72rem; line-height: 1.5; }
 
-.admin-achievements__workspace {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(280px, .72fr) minmax(0, 1.5fr);
-  gap: 14px;
-  align-items: start;
-}
 .admin-achievements__danger-card,
 .admin-achievements__players { min-width: 0; padding: 17px; }
 .admin-achievements__danger-card {
@@ -2102,7 +2220,7 @@ html:has(.admin-workspace) {
 .admin-achievements__spin { animation: admin-spin .85s linear infinite; }
 
 @media (max-width: 1050px) {
-  .admin-achievements__workspace { grid-template-columns: minmax(0, 1fr); }
+  .admin-achievements__mod-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-achievements__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
@@ -2110,11 +2228,16 @@ html:has(.admin-workspace) {
   .admin-achievements__context { align-items: stretch; flex-direction: column; }
   .admin-achievements__status { align-self: flex-start; }
   .admin-achievements__context label { min-width: 0; width: 100%; }
+  .admin-achievements__mod-picker { align-items: stretch; flex-direction: column; }
+  .admin-achievements__mod-picker label { min-width: 0; width: 100%; }
+  .admin-achievements__mod-actions { grid-template-columns: minmax(0, 1fr); }
+  .admin-achievements__danger-button--mod { width: 100%; }
   .admin-achievements__player { grid-template-columns: minmax(0, 1fr); }
   .admin-achievements__danger-button--compact { width: 100%; justify-self: stretch; }
 }
 @media (max-width: 520px) {
   .admin-achievements__metrics { grid-template-columns: minmax(0, 1fr); }
+  .admin-achievements__mod-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-achievements__search { grid-template-columns: minmax(0, 1fr); }
   .admin-achievements__player dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
 
-import { computed, defineAsyncComponent, markRaw, watch } from 'vue'
+import { computed, defineAsyncComponent, defineComponent, h, markRaw, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import RuntimeTpl from '@engine/runtime/RuntimeTpl.vue'
 import { runtimeUserOptionsState } from '@engine/runtime/userOptions'
@@ -9,17 +9,18 @@ import { useAdminPanel } from '@modules/AdminPanel/client/useAdminPanel'
 import type { AdminCategoryId, AdminSection, AdminToolId } from '@modules/AdminPanel/client/useAdminPanel'
 import AdminDashboard from '@theme/foxEngine/admin/Dashboard.vue'
 import AdminCategoryView from '@theme/foxEngine/admin/Category.vue'
+import AdminAchievements from '@theme/foxEngine/admin/Achievements.vue'
+import AdminMailView from '@theme/foxEngine/admin/Mail.vue'
 
 const loadAdminOverview = () => import('@theme/foxEngine/admin/Overview.vue')
 const loadAdminSiteSettings = () => import('@theme/foxEngine/admin/SiteSettings.vue')
-const loadAdminHCaptcha = () => import('@theme/foxEngine/admin/HCaptcha.vue')
-const loadAdminMail = () => import('@theme/foxEngine/admin/Mail.vue')
+const loadAdminMail = async () => ({ default: AdminMailView })
 const loadAdminSlides = () => import('@theme/foxEngine/admin/Slides.vue')
 const loadAdminContent = () => import('@theme/foxEngine/admin/Content.vue')
 const loadAdminRewards = () => import('@theme/foxEngine/admin/Rewards.vue')
 const loadAdminMaintenance = () => import('@theme/foxEngine/admin/Maintenance.vue')
 const loadAdminUsers = () => import('@theme/foxEngine/admin/Users.vue')
-const loadAdminAchievements = () => import('@theme/foxEngine/admin/Achievements.vue')
+const loadAdminAchievements = async () => ({ default: AdminAchievements })
 const loadAdminServers = () => import('@theme/foxEngine/admin/Servers.vue')
 const loadAdminFileManager = () => import('@theme/foxEngine/admin/FileManager.vue')
 const loadAdminLogs = () => import('@theme/foxEngine/admin/Logs.vue')
@@ -28,14 +29,11 @@ const loadAdminRuntimeOptions = () => import('@theme/foxEngine/admin/RuntimeOpti
 
 const AdminOverview = defineAsyncComponent(loadAdminOverview)
 const AdminSiteSettings = defineAsyncComponent(loadAdminSiteSettings)
-const AdminHCaptcha = defineAsyncComponent(loadAdminHCaptcha)
-const AdminMail = defineAsyncComponent(loadAdminMail)
 const AdminSlides = defineAsyncComponent(loadAdminSlides)
 const AdminContent = defineAsyncComponent(loadAdminContent)
 const AdminRewards = defineAsyncComponent(loadAdminRewards)
 const AdminMaintenance = defineAsyncComponent(loadAdminMaintenance)
 const AdminUsers = defineAsyncComponent(loadAdminUsers)
-const AdminAchievements = defineAsyncComponent(loadAdminAchievements)
 const AdminServers = defineAsyncComponent(loadAdminServers)
 const AdminFileManager = defineAsyncComponent(loadAdminFileManager)
 const AdminLogs = defineAsyncComponent(loadAdminLogs)
@@ -45,7 +43,6 @@ const AdminRuntimeOptions = defineAsyncComponent(loadAdminRuntimeOptions)
 const adminToolLoaders = {
   overview: loadAdminOverview,
   settings: loadAdminSiteSettings,
-  hcaptcha: loadAdminHCaptcha,
   mail: loadAdminMail,
   slides: loadAdminSlides,
   content: loadAdminContent,
@@ -71,12 +68,12 @@ const router = useRouter()
 const adminPanel = useAdminPanel()
 const {
   isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-  mailSettings, mailSettingsUpdatedAt, mailSettingsStorageReady, mailTestStatus, maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch,
+  mailSettings, mailSettingsUpdatedAt, mailSettingsStorageReady, mailTestStatus, mailAudienceFilter, mailAudiencePreview, mailAudienceGroups, mailAudienceStatuses, mailCampaignDraft, mailCampaignStatus, maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions, users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementMods, achievementServerId, achievementModId, achievementPlayerSearch,
   servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError, filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
   logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft, originalCatalogKey, tabs, groupedTabs, catalogKey,
   runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimeUserOptionsRevision,
-  formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMailSettings, saveMailSettings, testMailSettings, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance, saveMaintenance, addSlide, removeSlide, reorderSlide,
-  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
+  formatTimestamp, loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMailSettings, saveMailSettings, testMailSettings, previewMailAudience, sendMailCampaign, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance, saveMaintenance, addSlide, removeSlide, reorderSlide,
+  uploadSlideImage, saveSlides, saveProjectPages, saveBadgePage, deleteBadgePage, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, saveAchievementEconomy, selectAchievementServer, selectAchievementMod, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementMod, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer, deleteServer,
   loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile, loadLogs, clearLogs, newCatalogEntry,
   editCatalogEntry, saveCatalogEntry, deleteCatalogEntry, activate,
 } = adminPanel
@@ -148,19 +145,70 @@ watch(
 )
 
 const adminTemplate = computed(() => runtimeUserOptionsState.document?.templates.adminPanel ?? null)
+
+// Keep mail campaign data/actions independent from the editable runtime TPL revision.
+// Older cached templates only know SMTP props, while the bridge always reads the current store.
+const AdminMailBridge = markRaw(defineComponent({
+  name: 'AdminMailBridge',
+  setup: () => () => h(AdminMailView, {
+    settings: mailSettings,
+    status: mailTestStatus.value,
+    loading: loading.value,
+    updatedAt: mailSettingsUpdatedAt.value,
+    storageReady: mailSettingsStorageReady.value,
+    audienceFilter: mailAudienceFilter,
+    audience: mailAudiencePreview.value,
+    audienceGroups: mailAudienceGroups.value,
+    audienceStatuses: mailAudienceStatuses.value,
+    campaign: mailCampaignDraft,
+    campaignStatus: mailCampaignStatus.value,
+    onSave: saveMailSettings,
+    onTest: testMailSettings,
+    onPreviewAudience: previewMailAudience,
+    onSendCampaign: sendMailCampaign,
+  }),
+}))
+
+// Keep the achievement admin independent from the editable runtime TPL revision.
+// Older cached AdminPanel.tpl revisions do not know about newer props such as
+// achievementMods/modId, so wiring through the TPL can silently degrade the UI.
+const AdminAchievementsBridge = markRaw(defineComponent({
+  name: 'AdminAchievementsBridge',
+  setup: () => () => h(AdminAchievements, {
+    available: achievementAvailable.value,
+    servers: achievementServers.value,
+    players: achievementPlayers.value,
+    mods: achievementMods.value,
+    serverId: achievementServerId.value,
+    modId: achievementModId.value,
+    search: achievementPlayerSearch.value,
+    loading: loading.value,
+    economy: adminPanel.achievementEconomy,
+    economyStats: adminPanel.achievementEconomyStats,
+    onSelectServer: selectAchievementServer,
+    onSelectMod: selectAchievementMod,
+    'onUpdate:search': setAchievementPlayerSearch,
+    onSearch: searchAchievementPlayers,
+    onReload: loadAchievementAdmin,
+    onClearMod: clearAchievementMod,
+    onClearServer: clearAchievementServer,
+    onClearPlayer: clearAchievementPlayer,
+    onSaveEconomy: saveAchievementEconomy,
+  }),
+}))
+
 const adminTemplateComponents = markRaw({
   AdminDashboard,
   AdminCategoryView,
   AdminOverview,
   AdminSiteSettings,
-  AdminHCaptcha,
-  AdminMail,
+  AdminMail: AdminMailBridge,
   AdminSlides,
   AdminContent,
   AdminRewards,
   AdminMaintenance,
   AdminUsers,
-  AdminAchievements,
+  AdminAchievements: AdminAchievementsBridge,
   AdminServers,
   AdminFileManager,
   AdminLogs,

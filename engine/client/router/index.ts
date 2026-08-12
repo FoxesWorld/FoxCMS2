@@ -20,8 +20,8 @@ for (const [path, loader] of Object.entries(discoveredViewModules)) {
 const EngineUnavailableView = defineComponent({
   name: 'EngineUnavailableView',
   setup: () => () => h('main', { class: 'system-message system-message--error' }, [
-    h('strong', 'Frontend manifest is unavailable'),
-    h('p', 'The selected theme requires a valid engine bootstrap payload.'),
+    h('strong', t('engine.router.index.007')),
+    h('p', t('engine.router.index.008')),
   ]),
 })
 

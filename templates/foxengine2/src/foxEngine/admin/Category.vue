@@ -25,7 +25,7 @@ function toolMetric(tool: AdminToolDefinition): string {
   if (tool.id === 'overview') return t('theme.foxengine.admin.category.005', [props.hardware?.summary.totalSystems ?? 0])
   if (tool.id === 'users') return t('theme.foxengine.admin.category.006', [props.overview.users])
   if (tool.id === 'servers') return t('theme.foxengine.admin.category.007', [props.overview.enabledServers, props.overview.servers])
-  if (tool.id === 'logs') return 'Live telemetry'
+  if (tool.id === 'logs') return t('theme.foxengine.admin.category.012')
   if (tool.catalog === 'infobox') return t('theme.foxengine.admin.category.008')
   if (tool.catalog === 'badges') return t('theme.foxengine.admin.category.009')
   if (tool.catalog === 'groups') return t('theme.foxengine.admin.category.010')

@@ -1,29 +1,27 @@
-<fox-user-options-template id="admin-panel" schema="1" revision="7" updated-at="2026-08-10T06:34:00Z">
+<fox-user-options-template id="admin-panel" schema="1" revision="12" updated-at="2026-08-10T15:30:00Z">
   <fox-admin-categories>
-    <fox-admin-category id="observability" label="Обзор и контроль" description="Состояние проекта, метрики и диагностика" icon="fa-chart-line" order="10" enabled="true" />
-    <fox-admin-category id="community" label="Сообщество" description="Игроки, группы, награды и справочники" icon="fa-users" order="20" enabled="true" />
-    <fox-admin-category id="content" label="Контент и оформление" description="Страницы, слайды, SEO и параметры сайта" icon="fa-layer-group" order="30" enabled="true" />
-    <fox-admin-category id="security" label="Безопасность" description="Антибот-защита, доступ и защитные механизмы" icon="fa-shield-halved" order="35" enabled="true" />
-    <fox-admin-category id="infrastructure" label="Инфраструктура" description="Серверы, хранилище и режим обслуживания" icon="fa-server" order="40" enabled="true" />
+    <fox-admin-category id="observability" label="i18n:theme.runtime.admin.category.observability.label" description="i18n:theme.runtime.admin.category.observability.description" icon="fa-chart-line" order="10" enabled="true" />
+    <fox-admin-category id="community" label="i18n:theme.runtime.admin.category.community.label" description="i18n:theme.runtime.admin.category.community.description" icon="fa-users" order="20" enabled="true" />
+    <fox-admin-category id="content" label="i18n:theme.runtime.admin.category.content.label" description="i18n:theme.runtime.admin.category.content.description" icon="fa-layer-group" order="30" enabled="true" />
+    <fox-admin-category id="infrastructure" label="i18n:theme.runtime.admin.category.infrastructure.label" description="i18n:theme.runtime.admin.category.infrastructure.description" icon="fa-server" order="40" enabled="true" />
   </fox-admin-categories>
   <fox-admin-tools>
-    <fox-admin-tool id="overview" component="Overview" tab="overview" category="observability" label="Обзор" description="Сводка проекта и данные об оборудовании" icon="fa-chart-line" order="10" enabled="true" />
-    <fox-admin-tool id="logs" component="Logs" tab="logs" category="observability" label="Журналы" description="Запросы, ошибки и диагностический контекст" icon="fa-rectangle-list" order="20" enabled="true" />
-    <fox-admin-tool id="users" component="Users" tab="users" category="community" label="Пользователи" description="Профили, группы, баланс и награды" icon="fa-users" order="10" enabled="true" />
-    <fox-admin-tool id="achievements" component="Achievements" tab="achievements" category="community" label="Достижения" description="Каталог достижений, прогресс игроков и административная очистка" icon="fa-trophy" order="15" enabled="true" />
-    <fox-admin-tool id="infobox" component="Catalogs" tab="catalogs" category="community" label="InfoBox" description="Информационные блоки и справочные записи" icon="fa-circle-info" order="20" enabled="true" catalog="infobox" />
-    <fox-admin-tool id="badges" component="Catalogs" tab="catalogs" category="community" label="Бейджи" description="Каталог визуальных знаков профиля" icon="fa-award" order="30" enabled="true" catalog="badges" />
-    <fox-admin-tool id="rewards" component="Rewards" tab="rewards" category="community" label="Награды" description="Композиции из бейджа и/или валюты, ключи и история выдачи" icon="fa-coins" order="40" enabled="true" />
-    <fox-admin-tool id="groups" component="Catalogs" tab="catalogs" category="community" label="Группы" description="Роли, цвета и права групп пользователей" icon="fa-user-group" order="50" enabled="true" catalog="groups" />
-    <fox-admin-tool id="content" component="Content" tab="content" category="content" label="Страницы" description="HTML-содержимое, runtime-шаблоны страниц и страницы бейджей" icon="fa-newspaper" order="10" enabled="true" />
-    <fox-admin-tool id="slides" component="Slides" tab="slides" category="content" label="Слайды" description="Главный слайдер, изображения и переходы" icon="fa-images" order="20" enabled="true" />
-    <fox-admin-tool id="settings" component="SiteSettings" tab="settings" category="content" label="Настройки сайта" description="Title, SEO, метаданные и оформление" icon="fa-sliders" order="30" enabled="true" />
-    <fox-admin-tool id="hcaptcha" component="HCaptcha" tab="hcaptcha" category="security" label="hCaptcha" description="Site Key, Secret Key и защита публичных форм" icon="fa-shield" order="10" enabled="true" />
-    <fox-admin-tool id="runtime-options" component="RuntimeOptions" tab="runtime-options" category="content" label="Runtime-опции" description="Композиция профиля и административных инструментов без пересборки frontend chunks." icon="fa-puzzle-piece" order="40" enabled="true" protected="true" />
-    <fox-admin-tool id="servers" component="Servers" tab="servers" category="infrastructure" label="Серверы" description="Игровая сеть, runtime JDK и параметры запуска" icon="fa-server" order="10" enabled="true" />
-    <fox-admin-tool id="files" component="FileManager" tab="files" category="infrastructure" label="Файлы" description="Хранилище uploads, загрузка и каталоги" icon="fa-folder-open" order="20" enabled="true" />
-    <fox-admin-tool id="mail" component="Mail" tab="mail" category="infrastructure" label="Почта" description="SMTP, корпоративные адреса и диагностика доставки" icon="fa-envelope" order="25" enabled="true" />
-    <fox-admin-tool id="maintenance" component="Maintenance" tab="maintenance" category="infrastructure" label="Обслуживание" description="Технический режим и доступ групп" icon="fa-screwdriver-wrench" order="30" enabled="true" />
+    <fox-admin-tool id="overview" component="Overview" tab="overview" category="observability" label="i18n:theme.runtime.admin.tool.overview.label" description="i18n:theme.runtime.admin.tool.overview.description" icon="fa-chart-line" order="10" enabled="true" />
+    <fox-admin-tool id="logs" component="Logs" tab="logs" category="observability" label="i18n:theme.runtime.admin.tool.logs.label" description="i18n:theme.runtime.admin.tool.logs.description" icon="fa-rectangle-list" order="20" enabled="true" />
+    <fox-admin-tool id="users" component="Users" tab="users" category="community" label="i18n:theme.runtime.admin.tool.users.label" description="i18n:theme.runtime.admin.tool.users.description" icon="fa-users" order="10" enabled="true" />
+    <fox-admin-tool id="achievements" component="Achievements" tab="achievements" category="community" label="i18n:theme.runtime.admin.tool.achievements.label" description="i18n:theme.runtime.admin.tool.achievements.description" icon="fa-trophy" order="15" enabled="true" />
+    <fox-admin-tool id="infobox" component="Catalogs" tab="catalogs" category="community" label="i18n:theme.runtime.admin.tool.infobox.label" description="i18n:theme.runtime.admin.tool.infobox.description" icon="fa-circle-info" order="20" enabled="true" catalog="infobox" />
+    <fox-admin-tool id="badges" component="Catalogs" tab="catalogs" category="community" label="i18n:theme.runtime.admin.tool.badges.label" description="i18n:theme.runtime.admin.tool.badges.description" icon="fa-award" order="30" enabled="true" catalog="badges" />
+    <fox-admin-tool id="rewards" component="Rewards" tab="rewards" category="community" label="i18n:theme.runtime.admin.tool.rewards.label" description="i18n:theme.runtime.admin.tool.rewards.description" icon="fa-coins" order="40" enabled="true" />
+    <fox-admin-tool id="groups" component="Catalogs" tab="catalogs" category="community" label="i18n:theme.runtime.admin.tool.groups.label" description="i18n:theme.runtime.admin.tool.groups.description" icon="fa-user-group" order="50" enabled="true" catalog="groups" />
+    <fox-admin-tool id="content" component="Content" tab="content" category="content" label="i18n:theme.runtime.admin.tool.content.label" description="i18n:theme.runtime.admin.tool.content.description" icon="fa-newspaper" order="10" enabled="true" />
+    <fox-admin-tool id="slides" component="Slides" tab="slides" category="content" label="i18n:theme.runtime.admin.tool.slides.label" description="i18n:theme.runtime.admin.tool.slides.description" icon="fa-images" order="20" enabled="true" />
+    <fox-admin-tool id="settings" component="SiteSettings" tab="settings" category="content" label="i18n:theme.runtime.admin.tool.settings.label" description="i18n:theme.runtime.admin.tool.settings.description" icon="fa-sliders" order="30" enabled="true" />
+    <fox-admin-tool id="runtime-options" component="RuntimeOptions" tab="runtime-options" category="content" label="i18n:theme.runtime.admin.tool.runtime-options.label" description="i18n:theme.runtime.admin.tool.runtime-options.description" icon="fa-puzzle-piece" order="40" enabled="true" protected="true" />
+    <fox-admin-tool id="servers" component="Servers" tab="servers" category="infrastructure" label="i18n:theme.runtime.admin.tool.servers.label" description="i18n:theme.runtime.admin.tool.servers.description" icon="fa-server" order="10" enabled="true" />
+    <fox-admin-tool id="files" component="FileManager" tab="files" category="infrastructure" label="i18n:theme.runtime.admin.tool.files.label" description="i18n:theme.runtime.admin.tool.files.description" icon="fa-folder-open" order="20" enabled="true" />
+    <fox-admin-tool id="mail" component="Mail" tab="mail" category="infrastructure" label="i18n:theme.runtime.admin.tool.mail.label" description="i18n:theme.runtime.admin.tool.mail.description" icon="fa-envelope" order="25" enabled="true" />
+    <fox-admin-tool id="maintenance" component="Maintenance" tab="maintenance" category="infrastructure" label="i18n:theme.runtime.admin.tool.maintenance.label" description="i18n:theme.runtime.admin.tool.maintenance.description" icon="fa-screwdriver-wrench" order="30" enabled="true" />
   </fox-admin-tools>
   <fox-template-body>
 <div v-if="!isAdmin" class="system-message system-message--error">
@@ -167,14 +165,6 @@
             @clear-image="clearSiteSocialImage"
             @save="saveSiteSettings"
           />
-          <AdminHCaptcha
-            v-else-if="activeTab === 'hcaptcha'"
-            :settings="siteSettings"
-            :loading="loading"
-            :updated-at="siteSettingsUpdatedAt"
-            :storage-ready="siteSettingsStorageReady"
-            @save="saveSiteSettings"
-          />
           <AdminMail
             v-else-if="activeTab === 'mail'"
             :settings="mailSettings"
@@ -256,16 +246,20 @@
             :available="achievementAvailable"
             :servers="achievementServers"
             :players="achievementPlayers"
+            :mods="achievementMods"
             :server-id="achievementServerId"
+            :mod-id="achievementModId"
             :search="achievementPlayerSearch"
             :economy="achievementEconomy"
             :economy-stats="achievementEconomyStats"
             :loading="loading"
             @select-server="selectAchievementServer"
+            @select-mod="selectAchievementMod"
             @update:search="setAchievementPlayerSearch"
             @search="searchAchievementPlayers"
             @reload="loadAchievementAdmin"
             @save-economy="saveAchievementEconomy"
+            @clear-mod="clearAchievementMod"
             @clear-server="clearAchievementServer"
             @clear-player="clearAchievementPlayer"
           />

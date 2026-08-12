@@ -8,6 +8,11 @@ const legacyDirectory = join(themeRoot, 'mail')
 const foxMailPath = join(repositoryRoot, 'engine', 'classes', 'utils', 'FoxMail', '1.0.0', 'FoxMail.class.php')
 const legacyMailerPath = join(repositoryRoot, 'engine', 'classes', 'utils', 'FoxMail', '1.0.0', 'Mailer.class.php')
 const phpmailerPath = join(repositoryRoot, 'engine', 'classes', 'utils', 'FoxMail', '1.0.0', 'vendor', 'PHPMailer', 'PHPMailer.php')
+const adminMailControllerPath = join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminMailController.php')
+const adminRouterPath = join(repositoryRoot, 'engine', 'src', 'FoxCMS', 'Engine', 'Admin', 'AdminActionRouterFactory.php')
+const adminPanelClientPath = join(repositoryRoot, 'engine', 'classes', 'modules', 'AdminPanel', 'client', 'useAdminPanel.ts')
+const registerPath = join(repositoryRoot, 'engine', 'classes', 'modules', 'AuthReg', 'actions', 'register.class.php')
+const lostPasswordPath = join(repositoryRoot, 'engine', 'classes', 'modules', 'UserSettings', 'actions', 'lostpassword.class.php')
 
 try {
   const directoryStat = await stat(mailDirectory)
@@ -60,6 +65,47 @@ for (const token of [
   if (!foxMail.includes(token)) failures.push(`FoxMail data contract missing ${token}`)
 }
 if (foxMail.includes("CURRENT_TEMPLATE . 'mail'")) failures.push('FoxMail still reads templates from the legacy root mail directory')
+
+if (!foxMail.includes('public function sendContent(')) failures.push('FoxMail dynamic campaign sender is missing')
+
+const adminMailController = await readFile(adminMailControllerPath, 'utf8')
+for (const token of [
+  'public function audience(): never',
+  'public function sendCampaign(): never',
+  'expectedCount',
+  'confirmed',
+  '$count > 250',
+  'sendContent(',
+  'mergeTags(',
+]) {
+  if (!adminMailController.includes(token)) failures.push(`admin mail campaign contract missing ${token}`)
+}
+
+const adminRouter = await readFile(adminRouterPath, 'utf8')
+for (const action of ['mailAudience', 'sendMailCampaign']) {
+  if (!adminRouter.includes(`register('${action}'`)) failures.push(`admin mail action is not registered: ${action}`)
+}
+
+const adminPanelClient = await readFile(adminPanelClientPath, 'utf8')
+for (const action of ["admPanel: 'mailAudience'", "admPanel: 'sendMailCampaign'"]) {
+  if (!adminPanelClient.includes(action)) failures.push(`admin mail client action is missing: ${action}`)
+}
+
+
+for (const [label, path] of [
+  ['registration', registerPath],
+  ['password recovery', lostPasswordPath],
+]) {
+  const source = await readFile(path, 'utf8')
+  for (const token of [
+    "$this->config['siteSettings']",
+    'new FoxMail(true, $settings)',
+    '$sent = $mailer->send(',
+    'if (!$sent)',
+  ]) {
+    if (!source.includes(token)) failures.push(`${label} mail flow missing runtime SMTP contract: ${token}`)
+  }
+}
 
 if (failures.length) {
   console.error('Mail template contract failed:')

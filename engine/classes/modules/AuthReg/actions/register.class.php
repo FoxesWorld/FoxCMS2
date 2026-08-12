@@ -272,12 +272,23 @@ final class Register
     {
         try {
             UtilityLoader::load('FoxMail', '1.0.0');
-            (new FoxMail(true))->send(
+            $settings = is_array($this->config['siteSettings'] ?? null)
+                ? $this->config['siteSettings']
+                : [];
+            $mailer = new FoxMail(true, $settings);
+            $sent = $mailer->send(
                 $email,
                 'Добро пожаловать в FoxesCraft',
                 'welcome.html',
                 ['username' => $login],
             );
+            if (!$sent) {
+                throw new RuntimeException(
+                    $mailer->smtp_msg !== ''
+                        ? 'Welcome mail delivery failed: ' . $mailer->smtp_msg
+                        : 'Welcome mail delivery failed.'
+                );
+            }
             return true;
         } catch (Throwable $error) {
             $this->logger->exception(

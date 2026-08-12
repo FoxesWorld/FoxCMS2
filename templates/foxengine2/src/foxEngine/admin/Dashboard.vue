@@ -26,7 +26,7 @@ function toolMetric(tab: AdminToolId): string {
   if (tab === 'overview') return t('theme.foxengine.admin.dashboard.015', [props.hardware?.summary.totalSystems ?? 0])
   if (tab === 'users') return t('theme.foxengine.admin.dashboard.016', [props.overview.users])
   if (tab === 'servers') return t('theme.foxengine.admin.dashboard.017', [props.overview.enabledServers, props.overview.servers])
-  if (tab === 'logs') return 'Live telemetry'
+  if (tab === 'logs') return t('theme.foxengine.admin.dashboard.018')
   return ''
 }
 </script>

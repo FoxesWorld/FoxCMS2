@@ -29,10 +29,6 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-function compactUuid(value: string): string {
-  return value.replaceAll('-', '')
-}
-
 function groupLabel(groupTag: string): string {
   if (groupTag === 'admin') return t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.012')
   if (groupTag === 'tester') return t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.013')
@@ -50,7 +46,6 @@ function groupLabel(groupTag: string): string {
       </div>
       <div class="minecraft-identity__identity">
         <span>{{ groupLabel(viewerGroupTag) }}</span>
-        <code :title="uuid">{{ compactUuid(uuid) }}</code>
         <button class="button button--ghost" type="button" :disabled="previewLoading || busy !== null" @click="emit('refresh')">
           <i class="fa-solid fa-rotate" aria-hidden="true" />
           <span>{{ previewLoading ? t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.004') : t('theme.useroptions.useroptions.profile.options.minecraftidentityoption.005') }}</span>

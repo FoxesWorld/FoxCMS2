@@ -28,7 +28,7 @@ const uiPropertyNames = new Set([
 ])
 const uiCallNames = new Set([
   'confirm', 'prompt', 'showToast', 'toastFeedback', 'Error', 'FoxesApiError', 'fail',
-  'rejectFile', 'errorMessage',
+  'rejectFile', 'errorMessage', 'h',
 ])
 const cyrillicPattern = /[А-Яа-яЁё]/u
 const letterPattern = /\p{L}/u
@@ -97,7 +97,22 @@ function isInsideTranslationCall(node) {
   return false
 }
 
+function isInsideUiAssignment(node) {
+  let current = node.parent
+  while (current && !ts.isStatement(current) && !ts.isSourceFile(current)) {
+    if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      const left = current.left
+      if (ts.isPropertyAccessExpression(left)) {
+        return ['textContent', 'innerText', 'title', 'placeholder'].includes(left.name.text)
+      }
+    }
+    current = current.parent
+  }
+  return false
+}
+
 function isEnglishUiContext(node, mode) {
+  if (isInsideUiAssignment(node)) return true
   if (mode === 'template') {
     if (node.parent && ts.isBinaryExpression(node.parent)) return false
     return true
@@ -182,6 +197,31 @@ function walkTemplate(node, path, source, templateOffset) {
   }
 }
 
+
+function inspectRuntimeMetadata(path, source) {
+  const tagPattern = /<fox-(?:profile-option|admin-category|admin-tool)\b[^>]*>/gu
+  const attributePattern = /\b(label|description)="([^"]*)"/gu
+  for (const tagMatch of source.matchAll(tagPattern)) {
+    const tag = tagMatch[0]
+    const tagOffset = tagMatch.index ?? 0
+    for (const attributeMatch of tag.matchAll(attributePattern)) {
+      const value = normalizeMessage(attributeMatch[2] ?? '')
+      if (!value) continue
+      const offset = tagOffset + (attributeMatch.index ?? 0)
+      if (value.startsWith('i18n:')) {
+        const key = value.slice(5).trim()
+        if (!key) report(path, source, offset, `empty i18n metadata key for ${attributeMatch[1]}`)
+        else {
+          usedKeys.add(key)
+          if (!messageKeys.has(key)) report(path, source, offset, `missing translation key: ${key}`)
+        }
+        continue
+      }
+      if (isHumanText(value)) report(path, source, offset, `hardcoded runtime metadata ${attributeMatch[1]}: ${JSON.stringify(value)}`)
+    }
+  }
+}
+
 async function listFiles(directory) {
   const output = []
   const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
@@ -219,6 +259,7 @@ for (const path of files) {
       inspectTypeScript(descriptor.scriptSetup.content, path, source, descriptor.scriptSetup.loc.start.offset, 'script')
     }
   } else if (extension === '.tpl') {
+    inspectRuntimeMetadata(path, source)
     const match = source.match(/<fox-template-body\b[^>]*>([\s\S]*?)<\/fox-template-body>/u)
     if (!match || typeof match.index !== 'number') {
       failures.push(`${relative(repositoryRoot, path)} lacks fox-template-body`)

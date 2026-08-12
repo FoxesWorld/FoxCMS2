@@ -58,7 +58,11 @@ final class LostPassword
             if ($baseUrl === '') {
                 $baseUrl = rtrim((string)foxEnv('FOXESCRAFT_PUBLIC_BASE_URL', 'http://localhost'), '/');
             }
-            (new FoxMail(true))->send(
+            $settings = is_array($this->config['siteSettings'] ?? null)
+                ? $this->config['siteSettings']
+                : [];
+            $mailer = new FoxMail(true, $settings);
+            $sent = $mailer->send(
                 (string)$user['email'],
                 'Сброс пароля',
                 'lostpass.html',
@@ -68,6 +72,13 @@ final class LostPassword
                     'resetToken' => $baseUrl . '/reset-password?token=' . rawurlencode($token),
                 ],
             );
+            if (!$sent) {
+                throw new RuntimeException(
+                    $mailer->smtp_msg !== ''
+                        ? 'Password reset mail delivery failed: ' . $mailer->smtp_msg
+                        : 'Password reset mail delivery failed.'
+                );
+            }
             $this->logger->event(
                 'password_reset.request.delivered',
                 'Password reset instruction was generated and sent.',

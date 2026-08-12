@@ -128,6 +128,51 @@ final class FoxMail
         return $sent;
     }
 
+    public function sendContent(string $to, string $subject, string $message, bool $isHtml = true): bool
+    {
+        $this->send_error = false;
+        $this->smtp_msg = '';
+        if (filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+            throw new \InvalidArgumentException('Invalid email recipient.');
+        }
+        $subject = trim(str_replace(["\r", "\n"], ' ', $subject));
+        if ($subject === '') {
+            throw new \InvalidArgumentException('Mail subject must not be empty.');
+        }
+
+        if ($this->from !== null && filter_var($this->from, FILTER_VALIDATE_EMAIL) !== false) {
+            $this->mail->addReplyTo($this->from, $this->from);
+        }
+        $this->mail->addAddress($to);
+        $this->mail->Subject = $subject;
+        $this->mail->SMTPKeepAlive = $this->mail->Mailer === 'smtp' && $this->keepalive;
+        $this->mail->isHTML($isHtml);
+        $this->mail->Body = $message;
+        $this->mail->AltBody = $isHtml
+            ? trim(html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $message)), ENT_QUOTES | ENT_HTML5, 'UTF-8'))
+            : '';
+
+        foreach ($this->bcc as $bcc) {
+            if (filter_var($bcc, FILTER_VALIDATE_EMAIL) !== false) {
+                $this->mail->addBCC($bcc);
+            }
+        }
+
+        try {
+            $sent = $this->mail->send();
+        } catch (\PHPMailer\PHPMailer\Exception $error) {
+            $sent = false;
+            $this->mail->ErrorInfo = $error->getMessage();
+        }
+        if (!$sent) {
+            $this->smtp_msg = trim($this->mail->ErrorInfo);
+            $this->send_error = true;
+        }
+        $this->mail->clearAllRecipients();
+        $this->mail->clearAttachments();
+        return $sent;
+    }
+
     public function addAttachment(string $path, string $name = '', string $encoding = 'base64', string $type = '', string $disposition = 'attachment'): void
     {
         $this->mail->addAttachment($path, $name, $encoding, $type, $disposition);

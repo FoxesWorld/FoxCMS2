@@ -16,7 +16,7 @@ import {
   type RuntimePageTemplatesDocument,
 } from '@/runtime/pageTemplates'
 
-export type Tab = 'overview' | 'settings' | 'hcaptcha' | 'mail' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
+export type Tab = 'overview' | 'settings' | 'mail' | 'slides' | 'content' | 'rewards' | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type CatalogName = 'infobox' | 'badges' | 'groups'
 export type AdminToolId = Exclude<Tab, 'catalogs'> | 'infobox' | 'badges' | 'groups'
 export type AdminSection = 'home' | AdminToolId
@@ -228,6 +228,42 @@ export interface MailTestStatus {
   smtpCode?: string
   smtpReply?: string
   library?: string
+}
+
+export interface MailAudienceFilter {
+  groupTags: string[]
+  statuses: string[]
+  search: string
+}
+export interface MailAudienceUser {
+  uuid: string
+  login: string
+  email: string
+  realname: string
+  groupTag: string
+  userStatus: string
+}
+export interface MailAudiencePreview {
+  count: number
+  sendLimit: number
+  tooLarge: boolean
+  sample: MailAudienceUser[]
+  groups: GroupOption[]
+  statuses: string[]
+}
+export interface MailCampaignDraft {
+  subject: string
+  body: string
+  format: 'html' | 'text'
+  confirmed: boolean
+}
+export interface MailCampaignStatus {
+  success: boolean
+  message: string
+  sent: number
+  failed: number
+  total: number
+  failures: Array<{ uuid: string; login: string }>
 }
 
 export interface SlideRouteOption {
@@ -463,6 +499,17 @@ export interface AchievementAdminServer {
   players: number
   events: number
 }
+export interface AchievementAdminMod {
+  modId: string
+  definitions: number
+  enabledDefinitions: number
+  progressRows: number
+  completedRows: number
+  players: number
+  events: number
+  ledgerAwards: number
+  ledgerPoints: number
+}
 export interface AchievementAdminPlayer {
   uuid: string
   login: string
@@ -492,6 +539,7 @@ export interface AchievementAdminResponse {
   available: boolean
   servers: AchievementAdminServer[]
   players: AchievementAdminPlayer[]
+  mods: AchievementAdminMod[]
   selectedServerId: string
   economy?: AchievementEconomyAdminSettings | null
   economyStats?: AchievementEconomyAdminStats | null
@@ -609,6 +657,20 @@ export function useAdminPanel() {
   const mailSettingsUpdatedAt = ref('')
   const mailSettingsStorageReady = ref(false)
   const mailTestStatus = ref<MailTestStatus | null>(null)
+  const mailAudienceFilter = reactive<MailAudienceFilter>({ groupTags: [], statuses: [], search: '' })
+  const mailAudiencePreview = ref<MailAudiencePreview | null>(null)
+  const mailAudienceGroups = ref<GroupOption[]>([])
+  const mailAudienceStatuses = ref<string[]>([])
+  const mailCampaignDraft = reactive<MailCampaignDraft>({ subject: '', body: '', format: 'html', confirmed: false })
+  const mailCampaignStatus = ref<MailCampaignStatus | null>(null)
+  watch(
+    () => [mailAudienceFilter.search, mailAudienceFilter.groupTags.join('\u0000'), mailAudienceFilter.statuses.join('\u0000')],
+    () => {
+      mailAudiencePreview.value = null
+      mailCampaignDraft.confirmed = false
+      mailCampaignStatus.value = null
+    },
+  )
   const maintenance = reactive<MaintenanceSettings>({
     enabled: false,
     allowedGroups: ['admin'],
@@ -641,7 +703,9 @@ export function useAdminPanel() {
   const achievementAvailable = ref(true)
   const achievementServers = ref<AchievementAdminServer[]>([])
   const achievementPlayers = ref<AchievementAdminPlayer[]>([])
+  const achievementMods = ref<AchievementAdminMod[]>([])
   const achievementServerId = ref('')
+  const achievementModId = ref('')
   const achievementPlayerSearch = ref('')
   const achievementEconomy = reactive<AchievementEconomyAdminSettings>({
     enabled: true,
@@ -926,6 +990,65 @@ export function useAdminPanel() {
     runtimeOptionsDraft.value = structuredClone(installed)
     runtimeOptionsUpdatedAt.value = response.updatedAt || installed.updatedAt
     runtimeOptionsStorageReady.value = response.storageReady
+  }
+
+  async function previewMailAudience(): Promise<void> {
+    const response = await run(() => foxesApi.post<MailAudiencePreview>({
+      admPanel: 'mailAudience',
+      entry: JSON.stringify({
+        groupTags: [...mailAudienceFilter.groupTags],
+        statuses: [...mailAudienceFilter.statuses],
+        search: mailAudienceFilter.search,
+      }),
+    }))
+    if (!response) return
+    mailAudienceGroups.value = Array.isArray(response.groups) ? response.groups : []
+    mailAudienceStatuses.value = Array.isArray(response.statuses) ? response.statuses.map(String) : []
+    mailAudiencePreview.value = {
+      ...response,
+      count: Number(response.count ?? 0),
+      sendLimit: Number(response.sendLimit ?? 250),
+      tooLarge: Boolean(response.tooLarge),
+      sample: Array.isArray(response.sample) ? response.sample : [],
+      groups: mailAudienceGroups.value,
+      statuses: mailAudienceStatuses.value,
+    }
+    mailCampaignDraft.confirmed = false
+    mailCampaignStatus.value = null
+  }
+
+  async function sendMailCampaign(): Promise<void> {
+    const preview = mailAudiencePreview.value
+    if (!preview || !mailCampaignDraft.confirmed) return
+    const response = await run(() => foxesApi.post<Feedback & MailCampaignStatus>({
+      admPanel: 'sendMailCampaign',
+      entry: JSON.stringify({
+        filter: {
+          groupTags: [...mailAudienceFilter.groupTags],
+          statuses: [...mailAudienceFilter.statuses],
+          search: mailAudienceFilter.search,
+        },
+        subject: mailCampaignDraft.subject,
+        body: mailCampaignDraft.body,
+        format: mailCampaignDraft.format,
+        expectedCount: preview.count,
+        confirmed: true,
+      }),
+    }))
+    if (!response) {
+      mailCampaignDraft.confirmed = false
+      return
+    }
+    feedback.value = response
+    mailCampaignStatus.value = {
+      success: Boolean(response.success),
+      message: response.message || '',
+      sent: Number(response.sent ?? 0),
+      failed: Number(response.failed ?? 0),
+      total: Number(response.total ?? 0),
+      failures: Array.isArray(response.failures) ? response.failures : [],
+    }
+    mailCampaignDraft.confirmed = false
   }
 
   async function loadMaintenance(): Promise<void> {
@@ -1325,6 +1448,20 @@ export function useAdminPanel() {
       completedCount: Math.max(0, Number(entry.completedCount) || 0),
       events: Math.max(0, Number(entry.events) || 0),
     })) : []
+    achievementMods.value = Array.isArray(response.mods) ? response.mods.map((entry) => ({
+      modId: String(entry.modId ?? ''),
+      definitions: Math.max(0, Number(entry.definitions) || 0),
+      enabledDefinitions: Math.max(0, Number(entry.enabledDefinitions) || 0),
+      progressRows: Math.max(0, Number(entry.progressRows) || 0),
+      completedRows: Math.max(0, Number(entry.completedRows) || 0),
+      players: Math.max(0, Number(entry.players) || 0),
+      events: Math.max(0, Number(entry.events) || 0),
+      ledgerAwards: Math.max(0, Number(entry.ledgerAwards) || 0),
+      ledgerPoints: Math.max(0, Number(entry.ledgerPoints) || 0),
+    })).filter((entry) => entry.modId !== '') : []
+    if (!achievementMods.value.some((entry) => entry.modId === achievementModId.value)) {
+      achievementModId.value = ''
+    }
     achievementServerId.value = String(response.selectedServerId ?? '')
     if (response.economy) {
       achievementEconomy.enabled = response.economy.enabled === true
@@ -1363,12 +1500,31 @@ export function useAdminPanel() {
   async function selectAchievementServer(serverId: string): Promise<void> {
     achievementServerId.value = serverId.trim()
     achievementPlayerSearch.value = ''
+    achievementModId.value = ''
     await loadAchievementAdmin()
   }
   function setAchievementPlayerSearch(value: string): void {
     achievementPlayerSearch.value = value
   }
   async function searchAchievementPlayers(): Promise<void> {
+    await loadAchievementAdmin()
+  }
+  function selectAchievementMod(modId: string): void {
+    const normalized = modId.trim().toLowerCase()
+    achievementModId.value = achievementMods.value.some((entry) => entry.modId === normalized) ? normalized : ''
+  }
+  async function clearAchievementMod(): Promise<void> {
+    const server = achievementServers.value.find((entry) => entry.serverId === achievementServerId.value)
+    const mod = achievementMods.value.find((entry) => entry.modId === achievementModId.value)
+    if (!server || !mod || loading.value) return
+    const deletableRows = mod.definitions + mod.progressRows + mod.events
+    if (deletableRows === 0) return
+    if (!window.confirm(t('modules.adminpanel.useadminpanel.055', [mod.modId, server.serverId, mod.definitions, mod.progressRows, mod.events, mod.ledgerAwards, mod.ledgerPoints]))) return
+    const response = await run(() => foxesApi.post<Feedback>({
+      admPanel: 'clearAchievementMod', serverId: server.serverId, modId: mod.modId,
+    }))
+    if (response) feedback.value = response
+    achievementModId.value = ''
     await loadAchievementAdmin()
   }
   async function clearAchievementServer(): Promise<void> {
@@ -1639,8 +1795,8 @@ export function useAdminPanel() {
     activeTab.value = tool.tab
     if (tool.catalog) catalogName.value = tool.catalog
     if (tool.tab === 'overview') await loadOverview()
-    if (tool.tab === 'settings' || tool.tab === 'hcaptcha') await loadSiteSettings()
-    if (tool.tab === 'mail') await loadMailSettings()
+    if (tool.tab === 'settings') await loadSiteSettings()
+    if (tool.tab === 'mail') { await loadMailSettings(); await previewMailAudience() }
     if (tool.tab === 'slides') await loadSlides()
     if (tool.tab === 'content') await loadContent()
     if (tool.tab === 'rewards') await loadRewards()
@@ -1668,16 +1824,16 @@ export function useAdminPanel() {
 
   return {
     isAdmin, activeTab, loading, feedback, overview, hardware, siteSettings, siteSettingsUpdatedAt, siteSettingsStorageReady, siteSocialImageUploading, siteSocialImageError,
-    mailSettings, mailSettingsUpdatedAt, mailSettingsStorageReady, mailTestStatus, maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
-    users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementServerId, achievementPlayerSearch, achievementEconomy, achievementEconomyStats, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
+    mailSettings, mailSettingsUpdatedAt, mailSettingsStorageReady, mailTestStatus, mailAudienceFilter, mailAudiencePreview, mailAudienceGroups, mailAudienceStatuses, mailCampaignDraft, mailCampaignStatus, maintenance, sliderSettings, sliderRoutes, projectPages, systemPages, badgePages, contentBadges, rewardDefinitions, rewardClaimKeys, issuedRewardClaimCode, rewardDraft, groupOptions, badgeOptions,
+    users, userSearch, selectedUser, userDraft, achievementAvailable, achievementServers, achievementPlayers, achievementMods, achievementServerId, achievementModId, achievementPlayerSearch, achievementEconomy, achievementEconomyStats, servers, jdkOptions, jdkCatalog, gameVersionOptions, gameVersionCatalog, selectedServer, serverDraft, serverImageUploading, serverImageError,
     filePath, fileParent, fileEntries, fileWritable, fileTotalBytes, selectedUpload, fileUploading, newDirectoryName,
     logFile, logEntries, autoRefreshLogs, catalogName, catalogRows, catalogDraft,
     originalCatalogKey, categories, tabs, groupedTabs, catalogKey, formatTimestamp, runtimeUserOptionsRevision,
     runtimeOptionsDraft, runtimeOptionsUpdatedAt, runtimeOptionsStorageReady, runtimePageTemplatesDraft, runtimePageTemplatesStorageReady,
-    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMailSettings, saveMailSettings, testMailSettings, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
+    loadSiteSettings, saveSiteSettings, clearSiteSocialImage, uploadSiteSocialImage, loadMailSettings, saveMailSettings, testMailSettings, previewMailAudience, sendMailCampaign, loadUserOptionsEditor, saveUserOptionsEditor, loadMaintenance,
     saveMaintenance, loadSlides, addSlide, removeSlide, reorderSlide, uploadSlideImage, saveSlides,
     loadContent, loadRewards, newReward, editReward, saveReward, deleteReward, issueRewardClaimKey, revokeRewardClaimKey, clearIssuedRewardClaimCode, ensureBadgePage, removeBadgePage, saveProjectPages, savePageTemplate, saveBadgePage, deleteBadgePage,
-    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, saveAchievementEconomy, selectAchievementServer, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
+    loadUsers, searchUsers, editUser, saveUser, grantUserBadge, revokeUserBadge, loadAchievementAdmin, saveAchievementEconomy, selectAchievementServer, selectAchievementMod, setAchievementPlayerSearch, searchAchievementPlayers, clearAchievementMod, clearAchievementServer, clearAchievementPlayer, newServer, editServer, clearServerImage, uploadServerImage, saveServer,
     deleteServer, loadFiles, selectUpload, uploadFile, createDirectory, renameFile, deleteFile, openFile,
     loadLogs, clearLogs, loadCatalog, newCatalogEntry, editCatalogEntry,
     saveCatalogEntry, deleteCatalogEntry, activate,

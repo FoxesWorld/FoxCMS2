@@ -2,34 +2,64 @@
 import { computed, reactive, watch } from 'vue'
 import { t } from '@/i18n'
 import UiCheckbox from '@/components/UiCheckbox.vue'
-import type { AchievementAdminPlayer, AchievementAdminServer, AchievementEconomyAdminSettings, AchievementEconomyAdminStats } from '@modules/AdminPanel/client/useAdminPanel'
+import type {
+  AchievementAdminMod,
+  AchievementAdminPlayer,
+  AchievementAdminServer,
+  AchievementEconomyAdminSettings,
+  AchievementEconomyAdminStats,
+} from '@modules/AdminPanel/client/useAdminPanel'
 
-const props = defineProps<{
-  available: boolean
-  servers: AchievementAdminServer[]
-  players: AchievementAdminPlayer[]
-  serverId: string
-  search: string
-  loading: boolean
-  economy: AchievementEconomyAdminSettings
-  economyStats: AchievementEconomyAdminStats
-}>()
+const props = withDefaults(defineProps<{
+  available?: boolean
+  servers?: AchievementAdminServer[]
+  players?: AchievementAdminPlayer[]
+  mods?: AchievementAdminMod[]
+  serverId?: string
+  modId?: string
+  search?: string
+  loading?: boolean
+  economy?: AchievementEconomyAdminSettings
+  economyStats?: AchievementEconomyAdminStats
+}>(), {
+  available: false,
+  servers: () => [],
+  players: () => [],
+  mods: () => [],
+  serverId: '',
+  modId: '',
+  search: '',
+  loading: false,
+  economy: () => ({ enabled: true, pointsPerUnit: 10, minimumPoints: 10, updatedAt: 0, updatedByUuid: '' }),
+  economyStats: () => ({
+    awardCount: 0, awardedPlayers: 0, earnedPoints: 0, exchangeCount: 0,
+    exchangePlayers: 0, exchangedPoints: 0, availablePoints: 0, unitsGranted: 0,
+  }),
+})
 
 const emit = defineEmits<{
   selectServer: [serverId: string]
+  selectMod: [modId: string]
   'update:search': [value: string]
   search: []
   reload: []
+  clearMod: []
   clearServer: []
   clearPlayer: [player: AchievementAdminPlayer]
   saveEconomy: [settings: AchievementEconomyAdminSettings]
 }>()
 
 const selectedServer = computed(() => props.servers.find((entry) => entry.serverId === props.serverId) ?? null)
+const selectedMod = computed(() => props.mods.find((entry) => entry.modId === props.modId) ?? null)
 const totalServerRows = computed(() => {
   const server = selectedServer.value
   return server ? server.definitions + server.progressRows + server.events : 0
 })
+const modDeletableRows = computed(() => {
+  const mod = selectedMod.value
+  return mod ? mod.definitions + mod.progressRows + mod.events : 0
+})
+const modLedgerOnly = computed(() => Boolean(selectedMod.value && modDeletableRows.value === 0 && selectedMod.value.ledgerAwards > 0))
 
 const economyDraft = reactive<AchievementEconomyAdminSettings>({
   enabled: true,
@@ -86,24 +116,34 @@ function playerLabel(player: AchievementAdminPlayer): string {
     </div>
 
     <template v-else>
-      <section class="admin-achievements__context">
-        <label>
-          <span>{{ t('theme.foxengine.admin.achievements.008') }}</span>
-          <select
-            :value="serverId"
-            :disabled="loading || servers.length === 0"
-            @change="emit('selectServer', ($event.target as HTMLSelectElement).value)"
-          >
-            <option v-if="servers.length === 0" value="">{{ t('theme.foxengine.admin.achievements.009') }}</option>
-            <option v-for="server in servers" :key="server.serverId" :value="server.serverId">
-              {{ server.serverId }}
-            </option>
-          </select>
-        </label>
-        <button class="button button--ghost" type="button" :disabled="loading" @click="emit('reload')">
-          <i class="fa-solid fa-rotate" :class="{ 'admin-achievements__spin': loading }" aria-hidden="true" />
-          <span>{{ t('theme.foxengine.admin.achievements.010') }}</span>
-        </button>
+      <section class="admin-achievements__context-card">
+        <header>
+          <span class="admin-achievements__section-icon"><i class="fa-solid fa-server" aria-hidden="true" /></span>
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.068') }}</span>
+            <h3>{{ t('theme.foxengine.admin.achievements.008') }}</h3>
+            <p>{{ t('theme.foxengine.admin.achievements.069') }}</p>
+          </div>
+        </header>
+        <div class="admin-achievements__context">
+          <label>
+            <span>{{ t('theme.foxengine.admin.achievements.008') }}</span>
+            <select
+              :value="serverId"
+              :disabled="loading || servers.length === 0"
+              @change="emit('selectServer', ($event.target as HTMLSelectElement).value)"
+            >
+              <option v-if="servers.length === 0" value="">{{ t('theme.foxengine.admin.achievements.009') }}</option>
+              <option v-for="server in servers" :key="server.serverId" :value="server.serverId">
+                {{ server.serverId }} · {{ server.definitions }} / {{ server.players }}
+              </option>
+            </select>
+          </label>
+          <button class="button button--ghost" type="button" :disabled="loading" @click="emit('reload')">
+            <i class="fa-solid fa-rotate" :class="{ 'admin-achievements__spin': loading }" aria-hidden="true" />
+            <span>{{ t('theme.foxengine.admin.achievements.010') }}</span>
+          </button>
+        </div>
       </section>
 
       <div v-if="selectedServer" class="admin-achievements__metrics" :aria-label="t('theme.foxengine.admin.achievements.011')">
@@ -133,6 +173,71 @@ function playerLabel(player: AchievementAdminPlayer): string {
         <i class="fa-solid fa-circle-info" aria-hidden="true" />
         <p>{{ t('theme.foxengine.admin.achievements.016') }}</p>
       </div>
+
+      <section v-if="selectedServer" class="admin-achievements__mods">
+        <header class="admin-achievements__section-header">
+          <span class="admin-achievements__section-icon"><i class="fa-solid fa-cubes" aria-hidden="true" /></span>
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.049') }}</span>
+            <h3>{{ t('theme.foxengine.admin.achievements.050') }}</h3>
+            <p>{{ t('theme.foxengine.admin.achievements.051') }}</p>
+          </div>
+        </header>
+
+        <div class="admin-achievements__mod-picker">
+          <label>
+            <span>{{ t('theme.foxengine.admin.achievements.052') }}</span>
+            <select
+              :value="modId"
+              :disabled="loading || mods.length === 0"
+              @change="emit('selectMod', ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">{{ mods.length === 0 ? t('theme.foxengine.admin.achievements.053') : t('theme.foxengine.admin.achievements.070') }}</option>
+              <option v-for="mod in mods" :key="mod.modId" :value="mod.modId">
+                {{ mod.modId }} · {{ mod.definitions }} / {{ mod.players }}
+              </option>
+            </select>
+          </label>
+          <span v-if="modLedgerOnly" class="admin-achievements__mod-state">
+            <i class="fa-solid fa-vault" aria-hidden="true" />
+            {{ t('theme.foxengine.admin.achievements.064') }}
+          </span>
+        </div>
+
+        <template v-if="selectedMod">
+          <div class="admin-achievements__mod-metrics">
+            <article><small>{{ t('theme.foxengine.admin.achievements.054') }}</small><strong>{{ selectedMod.enabledDefinitions }}</strong></article>
+            <article><small>{{ t('theme.foxengine.admin.achievements.055') }}</small><strong>{{ selectedMod.completedRows }}</strong></article>
+            <article><small>{{ t('theme.foxengine.admin.achievements.056') }}</small><strong>{{ selectedMod.players }}</strong></article>
+            <article><small>{{ t('theme.foxengine.admin.achievements.057') }}</small><strong>{{ selectedMod.events }}</strong></article>
+            <article class="is-ledger"><small>{{ t('theme.foxengine.admin.achievements.058') }}</small><strong>{{ selectedMod.ledgerAwards }}</strong></article>
+            <article class="is-ledger"><small>{{ t('theme.foxengine.admin.achievements.059') }}</small><strong>{{ selectedMod.ledgerPoints }}</strong></article>
+          </div>
+
+          <div v-if="modLedgerOnly" class="admin-achievements__mod-ledger-note">
+            <i class="fa-solid fa-vault" aria-hidden="true" />
+            <div>
+              <strong>{{ t('theme.foxengine.admin.achievements.064') }}</strong>
+              <p>{{ t('theme.foxengine.admin.achievements.065') }}</p>
+            </div>
+          </div>
+          <div v-else class="admin-achievements__mod-actions">
+            <div>
+              <strong>{{ t('theme.foxengine.admin.achievements.061') }}</strong>
+              <p>{{ t('theme.foxengine.admin.achievements.062') }}. {{ t('theme.foxengine.admin.achievements.063') }}</p>
+            </div>
+            <button
+              class="button admin-achievements__danger-button admin-achievements__danger-button--mod"
+              type="button"
+              :disabled="loading || modDeletableRows === 0"
+              @click="emit('clearMod')"
+            >
+              <i class="fa-solid fa-broom" aria-hidden="true" />
+              <span>{{ t('theme.foxengine.admin.achievements.060') }}</span>
+            </button>
+          </div>
+        </template>
+      </section>
 
       <section class="admin-achievements__economy">
         <header>
@@ -178,95 +283,91 @@ function playerLabel(player: AchievementAdminPlayer): string {
         </p>
       </section>
 
-      <div v-if="selectedServer" class="admin-achievements__workspace">
-        <section class="admin-achievements__danger-card admin-achievements__danger-card--server">
-          <header>
-            <span class="admin-achievements__danger-icon"><i class="fa-solid fa-server" aria-hidden="true" /></span>
-            <div>
-              <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.017') }}</span>
-              <h3>{{ t('theme.foxengine.admin.achievements.018') }}</h3>
-              <p>{{ t('theme.foxengine.admin.achievements.019') }}</p>
-            </div>
-          </header>
-          <dl>
-            <div><dt>{{ t('theme.foxengine.admin.achievements.020') }}</dt><dd>{{ selectedServer.serverId }}</dd></div>
-            <div><dt>{{ t('theme.foxengine.admin.achievements.021') }}</dt><dd>{{ totalServerRows }}</dd></div>
-          </dl>
-          <button
-            class="button admin-achievements__danger-button"
-            type="button"
-            :disabled="loading || totalServerRows === 0"
-            @click="emit('clearServer')"
-          >
-            <i class="fa-solid fa-trash-can" aria-hidden="true" />
-            <span>{{ t('theme.foxengine.admin.achievements.022') }}</span>
-          </button>
-        </section>
-
-        <section class="admin-achievements__players">
-          <header>
-            <div>
-              <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.023') }}</span>
-              <h3>{{ t('theme.foxengine.admin.achievements.024') }}</h3>
-              <p>{{ t('theme.foxengine.admin.achievements.025') }}</p>
-            </div>
-            <form class="admin-achievements__search" @submit.prevent="emit('search')">
-              <label>
-                <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />
-                <input
-                  :value="search"
-                  type="search"
-                  maxlength="160"
-                  :placeholder="t('theme.foxengine.admin.achievements.026')"
-                  @input="emit('update:search', ($event.target as HTMLInputElement).value)"
-                >
-              </label>
-              <button class="button button--primary" type="submit" :disabled="loading || !serverId">
-                {{ t('theme.foxengine.admin.achievements.027') }}
-              </button>
-            </form>
-          </header>
-
-          <div v-if="players.length" class="admin-achievements__player-list">
-            <article v-for="player in players" :key="player.uuid" class="admin-achievements__player">
-              <div class="admin-achievements__player-identity">
-                <span class="admin-achievements__player-avatar" aria-hidden="true">
-                  <i class="fa-solid fa-user" />
-                </span>
-                <div>
-                  <strong>{{ playerLabel(player) }}</strong>
-                  <small v-if="player.realname && player.realname !== player.login">{{ player.realname }}</small>
-                  <code>{{ player.uuid }}</code>
-                </div>
-              </div>
-              <dl>
-                <div><dt>{{ t('theme.foxengine.admin.achievements.028') }}</dt><dd>{{ player.completedCount }}</dd></div>
-                <div><dt>{{ t('theme.foxengine.admin.achievements.029') }}</dt><dd>{{ player.progressRows }}</dd></div>
-                <div><dt>{{ t('theme.foxengine.admin.achievements.030') }}</dt><dd>{{ player.events }}</dd></div>
-              </dl>
-              <button
-                class="button admin-achievements__danger-button admin-achievements__danger-button--compact"
-                type="button"
-                :disabled="loading"
-                @click="emit('clearPlayer', player)"
+      <section v-if="selectedServer" class="admin-achievements__players">
+        <header>
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.023') }}</span>
+            <h3>{{ t('theme.foxengine.admin.achievements.024') }}</h3>
+            <p>{{ t('theme.foxengine.admin.achievements.025') }}</p>
+          </div>
+          <form class="admin-achievements__search" @submit.prevent="emit('search')">
+            <label>
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <input
+                :value="search"
+                type="search"
+                maxlength="160"
+                :placeholder="t('theme.foxengine.admin.achievements.026')"
+                @input="emit('update:search', ($event.target as HTMLInputElement).value)"
               >
-                <i class="fa-solid fa-user-slash" aria-hidden="true" />
-                <span>{{ t('theme.foxengine.admin.achievements.031') }}</span>
-              </button>
-            </article>
-          </div>
+            </label>
+            <button class="button button--primary" type="submit" :disabled="loading || !serverId">
+              {{ t('theme.foxengine.admin.achievements.027') }}
+            </button>
+          </form>
+        </header>
 
-          <div v-else class="admin-achievements__empty">
-            <i class="fa-solid fa-user-check" aria-hidden="true" />
-            <div>
-              <strong>{{ t('theme.foxengine.admin.achievements.032') }}</strong>
-              <p>{{ search ? t('theme.foxengine.admin.achievements.033') : t('theme.foxengine.admin.achievements.034') }}</p>
+        <div v-if="players.length" class="admin-achievements__player-list">
+          <article v-for="player in players" :key="player.uuid" class="admin-achievements__player">
+            <div class="admin-achievements__player-identity">
+              <span class="admin-achievements__player-avatar" aria-hidden="true"><i class="fa-solid fa-user" /></span>
+              <div>
+                <strong>{{ playerLabel(player) }}</strong>
+                <small v-if="player.realname && player.realname !== player.login">{{ player.realname }}</small>
+                <code>{{ player.uuid }}</code>
+              </div>
             </div>
-          </div>
-        </section>
-      </div>
+            <dl>
+              <div><dt>{{ t('theme.foxengine.admin.achievements.028') }}</dt><dd>{{ player.completedCount }}</dd></div>
+              <div><dt>{{ t('theme.foxengine.admin.achievements.029') }}</dt><dd>{{ player.progressRows }}</dd></div>
+              <div><dt>{{ t('theme.foxengine.admin.achievements.030') }}</dt><dd>{{ player.events }}</dd></div>
+            </dl>
+            <button
+              class="button admin-achievements__danger-button admin-achievements__danger-button--compact"
+              type="button"
+              :disabled="loading"
+              @click="emit('clearPlayer', player)"
+            >
+              <i class="fa-solid fa-user-slash" aria-hidden="true" />
+              <span>{{ t('theme.foxengine.admin.achievements.031') }}</span>
+            </button>
+          </article>
+        </div>
 
-      <div v-else class="admin-achievements__empty">
+        <div v-else class="admin-achievements__empty">
+          <i class="fa-solid fa-user-check" aria-hidden="true" />
+          <div>
+            <strong>{{ t('theme.foxengine.admin.achievements.032') }}</strong>
+            <p>{{ search ? t('theme.foxengine.admin.achievements.033') : t('theme.foxengine.admin.achievements.034') }}</p>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="selectedServer" class="admin-achievements__danger-card admin-achievements__danger-card--server">
+        <header>
+          <span class="admin-achievements__danger-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true" /></span>
+          <div>
+            <span class="eyebrow">{{ t('theme.foxengine.admin.achievements.017') }}</span>
+            <h3>{{ t('theme.foxengine.admin.achievements.066') }}</h3>
+            <p>{{ t('theme.foxengine.admin.achievements.067') }} {{ t('theme.foxengine.admin.achievements.019') }}</p>
+          </div>
+        </header>
+        <dl>
+          <div><dt>{{ t('theme.foxengine.admin.achievements.020') }}</dt><dd>{{ selectedServer.serverId }}</dd></div>
+          <div><dt>{{ t('theme.foxengine.admin.achievements.021') }}</dt><dd>{{ totalServerRows }}</dd></div>
+        </dl>
+        <button
+          class="button admin-achievements__danger-button"
+          type="button"
+          :disabled="loading || totalServerRows === 0"
+          @click="emit('clearServer')"
+        >
+          <i class="fa-solid fa-trash-can" aria-hidden="true" />
+          <span>{{ t('theme.foxengine.admin.achievements.022') }}</span>
+        </button>
+      </section>
+
+      <div v-if="!selectedServer" class="admin-achievements__empty">
         <i class="fa-solid fa-trophy" aria-hidden="true" />
         <div>
           <strong>{{ t('theme.foxengine.admin.achievements.035') }}</strong>

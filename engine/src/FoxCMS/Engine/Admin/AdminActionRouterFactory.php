@@ -102,7 +102,9 @@ final class AdminActionRouterFactory
         );
         $mail = new AdminMailController(
             $config,
+            $db,
             $siteSettings,
+            $groups,
             $session,
             $logger,
             $payload,
@@ -131,6 +133,8 @@ final class AdminActionRouterFactory
         $router->register('mailSettings', [$mail, 'settings'], ['handler' => 'AdminMailController::settings']);
         $router->register('saveMailSettings', [$mail, 'save'], ['handler' => 'AdminMailController::save']);
         $router->register('testMailSettings', [$mail, 'test'], ['handler' => 'AdminMailController::test']);
+        $router->register('mailAudience', [$mail, 'audience'], ['handler' => 'AdminMailController::audience']);
+        $router->register('sendMailCampaign', [$mail, 'sendCampaign'], ['handler' => 'AdminMailController::sendCampaign']);
         $router->register('userOptions', [$runtimeOptions, 'userOptions'], ['handler' => 'AdminRuntimeOptionsController::userOptions']);
         $router->register('saveUserOptions', [$runtimeOptions, 'saveUserOptions'], ['handler' => 'AdminRuntimeOptionsController::saveUserOptions']);
         $router->register('users', [$user, 'users'], ['handler' => 'AdminUserController::users']);
@@ -140,6 +144,7 @@ final class AdminActionRouterFactory
         $router->register('achievementsAdmin', [$achievement, 'overview'], ['handler' => 'AdminAchievementController::overview']);
         $router->register('saveAchievementEconomy', [$achievement, 'saveEconomy'], ['handler' => 'AdminAchievementController::saveEconomy']);
         $router->register('clearAchievementServer', [$achievement, 'clearServer'], ['handler' => 'AdminAchievementController::clearServer']);
+        $router->register('clearAchievementMod', [$achievement, 'clearMod'], ['handler' => 'AdminAchievementController::clearMod']);
         $router->register('clearAchievementPlayer', [$achievement, 'clearPlayer'], ['handler' => 'AdminAchievementController::clearPlayer']);
         $router->register('servers', [$server, 'servers'], ['handler' => 'AdminServerController::servers']);
         $router->register('saveServer', [$server, 'saveServer'], ['handler' => 'AdminServerController::saveServer']);

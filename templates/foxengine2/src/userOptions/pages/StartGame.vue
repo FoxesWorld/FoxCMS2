@@ -48,7 +48,7 @@ const hydratedHtml = computed(() => {
   if (!props.isGuest) registerAction?.remove()
 
   if (windowsIcon) windowsIcon.src = props.windowsIcon
-  if (downloadLabel) downloadLabel.textContent = props.downloading ? t('theme.useroptions.pages.startgame.007') : 'Windows x64'
+  if (downloadLabel) downloadLabel.textContent = props.downloading ? t('theme.useroptions.pages.startgame.007') : t('theme.useroptions.pages.startgame.008')
   if (downloadAction) {
     downloadAction.setAttribute('aria-disabled', props.downloading ? 'true' : 'false')
     downloadAction.classList.toggle('is-disabled', props.downloading)
@@ -116,7 +116,7 @@ void loadRuntimePageTemplates().catch((reason: unknown) => {
 <template>
   <div v-if="runtimePageTemplatesState.error" class="system-message system-message--error" role="alert">
     <strong>{{ t('engine.runtime.pagetemplates.003') }}</strong>
-    <p>{{ runtimePageTemplatesState.error }}</p>
+    <p>{{ t('engine.runtime.pagetemplates.004') }}</p>
   </div>
   <RuntimeTpl
     v-else-if="pageTemplate"

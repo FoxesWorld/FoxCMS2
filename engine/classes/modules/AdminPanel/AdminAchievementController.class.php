@@ -12,6 +12,7 @@ declare(strict_types=1);
 final class AdminAchievementController
 {
     private const SERVER_ID_PATTERN = '/^[a-z0-9][a-z0-9._-]{2,99}$/D';
+    private const MOD_ID_PATTERN = '/^[a-z0-9][a-z0-9._-]{0,63}$/D';
     private const REQUIRED_TABLES = ['gameAchievements', 'playerAchievements', 'gameAchievementEvents', 'gameAchievementPointAwards', 'gameAchievementPointExchanges', 'gameAchievementEconomySettings'];
     private const SERVER_CLEAR_TABLES = ['gameAchievements', 'playerAchievements', 'gameAchievementEvents'];
 
@@ -31,6 +32,7 @@ final class AdminAchievementController
                 'available' => false,
                 'servers' => [],
                 'players' => [],
+                'mods' => [],
                 'selectedServerId' => '',
                 'economy' => null,
                 'economyStats' => null,
@@ -47,7 +49,9 @@ final class AdminAchievementController
             : (string)($servers[0]['serverId'] ?? '');
 
         $players = [];
+        $mods = [];
         if ($serverId !== '') {
+            $mods = $this->modStats($serverId);
             $players = $this->playerStats(
                 $serverId,
                 trim((string)($this->request['search'] ?? '')),
@@ -59,6 +63,7 @@ final class AdminAchievementController
             'available' => true,
             'servers' => $servers,
             'players' => $players,
+            'mods' => $mods,
             'selectedServerId' => $serverId,
             'economy' => (new AchievementPointExchangeService($this->db, $this->logger))->settings(),
             'economyStats' => (new AchievementPointExchangeService($this->db, $this->logger))->statistics(),
@@ -138,6 +143,67 @@ final class AdminAchievementController
             ),
             'serverId' => $serverId,
             'deleted' => $deleted,
+        ]);
+    }
+
+    public function clearMod(): void
+    {
+        $this->requireSchema();
+        $serverId = $this->serverId((string)($this->request['serverId'] ?? ''));
+        $modId = $this->modId((string)($this->request['modId'] ?? ''));
+        $before = $this->singleModStats($serverId, $modId);
+        $deletableRows = $before['definitions'] + $before['progressRows'] + $before['events'];
+        if ($deletableRows === 0) {
+            throw new HttpException('Для выбранного мода нет каталога, прогресса или событий, которые можно очистить.', 409);
+        }
+
+        $deleted = $this->db->transactional(function () use ($serverId, $modId): array {
+            $events = $this->deleteEventsByMod($serverId, $modId);
+            $progress = $this->deleteProgressByMod($serverId, $modId);
+            $definitions = $this->deleteDefinitionsByMod($serverId, $modId);
+            return [
+                'definitions' => $definitions,
+                'progressRows' => $progress,
+                'events' => $events,
+            ];
+        });
+
+        $this->logger->event(
+            'admin.achievements.mod_cleared',
+            'Achievement data for one mod namespace on a game server was cleared by an administrator.',
+            [
+                'component' => 'admin_achievements',
+                'operation' => 'clear_mod',
+                'serverId' => $serverId,
+                'modId' => $modId,
+                'actorUuid' => $this->session->uuid(),
+                'before' => $before,
+                'deleted' => $deleted,
+                'ledgerPreserved' => [
+                    'awards' => $before['ledgerAwards'],
+                    'points' => $before['ledgerPoints'],
+                ],
+            ],
+            'WARNING',
+        );
+
+        $this->responder->send([
+            'type' => 'success',
+            'message' => sprintf(
+                'Данные мода %s на сервере %s очищены: определений %d, строк прогресса %d, событий %d. Ledger очков сохранён.',
+                $modId,
+                $serverId,
+                $deleted['definitions'],
+                $deleted['progressRows'],
+                $deleted['events'],
+            ),
+            'serverId' => $serverId,
+            'modId' => $modId,
+            'deleted' => $deleted,
+            'ledgerPreserved' => [
+                'awards' => $before['ledgerAwards'],
+                'points' => $before['ledgerPoints'],
+            ],
         ]);
     }
 
@@ -285,6 +351,136 @@ final class AdminAchievementController
             'progressRows' => 0,
             'players' => 0,
             'events' => 0,
+        ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function modStats(string $serverId): array
+    {
+        /** @var array<string,array{modId:string,definitions:int,enabledDefinitions:int,progressRows:int,completedRows:int,players:int,events:int,ledgerAwards:int,ledgerPoints:int}> $stats */
+        $stats = [];
+        $ensure = static function (array &$target, string $modId): void {
+            if ($modId === '' || isset($target[$modId])) return;
+            $target[$modId] = [
+                'modId' => $modId,
+                'definitions' => 0,
+                'enabledDefinitions' => 0,
+                'progressRows' => 0,
+                'completedRows' => 0,
+                'players' => 0,
+                'events' => 0,
+                'ledgerAwards' => 0,
+                'ledgerPoints' => 0,
+            ];
+        };
+
+        foreach ($this->achievementRows(
+            'mod-definitions',
+            "SELECT SUBSTRING_INDEX(`achievementKey`, ':', 1) AS `modId`, COUNT(*) AS `definitions`, "
+            . 'SUM(CASE WHEN `enabled` = 1 THEN 1 ELSE 0 END) AS `enabledDefinitions` '
+            . 'FROM `gameAchievements` WHERE `serverId` = :serverId GROUP BY `modId`',
+            [':serverId' => $serverId],
+        ) as $row) {
+            $modId = trim((string)($row['modId'] ?? ''));
+            $ensure($stats, $modId);
+            if ($modId !== '') {
+                $stats[$modId]['definitions'] = (int)($row['definitions'] ?? 0);
+                $stats[$modId]['enabledDefinitions'] = (int)($row['enabledDefinitions'] ?? 0);
+            }
+        }
+
+        foreach ($this->achievementRows(
+            'mod-progress',
+            "SELECT SUBSTRING_INDEX(`achievement`.`achievementKey`, ':', 1) AS `modId`, "
+            . 'COUNT(*) AS `progressRows`, SUM(CASE WHEN `player`.`completed` = 1 THEN 1 ELSE 0 END) AS `completedRows` '
+            . 'FROM `playerAchievements` AS `player` INNER JOIN `gameAchievements` AS `achievement` '
+            . 'ON `achievement`.`id` = `player`.`achievementId` '
+            . 'WHERE `player`.`serverId` = :serverId AND `achievement`.`serverId` = :achievementServerId GROUP BY `modId`',
+            [':serverId' => $serverId, ':achievementServerId' => $serverId],
+        ) as $row) {
+            $modId = trim((string)($row['modId'] ?? ''));
+            $ensure($stats, $modId);
+            if ($modId !== '') {
+                $stats[$modId]['progressRows'] = (int)($row['progressRows'] ?? 0);
+                $stats[$modId]['completedRows'] = (int)($row['completedRows'] ?? 0);
+            }
+        }
+
+        foreach ($this->achievementRows(
+            'mod-events',
+            "SELECT SUBSTRING_INDEX(`achievementKey`, ':', 1) AS `modId`, COUNT(*) AS `events` "
+            . 'FROM `gameAchievementEvents` WHERE `serverId` = :serverId GROUP BY `modId`',
+            [':serverId' => $serverId],
+        ) as $row) {
+            $modId = trim((string)($row['modId'] ?? ''));
+            $ensure($stats, $modId);
+            if ($modId !== '') $stats[$modId]['events'] = (int)($row['events'] ?? 0);
+        }
+
+        foreach ($this->achievementRows(
+            'mod-ledger',
+            "SELECT SUBSTRING_INDEX(`achievementKey`, ':', 1) AS `modId`, COUNT(*) AS `ledgerAwards`, "
+            . 'COALESCE(SUM(`pointsAwarded`), 0) AS `ledgerPoints` '
+            . 'FROM `gameAchievementPointAwards` WHERE `serverId` = :serverId GROUP BY `modId`',
+            [':serverId' => $serverId],
+        ) as $row) {
+            $modId = trim((string)($row['modId'] ?? ''));
+            $ensure($stats, $modId);
+            if ($modId !== '') {
+                $stats[$modId]['ledgerAwards'] = (int)($row['ledgerAwards'] ?? 0);
+                $stats[$modId]['ledgerPoints'] = (int)($row['ledgerPoints'] ?? 0);
+            }
+        }
+
+        $playersByMod = [];
+        foreach ($this->achievementRows(
+            'mod-progress-players',
+            "SELECT SUBSTRING_INDEX(`achievement`.`achievementKey`, ':', 1) AS `modId`, `player`.`playerUuid` "
+            . 'FROM `playerAchievements` AS `player` INNER JOIN `gameAchievements` AS `achievement` '
+            . 'ON `achievement`.`id` = `player`.`achievementId` '
+            . 'WHERE `player`.`serverId` = :serverId AND `achievement`.`serverId` = :achievementServerId '
+            . 'GROUP BY `modId`, `player`.`playerUuid`',
+            [':serverId' => $serverId, ':achievementServerId' => $serverId],
+        ) as $row) {
+            $modId = trim((string)($row['modId'] ?? ''));
+            $playerUuid = trim((string)($row['playerUuid'] ?? ''));
+            if ($modId !== '' && $playerUuid !== '') $playersByMod[$modId][$playerUuid] = true;
+        }
+        foreach ($this->achievementRows(
+            'mod-event-players',
+            "SELECT SUBSTRING_INDEX(`achievementKey`, ':', 1) AS `modId`, `playerUuid` "
+            . 'FROM `gameAchievementEvents` WHERE `serverId` = :serverId GROUP BY `modId`, `playerUuid`',
+            [':serverId' => $serverId],
+        ) as $row) {
+            $modId = trim((string)($row['modId'] ?? ''));
+            $playerUuid = trim((string)($row['playerUuid'] ?? ''));
+            if ($modId !== '' && $playerUuid !== '') $playersByMod[$modId][$playerUuid] = true;
+        }
+        foreach ($playersByMod as $modId => $players) {
+            $ensure($stats, $modId);
+            $stats[$modId]['players'] = count($players);
+        }
+
+        ksort($stats, SORT_STRING);
+        return array_values($stats);
+    }
+
+    /** @return array{modId:string,definitions:int,enabledDefinitions:int,progressRows:int,completedRows:int,players:int,events:int,ledgerAwards:int,ledgerPoints:int} */
+    private function singleModStats(string $serverId, string $modId): array
+    {
+        foreach ($this->modStats($serverId) as $row) {
+            if ((string)($row['modId'] ?? '') === $modId) return $row;
+        }
+        return [
+            'modId' => $modId,
+            'definitions' => 0,
+            'enabledDefinitions' => 0,
+            'progressRows' => 0,
+            'completedRows' => 0,
+            'players' => 0,
+            'events' => 0,
+            'ledgerAwards' => 0,
+            'ledgerPoints' => 0,
         ];
     }
 
@@ -460,6 +656,51 @@ final class AdminAchievementController
                 $exception,
             );
         }
+    }
+
+    private function modId(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if (preg_match(self::MOD_ID_PATTERN, $value) !== 1) {
+            throw new HttpException('Некорректный идентификатор мода.', 400);
+        }
+        return $value;
+    }
+
+    private function deleteEventsByMod(string $serverId, string $modId): int
+    {
+        $statement = $this->db->prepare(
+            "DELETE FROM `gameAchievementEvents` WHERE `serverId` = :serverId "
+            . "AND SUBSTRING_INDEX(`achievementKey`, ':', 1) = :modId"
+        );
+        $statement->execute([':serverId' => $serverId, ':modId' => $modId]);
+        return $statement->rowCount();
+    }
+
+    private function deleteProgressByMod(string $serverId, string $modId): int
+    {
+        $statement = $this->db->prepare(
+            'DELETE `player` FROM `playerAchievements` AS `player` '
+            . 'INNER JOIN `gameAchievements` AS `achievement` ON `achievement`.`id` = `player`.`achievementId` '
+            . 'WHERE `player`.`serverId` = :serverId AND `achievement`.`serverId` = :achievementServerId '
+            . "AND SUBSTRING_INDEX(`achievement`.`achievementKey`, ':', 1) = :modId"
+        );
+        $statement->execute([
+            ':serverId' => $serverId,
+            ':achievementServerId' => $serverId,
+            ':modId' => $modId,
+        ]);
+        return $statement->rowCount();
+    }
+
+    private function deleteDefinitionsByMod(string $serverId, string $modId): int
+    {
+        $statement = $this->db->prepare(
+            "DELETE FROM `gameAchievements` WHERE `serverId` = :serverId "
+            . "AND SUBSTRING_INDEX(`achievementKey`, ':', 1) = :modId"
+        );
+        $statement->execute([':serverId' => $serverId, ':modId' => $modId]);
+        return $statement->rowCount();
     }
 
     private function serverId(string $value): string

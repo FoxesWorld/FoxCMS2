@@ -1,12 +1,12 @@
-import { t } from '@/i18n'
+import { t, type TranslationKey } from '@/i18n'
 import { computed, reactive, readonly } from 'vue'
 import { loadContentRegistry } from '@/content/contentData'
 import type { SettingsTab } from '@/contracts/user-pages'
 
 export type ProfileOptionComponent = 'ProfileOption' | 'AppearanceOption' | 'SecurityOption'
-export type RuntimeAdminComponent = 'Overview' | 'SiteSettings' | 'HCaptcha' | 'Mail' | 'Slides' | 'Content' | 'Rewards'
+export type RuntimeAdminComponent = 'Overview' | 'SiteSettings' | 'Mail' | 'Slides' | 'Content' | 'Rewards'
   | 'Maintenance' | 'Users' | 'Achievements' | 'Servers' | 'FileManager' | 'Logs' | 'Catalogs' | 'RuntimeOptions'
-export type RuntimeAdminTab = 'overview' | 'settings' | 'hcaptcha' | 'mail' | 'slides' | 'content' | 'rewards'
+export type RuntimeAdminTab = 'overview' | 'settings' | 'mail' | 'slides' | 'content' | 'rewards'
   | 'maintenance' | 'users' | 'achievements' | 'servers' | 'files' | 'logs' | 'catalogs' | 'runtime-options'
 export type RuntimeCatalogName = 'infobox' | 'badges' | 'groups'
 
@@ -76,7 +76,6 @@ const adminBindings = new Map<string, { component: RuntimeAdminComponent; tab: R
   ['content', { component: 'Content', tab: 'content' }],
   ['slides', { component: 'Slides', tab: 'slides' }],
   ['settings', { component: 'SiteSettings', tab: 'settings' }],
-  ['hcaptcha', { component: 'HCaptcha', tab: 'hcaptcha' }],
   ['mail', { component: 'Mail', tab: 'mail' }],
   ['runtime-options', { component: 'RuntimeOptions', tab: 'runtime-options' }],
   ['servers', { component: 'Servers', tab: 'servers' }],
@@ -100,6 +99,15 @@ function object(value: unknown): Record<string, unknown> {
 function text(value: unknown, maximum: number, allowEmpty = false): string {
   const normalized = typeof value === 'string' ? value.trim() : ''
   if ((!allowEmpty && normalized === '') || normalized.length > maximum) throw new Error(t('engine.runtime.useroptions.001'))
+  return normalized
+}
+function localizedText(value: unknown, maximum: number, allowEmpty = false): string {
+  const normalized = text(value, maximum, allowEmpty)
+  if (normalized.startsWith('i18n:')) {
+    const key = normalized.slice(5).trim()
+    if (key === '') throw new Error(t('engine.runtime.useroptions.001'))
+    return t(key as TranslationKey)
+  }
   return normalized
 }
 function order(value: unknown): number {
@@ -130,7 +138,7 @@ function normalizeDocument(value: unknown): RuntimeUserOptionsDocument {
     const expected = profileBindings.get(id)
     if (!expected || entry.component !== expected) throw new Error(`Invalid profile runtime adapter: ${id}`)
     return {
-      id, component: expected, label: text(entry.label, 80), description: text(entry.description, 240, true),
+      id, component: expected, label: localizedText(entry.label, 120), description: localizedText(entry.description, 180, true),
       icon: icon(entry.icon), order: order(entry.order), enabled: enabled(entry.enabled),
     }
   }))
@@ -142,7 +150,7 @@ function normalizeDocument(value: unknown): RuntimeUserOptionsDocument {
     const id = String(entry.id ?? '')
     if (!idPattern.test(id)) throw new Error(`Invalid runtime category: ${id}`)
     return {
-      id, label: text(entry.label, 80), description: text(entry.description, 240, true), icon: icon(entry.icon),
+      id, label: localizedText(entry.label, 120), description: localizedText(entry.description, 180, true), icon: icon(entry.icon),
       order: order(entry.order), enabled: enabled(entry.enabled),
     }
   }))
@@ -158,14 +166,18 @@ function normalizeDocument(value: unknown): RuntimeUserOptionsDocument {
     if (binding.catalog && entry.catalog !== binding.catalog) throw new Error(`Invalid runtime catalog binding: ${id}`)
     const tool: RuntimeAdminTool = {
       id, component: binding.component, tab: binding.tab, category: String(entry.category),
-      label: text(entry.label, 80), description: text(entry.description, 240, true), icon: icon(entry.icon),
+      label: localizedText(entry.label, 120), description: localizedText(entry.description, 180, true), icon: icon(entry.icon),
       order: order(entry.order), enabled: id === 'runtime-options' ? true : enabled(entry.enabled),
     }
     if (binding.catalog) tool.catalog = binding.catalog
     if (id === 'runtime-options') tool.protected = true
     return tool
   }))
-  if (tools.length !== adminBindings.size || new Set(tools.map((entry) => entry.id)).size !== tools.length) {
+  if (new Set(tools.map((entry) => entry.id)).size !== tools.length) {
+    throw new Error(t('engine.runtime.useroptions.008'))
+  }
+  const requiredAdminTools = ['runtime-options'] as const
+  if (requiredAdminTools.some((id) => !tools.some((entry) => entry.id === id))) {
     throw new Error(t('engine.runtime.useroptions.008'))
   }
   const categoriesById = new Map(categories.map((entry) => [entry.id, entry]))

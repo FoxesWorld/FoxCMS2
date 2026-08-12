@@ -70,7 +70,7 @@ const emit = defineEmits<{
 }>()
 
 const editorVersion = CodeMirror.version
-const languageLabel = computed(() => props.language === 'plaintext' ? 'Plain text' : props.language.toUpperCase())
+const languageLabel = computed(() => props.language === 'plaintext' ? t('theme.foxengine.editor.codeeditor.004') : props.language.toUpperCase())
 
 const host = ref<HTMLDivElement | null>(null)
 let editor: CodeMirror.Editor | null = null
