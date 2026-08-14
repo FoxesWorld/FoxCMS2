@@ -39,6 +39,8 @@ final class UserActions
         'revokeActiveSession' => 'sessions.revoke',
         'lostpassword' => 'password.request_reset',
         'resetpassword' => 'password.reset',
+        'requestEmailVerification' => 'email_verification.request',
+        'verifyEmail' => 'email_verification.verify',
     ];
 
     private UserActionResponder $responder;
@@ -126,6 +128,8 @@ final class UserActions
             'revokeActiveSession' => $this->browserSessions->revokeActiveSession(),
             'lostpassword' => $this->lostPassword(),
             'resetpassword' => $this->resetPassword(),
+            'requestEmailVerification' => $this->requestEmailVerification(),
+            'verifyEmail' => $this->verifyEmail(),
             default => $this->responder->send([
                 'message' => 'Unknown user request.',
                 'type' => 'error',
@@ -185,5 +189,29 @@ final class UserActions
             $this->request->string('new_password'),
             $this->request->string('confirm_password'),
         );
+    }
+
+    private function requestEmailVerification(): never
+    {
+        require_once __DIR__ . '/actions/emailVerification.class.php';
+        (new EmailVerification(
+            $this->db,
+            $this->logger,
+            $this->request,
+            $this->session,
+            $this->config,
+        ))->requestVerification();
+    }
+
+    private function verifyEmail(): never
+    {
+        require_once __DIR__ . '/actions/emailVerification.class.php';
+        (new EmailVerification(
+            $this->db,
+            $this->logger,
+            $this->request,
+            $this->session,
+            $this->config,
+        ))->verify($this->request->string('token'));
     }
 }

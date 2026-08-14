@@ -1,4 +1,4 @@
-<fox-user-options-template id="profile-settings" schema="1" revision="2" updated-at="2026-08-10T15:30:00Z">
+<fox-user-options-template id="profile-settings" schema="1" revision="4" updated-at="2026-08-14T03:36:00Z">
   <fox-profile-options>
     <fox-profile-option id="profile" component="ProfileOption" label="i18n:theme.runtime.profile.option.profile.label" description="i18n:theme.runtime.profile.option.profile.description" icon="fa-user" order="10" enabled="true" />
     <fox-profile-option id="appearance" component="AppearanceOption" label="i18n:theme.runtime.profile.option.appearance.label" description="i18n:theme.runtime.profile.option.appearance.description" icon="fa-palette" order="20" enabled="true" />
@@ -39,7 +39,10 @@
       <form class="settings-form" @submit.prevent="emit('submit')">
         <Suspense timeout="0">
           <template #default>
-            <ProfileOption v-if="currentComponent === 'ProfileOption'" :form="form" />
+            <ProfileOption
+              v-if="currentComponent === 'ProfileOption'"
+              :form="form"
+            />
             <AppearanceOption
               v-else-if="currentComponent === 'AppearanceOption'"
               :key="avatarPreview"

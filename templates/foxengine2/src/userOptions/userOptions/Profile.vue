@@ -2,7 +2,7 @@
 import { t } from '@/i18n'
 
 import { useRouter } from 'vue-router'
-import type { ProfileBadge, ProfileEntry, ProfileRecord } from '@engine/contracts/user-pages'
+import type { FeedbackMessage, ProfileBadge, ProfileEntry, ProfileRecord } from '@engine/contracts/user-pages'
 import ProfileAchievements from './profile/ProfileAchievements.vue'
 import ProfileBadges from './profile/ProfileBadges.vue'
 import ProfileDataSection from './profile/ProfileDataSection.vue'
@@ -22,6 +22,8 @@ const props = defineProps<{
   photoDialogOpen: boolean
   photoUploading: boolean
   photoError: string
+  emailVerificationBusy: boolean
+  emailVerificationFeedback: FeedbackMessage | null
   accent: string
   registration: string
   lastActivity: string
@@ -33,6 +35,7 @@ const emit = defineEmits<{
   editPhoto: []
   closePhoto: []
   uploadPhoto: [file: File]
+  requestEmailVerification: []
 }>()
 const router = useRouter()
 function openBadge(id: string): void { void router.push({ name: 'badge', params: { id } }) }
@@ -88,7 +91,13 @@ function openUserSettings(): void {
 
     <div class="profile-content-grid">
       <div class="profile-content-grid__main">
-        <ProfileInfo :profile="profile" />
+        <ProfileInfo
+          :profile="profile"
+          :is-owner="isOwner"
+          :email-verification-busy="emailVerificationBusy"
+          :email-verification-feedback="emailVerificationFeedback"
+          @request-email-verification="emit('requestEmailVerification')"
+        />
         <ProfileAchievements v-if="profile.uuid" :player-uuid="profile.uuid" />
         <ProfileDataSection
           :title="t('theme.useroptions.useroptions.profile.007')"

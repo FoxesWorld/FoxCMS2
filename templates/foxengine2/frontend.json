@@ -219,6 +219,14 @@
       "layout": "wide"
     },
     {
+      "path": "/verify-email",
+      "name": "verify-email",
+      "view": "VerifyEmailView",
+      "title": "Подтверждение email",
+      "module": "UserSettings",
+      "layout": "wide"
+    },
+    {
       "path": "/start",
       "name": "start",
       "view": "StartGameView",

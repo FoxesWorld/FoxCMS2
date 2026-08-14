@@ -62,7 +62,8 @@ final class UserProfileQueryController
             $parameters[':identity'] = $login;
         }
         $statement = $this->db->prepare(
-            'SELECT `uuid`, `login`, `groupTag`, `realname`, `email`, `profilePhoto`, '
+            'SELECT `uuid`, `login`, `groupTag`, `realname`, `email`, '
+            . 'CASE WHEN `emailVerifiedAt` IS NULL THEN 0 ELSE 1 END AS `emailVerified`, `profilePhoto`, '
             . '`userStatus`, `land`, `colorScheme` FROM `users` WHERE ' . $where . ' LIMIT 1'
         );
         $statement->execute($parameters);
@@ -75,6 +76,7 @@ final class UserProfileQueryController
         if (!$isOwner && !$this->session->isAdmin()) {
             $this->responder->send(['message' => 'Недостаточно прав для изменения этого профиля.', 'type' => 'error'], 403);
         }
+        $user['emailVerified'] = (bool)($user['emailVerified'] ?? false);
         $this->responder->send($user);
     }
 

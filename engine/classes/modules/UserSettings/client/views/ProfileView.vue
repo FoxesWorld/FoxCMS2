@@ -8,10 +8,10 @@ import { foxesApi } from '@/api'
 import { loadBadges, type BadgeDefinition } from '@/content/contentData'
 import { bootstrapString, themeAsset } from '@/domain/bootstrap'
 import { balanceCurrencyIconPath, formatBalanceAmount, normalizeBalanceMatrix } from '@/domain/userBalance'
-import type { ProfileBadge, ProfileEntry, ProfileRecord } from '@/contracts/user-pages'
+import type { FeedbackMessage, ProfileBadge, ProfileEntry, ProfileRecord } from '@/contracts/user-pages'
 
 interface Props { value: string }
-interface UserProfile extends ProfileRecord { error?: string; message?: string }
+interface UserProfile extends ProfileRecord { error?: string; message?: string; email?: string; emailVerified?: boolean }
 interface PhotoResponse { url?: string }
 interface BadgeAssignment {
   badgeName: string
@@ -30,6 +30,8 @@ const canAdministerUsers = appBootstrap.frontend.capabilities.includes('admin.pa
 const photoDialogOpen = ref(false)
 const photoUploading = ref(false)
 const photoError = ref('')
+const emailVerificationBusy = ref(false)
+const emailVerificationFeedback = ref<FeedbackMessage | null>(null)
 
 function parseUnknown(value: unknown): unknown {
   if (typeof value !== 'string') return value
@@ -194,6 +196,20 @@ async function uploadPhoto(file: File): Promise<void> {
   }
 }
 
+async function requestEmailVerification(): Promise<void> {
+  if (!isOwner.value || !profile.value?.email || profile.value.emailVerified === true) return
+  emailVerificationBusy.value = true
+  emailVerificationFeedback.value = null
+  try {
+    emailVerificationFeedback.value = await foxesApi.post<FeedbackMessage>({ user_doaction: 'requestEmailVerification' })
+  } catch (requestError) {
+    console.error('[FoxesCraft] Email verification request failed', requestError)
+    emailVerificationFeedback.value = { type: 'error', message: t('modules.usersettings.profileview.014') }
+  } finally {
+    emailVerificationBusy.value = false
+  }
+}
+
 async function loadProfile(value: string): Promise<void> {
   const login = decodeURIComponent(value).trim()
   loading.value = true
@@ -213,8 +229,29 @@ async function loadProfile(value: string): Promise<void> {
       }),
     ])
     badgeRegistry.value = definitions
-    if (response.error || !response.login) error.value = response.error || response.message || t('modules.usersettings.profileview.012')
-    else profile.value = response
+    if (response.error || !response.login) {
+      error.value = response.error || response.message || t('modules.usersettings.profileview.012')
+    } else {
+      let resolvedProfile: UserProfile = response
+      const normalizedViewerUuid = viewerUuid.replaceAll('-', '').toLowerCase()
+      const normalizedProfileUuid = (response.uuid ?? '').replaceAll('-', '').toLowerCase()
+      if (normalizedViewerUuid !== '' && normalizedViewerUuid === normalizedProfileUuid && response.uuid) {
+        try {
+          const privateProfile = await foxesApi.post<UserProfile>({
+            user_doaction: 'getUserSettings',
+            userUuid: response.uuid,
+          })
+          resolvedProfile = {
+            ...response,
+            email: privateProfile.email ?? '',
+            emailVerified: privateProfile.emailVerified === true,
+          }
+        } catch (privateProfileError) {
+          console.warn('[FoxesCraft] Private profile details unavailable', privateProfileError)
+        }
+      }
+      profile.value = resolvedProfile
+    }
   } catch (requestError) {
     console.error('[FoxesCraft] Profile request failed', requestError)
     error.value = t('modules.usersettings.profileview.013')
@@ -226,6 +263,8 @@ async function loadProfile(value: string): Promise<void> {
 watch(() => props.value, (value) => {
   photoDialogOpen.value = false
   photoError.value = ''
+  emailVerificationFeedback.value = null
+  emailVerificationBusy.value = false
   void loadProfile(value)
 }, { immediate: true })
 </script>
@@ -242,6 +281,8 @@ watch(() => props.value, (value) => {
     :photo-dialog-open="photoDialogOpen"
     :photo-uploading="photoUploading"
     :photo-error="photoError"
+    :email-verification-busy="emailVerificationBusy"
+    :email-verification-feedback="emailVerificationFeedback"
     :accent="accent"
     :registration="registration"
     :last-activity="lastActivity"
@@ -251,5 +292,6 @@ watch(() => props.value, (value) => {
     @edit-photo="openPhotoDialog"
     @close-photo="closePhotoDialog"
     @upload-photo="uploadPhoto"
+    @request-email-verification="requestEmailVerification"
   />
 </template>

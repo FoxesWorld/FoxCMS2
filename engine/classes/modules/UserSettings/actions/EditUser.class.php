@@ -91,6 +91,11 @@ final class EditUser
         }
 
         $updates = $this->validateFields($isAdmin, $storageUuid);
+        $emailChanged = array_key_exists('email', $updates)
+            && mb_strtolower(trim((string)$updates['email'])) !== mb_strtolower(trim((string)$target['email']));
+        if ($emailChanged) {
+            $updates['emailVerifiedAt'] = null;
+        }
         $passwordHash = $this->validateNewPassword();
         if ($passwordHash !== null) {
             $updates['password'] = $passwordHash;
@@ -113,6 +118,13 @@ final class EditUser
         $statement->execute($parameters);
         if ($statement->rowCount() > 1) {
             throw new RuntimeException('UUID update affected more than one user.');
+        }
+
+        if ($emailChanged) {
+            $clearVerification = $this->db->prepare(
+                'DELETE FROM `email_verification_tokens` WHERE `userUuid` = :userUuid'
+            );
+            $clearVerification->execute([':userUuid' => $storageUuid]);
         }
 
         $passwordChanged = array_key_exists('password', $updates);
@@ -149,7 +161,7 @@ final class EditUser
 
         return [
             'targetUserUuid' => $targetUuid,
-            'fields' => array_values(array_diff(array_keys($updates), ['password', 'token'])),
+            'fields' => array_values(array_diff(array_keys($updates), ['password', 'token', 'emailVerifiedAt'])),
             'passwordChanged' => $passwordChanged,
         ];
     }

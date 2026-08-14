@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            color: #e9edf3;
+            background: #0a0c0f;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 28px;
+            border: 1px solid #252b33;
+            border-radius: 16px;
+            background: #11151a;
+        }
+        h2 { margin-top: 0; color: #f88a07; }
+        p { line-height: 1.6; }
+        .button {
+            display: inline-block;
+            margin: 8px 0 16px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            color: #11151a !important;
+            background: #f88a07;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .muted { color: #98a2af; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Привет, {{username}}!</h2>
+        <p>Подтвердите адрес <strong>{{mail}}</strong>, чтобы FoxesCraft мог считать его проверенным для вашего аккаунта.</p>
+        <p><a class="button" href="{{verificationUrl}}">Подтвердить email</a></p>
+        <p class="muted">Ссылка действует один час и может быть использована только для текущего email аккаунта. Если вы не запрашивали подтверждение, просто проигнорируйте письмо.</p>
+        <p>FoxesCraft</p>
+    </div>
+</body>
+</html>

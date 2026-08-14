@@ -2996,3 +2996,18 @@ body,.app-shell,.site-header,.content-surface,.sidebar-card,.site-footer,.cookie
 @media (max-width: 680px) {
     .admin-badge-reward-editor { grid-template-columns: 1fr; }
 }
+
+
+.email-verification-page {
+    display: grid;
+    gap: 18px;
+}
+
+.email-verification-page > .system-message,
+.email-verification-page > .content-skeleton {
+    margin: 0 24px 24px;
+}
+
+.email-verification-page .system-message .button {
+    margin-top: 12px;
+}
